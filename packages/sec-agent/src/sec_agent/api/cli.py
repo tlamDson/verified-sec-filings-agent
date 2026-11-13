@@ -1,6 +1,8 @@
-"""`sec-agent api init|serve`: create the API's tables, or serve the API over HTTP."""
+"""`sec-agent api init|cohorts|serve`: create the API's tables, show activity per cohort
+(real and simulated side by side), or serve the API over HTTP."""
 
 import argparse
+import datetime as dt
 import os
 import sys
 from contextlib import ExitStack
@@ -13,6 +15,7 @@ from sec_agent.agent.checkpoint import postgres_checkpointer
 from sec_agent.agent.service import Agent
 from sec_agent.agent.tool_runner import ToolRunner
 from sec_agent.api.app import ApiDeps, create_app
+from sec_agent.api.cohort_table import cohort_lines
 from sec_agent.api.config import ApiConfig, ApiConfigError, config_from_env
 from sec_agent.api.schema import apply_schema
 from sec_agent.api.store_postgres import PostgresApiStore
@@ -38,6 +41,13 @@ def add_commands(subparsers: "Subparsers") -> None:
         run=_init
     )
 
+    cohorts = commands.add_parser(
+        "cohorts", help="activity per cohort, real and simulated side by side (U1)"
+    )
+    cohorts.add_argument("--from", dest="first", type=dt.date.fromisoformat, required=True)
+    cohorts.add_argument("--to", dest="last", type=dt.date.fromisoformat, required=True)
+    cohorts.set_defaults(run=_cohorts)
+
     serve = commands.add_parser(
         "serve", help="serve the API (run `agent init` and `api init` first)"
     )
@@ -61,6 +71,20 @@ def _init(args: argparse.Namespace) -> int:
     with psycopg.connect(url, autocommit=True) as conn:
         apply_schema(conn)
     print("api schema ready")
+    return 0
+
+
+def _cohorts(args: argparse.Namespace) -> int:
+    if (url := database_url_or_error(args)) is None:
+        return 2
+    if args.first > args.last:
+        print("error: --from is after --to", file=sys.stderr)
+        return 2
+    with PostgresApiStore.connect(url) as store:
+        counts = store.cohort_counts(args.first, args.last)
+    print(f"Turns asked {args.first.isoformat()} to {args.last.isoformat()} (UTC)")
+    for line in cohort_lines(counts):
+        print(line)
     return 0
 
 

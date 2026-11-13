@@ -113,7 +113,8 @@ def test_ratings_follow_the_written_criteria_and_the_seed() -> None:
 
 def test_unrateable_turns_get_no_rating() -> None:
     plan = _plan()
-    _, log, _ = _run(plan, kinds=["degraded"] * plan.questions)
+    degraded: list[OutcomeKind] = ["degraded"] * plan.questions
+    _, log, _ = _run(plan, kinds=degraded)
     assert [e for e in log if e[0] == "rate"] == []
 
 

@@ -3,6 +3,7 @@
 from collections import Counter
 
 import pytest
+from pydantic import ValidationError
 
 from sec_agent.api.identity import Identity
 from sec_agent.simusers.personas import PERSONAS
@@ -34,5 +35,5 @@ def test_every_persona_plays_the_same_number_of_accounts() -> None:
 
 @pytest.mark.parametrize("number", [0, 51])
 def test_an_account_outside_1_to_50_is_refused(number: int) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         SimAccount(number=number, persona="student")
