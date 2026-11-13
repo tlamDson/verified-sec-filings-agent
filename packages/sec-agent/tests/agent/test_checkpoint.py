@@ -41,7 +41,7 @@ def test_a_conversation_started_on_one_replica_continues_on_another(
     )
     assert (first.status, first.turn) == ("answered", 1)
 
-    model_b = ScriptedProvider("a", [says("SIM 2")])
+    model_b = ScriptedProvider("a", [says("SIM second answer")])
     follow_up = agent_of(facts_ctx, model_b, checkpointer=replica_b).ask(
         "t-1", "And net income?", asked_on=ASKED_ON
     )
@@ -87,7 +87,7 @@ def test_a_replica_that_lost_the_race_fails_and_the_winner_s_turn_is_kept_whole(
     with pytest.raises(ConversationConflictError, match="t-1"):
         agent_a.ask("t-1", "Question on a", asked_on=ASKED_ON)
 
-    model_b.then(says("SIM 3"))
+    model_b.then(says("SIM third answer"))
     third = agent_b.ask("t-1", "Next", asked_on=ASKED_ON)
     assert third.turn == 3
     assert model_b.requests[-1].messages[1:] == [
