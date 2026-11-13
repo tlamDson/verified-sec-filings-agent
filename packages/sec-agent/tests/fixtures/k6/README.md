@@ -7,4 +7,4 @@ custom metrics `infra/load/chat.js` emits. The numbers are made up and never rep
 
 | File               | Simulates                                                       |
 | ------------------ | --------------------------------------------------------------- |
-| `summary.sim.json` | A run where some turns failed, one resume failed, some degraded |
+| `summary.sim.json` | A run where some turns failed, 3 conversations were interrupted and 1 of them did not resume, some degraded |
