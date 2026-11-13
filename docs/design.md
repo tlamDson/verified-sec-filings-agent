@@ -396,6 +396,19 @@ Space: agent init ─► api init ─► api serve --lexical --facts-version $FA
 - **Deploy workflow.** It never runs on pull requests, so a fork never sees `HF_TOKEN`. It creates the Space when missing, copies `DATABASE_URL`, `API_AUTH_SECRET`, `LLM_PROVIDERS`, `SEC_USER_AGENT` and `FACTS_VERSION` when they are set in GitHub (a value not set there is left as the Space has it), and pushes one commit. The Space holds only deploy snapshots, so each push replaces its history. Its job name is not one of the required checks.
 - **Free-plan limits.** Every figure in this section is configuration, not a measurement. A free Space sleeps when unused; the first question after that is a cold start (see Failure modes). Free-plan quotas are the providers' and are not measured here.
 
+### Simulated users (built in s-21)
+
+Code: `sec_agent.simusers`, and `sec-agent api cohorts` in `sec_agent.api`. Every count below is simulated traffic, cohort `simulated`.
+
+- **Accounts.** There is no user table, so the roster is the seed: `sim-01@example.com` to `sim-50@example.com`, the only addresses the web app's simulated sign-in accepts, each playing one of five personas (analyst, student, journalist, retail, skeptic), dealt over a seeded order so each persona plays ten accounts. Retail and skeptic probe E9, E4, E6 and E11 on purpose.
+- **Plan.** `plan_day(seed, day)` gives each account 0 to its persona's maximum sessions; a session is one opening question and 1 to 3 different follow-ups about a train or dev company (test companies are never asked about) and a fiscal year one to three years back. Sessions are taken in a seeded order while the day's budget and the per-user daily limit allow; the session that would pass either is cut short. The same seed and day always give the same plan.
+- **Budget.** Questions per day = LLM calls per day x share / calls per question, rounded down, with the share read as a decimal. The share is at most 0.5, so simulated traffic never takes more than half the day's quota; calls per question defaults to the plan's estimate of 4, not a measurement.
+- **Driver.** `sec-agent sim run` signs each account in through Auth.js (csrf, credentials callback `simulated`, then the session, which must name that account in the `simulated` cohort before anything is sent), asks over `/api/chat` and reads the answer event, and rates over `/api/feedback`. Sessions start at seeded seconds inside `--window-minutes`. A session ends at the daily limit (429) or an error; an account that cannot sign in is counted and skipped. It never sends more questions than planned.
+- **Ratings.** Fixed before any answer is seen: up for an `answered` turn the checker passed untouched with at least one card or citation; down for `step_limit`, `blocked` or a trimmed draft; none for degraded turns, errors, the daily limit and evidence-free answers. Whether a rateable turn is rated is a seeded draw per turn against the persona's rate. Ratings only prove the feedback path; they are never a quality measure.
+- **Records.** `--record runs.csv` appends `U1.*` rows (sessions run, sign-in failures, questions sent, turns per outcome, ratings kept and refused, turn seconds p50 and p95 as seen through the web app), cohort `simulated`, split `none`, with the seed and day in `config` and "simulated users (test traffic)" in `notes`.
+- **Dashboard.** `sec-agent api cohorts --from D --to D` prints `cohort_counts` as two columns, real and simulated, never summed; the users row reads `accounts` and a note says the simulated column is test traffic.
+- **Not here.** Concurrent sessions (the driver plays them one at a time; load is s-20's), a web page for the dashboard, and G-num answer checks in the rating criteria.
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |

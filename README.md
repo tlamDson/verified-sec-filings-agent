@@ -31,4 +31,17 @@ pnpm dev                                                  # web app on localhost
 
 Sign-in needs one provider: set `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET` for real users, or `SIM_LOGIN_SECRET` to enable the simulated test accounts (`sim-01@example.com` to `sim-50@example.com`), which are always labelled simulated and counted apart from real users. When no LLM provider answers, the app shows the figures it can look up without a model and says it is in degraded mode.
 
+### Simulated users
+
+Fifty simulated accounts (`sim-01@example.com` to `sim-50@example.com`, cohort `simulated`) use the deployed app through the same path as people: sign-in, web app, API, agent, tools and LLM router. They are test traffic: every count they produce is labelled "simulated users", kept apart from real users, and never reported as users. Their thumbs up or down only prove the feedback path works; quality is measured by the eval sets.
+
+```sh
+uv run sec-agent sim roster                               # the accounts and the persona each plays
+uv run sec-agent sim plan --llm-calls-per-day N           # one day's seeded sessions, nothing sent
+SIM_LOGIN_SECRET=... uv run sec-agent sim run --base-url https://your-app --llm-calls-per-day N --record runs.csv
+uv run sec-agent api cohorts --from YYYY-MM-DD --to YYYY-MM-DD   # real and simulated activity, side by side
+```
+
+The driver's daily budget is a share of the production LLM quota (`--share`, at most half, the default), at a planning estimate (not a measurement) of model calls per question (`--calls-per-question`). Run it on a schedule, mostly at night, or point `--base-url` at a staging app on a local model.
+
 Rules for contributors and coding agents: [AGENTS.md](AGENTS.md). Design: [docs/design.md](docs/design.md).
