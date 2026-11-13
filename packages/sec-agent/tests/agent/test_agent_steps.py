@@ -1,12 +1,17 @@
 """`Agent.steps`: a turn as it happens, for a caller that streams it.
 
 The model is simulated (every reply is scripted by the test); the tools are real and read
-the recorded Apple and NVIDIA facts.
+the recorded Apple and NVIDIA facts. Spans stay in memory (`trace_kit.Traces`).
 """
+
+import logging
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from agent_kit import APPLE_REVENUE_FY2024, ASKED_ON, agent_of, loads
 from llm_fakes import ScriptedProvider, call, calls, says
+from opentelemetry.trace import StatusCode
+from trace_kit import Traces, attrs, parent_id, span_id
 
 from sec_agent.agent.answer import Answer, Evidence
 from sec_agent.agent.errors import InvalidQuestionError
@@ -81,3 +86,68 @@ def test_an_invalid_question_is_refused_before_any_step(facts_ctx: FactsContext)
     with pytest.raises(InvalidQuestionError):
         next(steps)
     assert model.requests == []
+
+
+def _turn_children(traces: Traces) -> list[str]:
+    """The steps directly under the turn's span, in the order they ended."""
+    turn = traces.one("turn")
+    return [
+        str(attrs(s)["sec_agent.step"]) for s in traces.spans() if parent_id(s) == span_id(turn)
+    ]
+
+
+def test_a_stepped_turn_is_one_trace_like_an_asked_one(facts_ctx: FactsContext) -> None:
+    traces = Traces()
+    model = ScriptedProvider("a", [calls(REVENUE), says(ANSWER)])
+    agent = agent_of(facts_ctx, model, tracer=traces.tracer)
+    list(agent.steps("t-1", QUESTION, asked_on=ASKED_ON))
+
+    turn = traces.one("turn")
+    assert parent_id(turn) is None
+    assert len({s.context.trace_id for s in traces.spans() if s.context}) == 1
+    assert _turn_children(traces) == ["llm_call", "tool", "llm_call"]
+    assert attrs(turn)["gen_ai.conversation.id"] == "t-1"
+    assert (attrs(turn)["sec_agent.turn"], attrs(turn)["sec_agent.turn.status"]) == (1, "answered")
+    assert turn.status.status_code == StatusCode.UNSET
+
+
+def test_steps_taken_on_different_threads_stay_in_the_turns_trace(
+    facts_ctx: FactsContext, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A streaming server takes each item on whichever worker thread is free."""
+    traces = Traces()
+    model = ScriptedProvider("a", [calls(REVENUE), calls(NET_INCOME), says(ANSWER)])
+    steps = agent_of(facts_ctx, model, tracer=traces.tracer).steps(
+        "t-1", QUESTION, asked_on=ASKED_ON
+    )
+    taken: list[Evidence | Answer] = []
+    with caplog.at_level(logging.ERROR, logger="opentelemetry"):
+        while True:
+            with ThreadPoolExecutor(max_workers=1) as one_thread:
+                item = one_thread.submit(next, steps, None).result()
+            if item is None:
+                break
+            taken.append(item)
+
+    assert [type(item) for item in taken] == [Evidence, Evidence, Answer]
+    assert len({s.context.trace_id for s in traces.spans() if s.context}) == 1
+    assert _turn_children(traces) == ["llm_call", "tool", "llm_call", "tool", "llm_call"]
+    assert caplog.records == [], "no context was left on a thread that did not enter it"
+
+
+def test_a_stepped_turn_that_is_abandoned_ends_its_span_as_failed(
+    facts_ctx: FactsContext,
+) -> None:
+    traces = Traces()
+    model = ScriptedProvider("a", [calls(REVENUE), says(ANSWER)])
+    steps = agent_of(facts_ctx, model, tracer=traces.tracer).steps(
+        "t-1", QUESTION, asked_on=ASKED_ON
+    )
+    next(steps)
+    steps.close()  # the client went away before the answer
+
+    turn = traces.one("turn")
+    assert turn.status.status_code == StatusCode.ERROR
+    assert attrs(turn)["error.type"] == "GeneratorExit"
+    assert "sec_agent.turn.status" not in attrs(turn)
+    assert len(model.requests) == 1, "the model was not called again"

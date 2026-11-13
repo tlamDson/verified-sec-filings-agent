@@ -35,10 +35,13 @@ class ToolOutput:
     """JSON text: the tool's result, or `{"error": {"code": ..., "message": ...}}`."""
     trimmed: int = 0
     """Passages dropped from the end of a search result to fit the budget."""
+    code: str | None = None
+    """The error code of a refusal; None for a result."""
 
 
 def refusal(code: str, message: str) -> ToolOutput:
-    return ToolOutput(False, json.dumps({"error": {"code": code, "message": message}}))
+    content = json.dumps({"error": {"code": code, "message": message}})
+    return ToolOutput(False, content, code=code)
 
 
 class ToolRunner:

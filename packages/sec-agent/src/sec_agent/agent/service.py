@@ -7,10 +7,11 @@ its `ToolRunner`: build a new one when the index pointer moves.
 """
 
 import datetime as dt
-from collections.abc import Iterator
+from collections.abc import Generator
 from typing import Any, cast
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from opentelemetry.trace import Tracer
 
 from sec_agent.agent.answer import Answer, Evidence, LLMCall
 from sec_agent.agent.config import AgentConfig
@@ -21,6 +22,12 @@ from sec_agent.agent.state import AgentState, TurnInput
 from sec_agent.agent.tool_runner import ToolRunner
 from sec_agent.faithfulness.models import FaithfulnessReport
 from sec_agent.llm.router import LLMRouter
+from sec_agent.observability.spans import (
+    default_tracer,
+    stepped_turn_span,
+    turn_ended,
+    turn_span,
+)
 
 MAX_THREAD_ID_CHARS = 200
 
@@ -33,9 +40,13 @@ class Agent:
         tools: ToolRunner,
         checkpointer: BaseCheckpointSaver[Any],
         config: AgentConfig | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
+        """`tracer` defaults to the process's (`observability.setup.tracing`); each turn is
+        one trace. Give the router the same tracer, so its provider calls join the turn."""
         self._config = config or AgentConfig()
-        nodes = TurnNodes(router, tools, self._config)
+        self._tracer = tracer or default_tracer()
+        nodes = TurnNodes(router, tools, self._config, self._tracer)
         self._run, self._steps = build_turn_graph(nodes, checkpointer)
 
     def ask(self, thread_id: str, question: str, *, asked_on: dt.date) -> Answer:
@@ -46,22 +57,38 @@ class Agent:
         while this one ran; nothing of this turn is kept past that point.
         """
         thread, turn = self._turn(thread_id, question, asked_on)
-        return _answer(thread, asked_on, self._run(thread, turn, self._step_limit))
+        with turn_span(self._tracer, thread) as span:
+            answer = _answer(thread, asked_on, self._run(thread, turn, self._step_limit))
+            turn_ended(span, turn=answer.turn, status=answer.status, reason=answer.reason)
+        return answer
 
     def steps(
         self, thread_id: str, question: str, *, asked_on: dt.date
-    ) -> Iterator[Evidence | Answer]:
+    ) -> Generator[Evidence | Answer]:
         """Run one turn like `ask`, yielding each tool result when its step ends and the
-        `Answer` last. Nothing runs until the first item is asked for."""
+        `Answer` last. Nothing runs until the first item is asked for.
+
+        The turn is one trace, as in `ask`. Its span is current only while a step runs,
+        never across a `yield`: a caller may take each item on a different thread.
+        """
         thread, turn = self._turn(thread_id, question, asked_on)
-        seen = 0
-        state: AgentState = {}
-        for state in self._steps(thread, turn, self._step_limit):
-            evidence = state.get("evidence", [])
-            for record in evidence[seen:]:
-                yield Evidence.model_validate(record)
-            seen = len(evidence)
-        yield _answer(thread, asked_on, state)
+        with stepped_turn_span(self._tracer, thread) as (span, in_turn):
+            steps = self._steps(thread, turn, self._step_limit)
+            seen = 0
+            state: AgentState = {}
+            while True:
+                with in_turn():
+                    following = next(steps, None)
+                if following is None:
+                    break
+                state = following
+                evidence = state.get("evidence", [])
+                for record in evidence[seen:]:
+                    yield Evidence.model_validate(record)
+                seen = len(evidence)
+            answer = _answer(thread, asked_on, state)
+            turn_ended(span, turn=answer.turn, status=answer.status, reason=answer.reason)
+        yield answer
 
     @property
     def _step_limit(self) -> int:

@@ -7,6 +7,7 @@ node_modules/
 .env.*
 !.env.example
 data/raw/
+data/traces/
 .worktrees/
 .claude/worktrees/
 
