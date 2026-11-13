@@ -24,7 +24,7 @@ def test_jobs_init_then_stats(
 def test_database_url_flag_overrides_environment(
     pg_uri: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody@invalid.invalid/none")
+    monkeypatch.setenv("DATABASE_URL", "host=/nonexistent dbname=none")
     assert main(["jobs", "--database-url", pg_uri, "init"]) == 0
 
 
@@ -39,7 +39,7 @@ def test_missing_database_url_is_an_error(
 def test_worker_without_registered_handlers_refuses_to_start(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("DATABASE_URL", "postgresql://unused@localhost/unused")
+    monkeypatch.setenv("DATABASE_URL", "host=/nonexistent dbname=none")
     monkeypatch.setattr("sec_agent.jobs.cli.registered_handlers", dict)
     assert main(["worker", "--drain"]) == 2
     assert "no job handlers" in capsys.readouterr().err
