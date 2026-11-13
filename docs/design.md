@@ -146,6 +146,23 @@ queued ──claim──► running ──complete──► done
 - **Delivery is at least once.** A job can run twice (the worker dies after writing but before reporting), so every handler writes under natural keys (CIK, accession number) with upserts. That makes the effect exactly once.
 - **Defaults** (configuration, not measurements): 60 s lease, 20 s heartbeat, 5 attempts, backoff from 5 s capped at 600 s. CLI: `sec-agent jobs init`, `sec-agent jobs stats`, `sec-agent worker [--drain]`.
 
+### Filing text index (built in s-04)
+
+Code: `sec_agent.filings`. One `filing.sections` job per filing and index version.
+
+```
+submissions JSON ──► 10-K, 10-K/A, 10-Q, 10-Q/A in the report window ──► jobs (key: index_version/accession)
+primary HTML (EdgarClient) ──► text blocks ──► sections ──► chunks ──► indexed_filings, filing_sections, chunks
+```
+
+- **Text blocks.** One block per paragraph, line, or table row (cells joined by a space). Dropped: `script`, `style`, `head`, the inline-XBRL `ix:header`, anything styled `display:none`, page numbers, and "Table of Contents" back-links.
+- **Sections.** 10-K: Item 1 (`business`), 1A (`risk_factors`), 7 (`mdna`), 7A (`market_risk`). 10-Q: Part I Item 2 (`mdna`), Part II Item 1A (`risk_factors`). Amendments use their base form's items. A heading is a short block "Item _n_" plus a title that matches the item and is the whole rest of the block; "Item 7 of this report…" and "Item 1A: Risk Factors in our 2023 Form 10-K." are references, not headings. A section ends at the next item heading, "PART", or "SIGNATURES". The table of contents repeats every heading, so the candidate with the longest body wins.
+- **Chunks.** Paragraphs are packed greedily up to `max_tokens`; a longer paragraph is cut at sentence ends, a longer sentence at token boundaries. Chunks do not overlap. Each chunk stores `char_start`/`char_end` into its section text, so a citation points at an exact span, and carries the filter columns (CIK, form, filing and report dates, section) on its own row. Tokens are a model-free proxy (one per word run or punctuation mark) until s-05 picks the embedding model.
+- **`index_version`** is `chunks-p<parser>-t<max_tokens>-<digest>`, the digest covering the parser version and the whole chunk configuration. Same code and configuration give the same name; any change gives a new one, whose jobs and rows are built beside the old ones (blue/green). A worker refuses a job enqueued for a version it does not build. A test pins the parser's output on a fixture, so changing it without bumping the parser version fails CI.
+- **Idempotent writes.** A job deletes and re-inserts its filing's rows for its version in one transaction under an advisory lock on `(index_version, accession)`, so a second delivery, or two workers after a lease takeover, leave one copy. A filing with no section found (a 10-K/A that only amends Part III) still gets an `indexed_filings` row, so coverage can be counted.
+- **Defaults** (configuration, not measurements): 400 tokens per chunk; report window 2019-04-01 to 2025-01-31, a superset of FY2020–FY2024 under any fiscal calendar (exact fiscal years come from XBRL). CLI: `sec-agent filings init`, `sec-agent filings enqueue CIK… [--report-from] [--report-to]`, then `sec-agent worker`.
+- **Known gap.** Filings that put MD&A outside the item structure (an "Item 7" line that only points to an annual-report section elsewhere in the document) yield only that pointer text for the item.
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |

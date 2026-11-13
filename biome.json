@@ -7,7 +7,14 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!**/.next", "!**/next-env.d.ts", "!**/.venv", "!**/*.py"]
+    "includes": [
+      "**",
+      "!**/.next",
+      "!**/next-env.d.ts",
+      "!**/.venv",
+      "!**/*.py",
+      "!packages/*/tests/fixtures"
+    ]
   },
   "formatter": {
     "enabled": true,

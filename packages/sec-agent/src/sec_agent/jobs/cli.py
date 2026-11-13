@@ -1,6 +1,7 @@
 """`sec-agent jobs init|stats` and `sec-agent worker`."""
 
 import argparse
+import contextlib
 import logging
 import os
 import socket
@@ -10,8 +11,9 @@ from typing import TYPE_CHECKING, Any
 
 import psycopg
 
+from sec_agent.edgar.errors import EdgarConfigError
 from sec_agent.jobs.postgres import PostgresJobQueue
-from sec_agent.jobs.registry import registered_handlers
+from sec_agent.jobs.registry import HandlerContext, registered_handlers
 from sec_agent.jobs.schema import apply_schema
 from sec_agent.jobs.worker import Worker, WorkerConfig
 
@@ -21,13 +23,13 @@ if TYPE_CHECKING:
 
 def add_commands(subparsers: "Subparsers") -> None:
     jobs = subparsers.add_parser("jobs", help="manage the job queue")
-    _add_database_url(jobs)
+    add_database_url_option(jobs)
     jobs_commands = jobs.add_subparsers(dest="jobs_command", metavar="action", required=True)
     jobs_commands.add_parser("init", help="create the queue tables").set_defaults(run=_init)
     jobs_commands.add_parser("stats", help="jobs per status").set_defaults(run=_stats)
 
     worker = subparsers.add_parser("worker", help="run an ingest worker")
-    _add_database_url(worker)
+    add_database_url_option(worker)
     worker.add_argument("--drain", action="store_true", help="exit when no job is ready")
     worker.add_argument("--lease", type=float, default=60.0, help="lease seconds (60)")
     worker.add_argument("--heartbeat", type=float, default=20.0, help="heartbeat seconds (20)")
@@ -35,7 +37,7 @@ def add_commands(subparsers: "Subparsers") -> None:
     worker.set_defaults(run=_worker)
 
 
-def _add_database_url(parser: argparse.ArgumentParser) -> None:
+def add_database_url_option(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--database-url",
         default=None,
@@ -43,7 +45,7 @@ def _add_database_url(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _database_url(args: argparse.Namespace) -> str | None:
+def database_url_or_error(args: argparse.Namespace) -> str | None:
     url: str | None = args.database_url or os.environ.get("DATABASE_URL")
     if not url:
         print("error: set DATABASE_URL or pass --database-url", file=sys.stderr)
@@ -51,7 +53,7 @@ def _database_url(args: argparse.Namespace) -> str | None:
 
 
 def _init(args: argparse.Namespace) -> int:
-    if (url := _database_url(args)) is None:
+    if (url := database_url_or_error(args)) is None:
         return 2
     conn: psycopg.Connection[Any]
     with psycopg.connect(url, autocommit=True) as conn:
@@ -61,7 +63,7 @@ def _init(args: argparse.Namespace) -> int:
 
 
 def _stats(args: argparse.Namespace) -> int:
-    if (url := _database_url(args)) is None:
+    if (url := database_url_or_error(args)) is None:
         return 2
     with PostgresJobQueue.connect(url) as queue:
         for status, count in queue.counts().items():
@@ -70,11 +72,11 @@ def _stats(args: argparse.Namespace) -> int:
 
 
 def _worker(args: argparse.Namespace) -> int:
-    handlers = registered_handlers()
-    if not handlers:
+    factories = registered_handlers()
+    if not factories:
         print("error: no job handlers are registered yet", file=sys.stderr)
         return 2
-    if (url := _database_url(args)) is None:
+    if (url := database_url_or_error(args)) is None:
         return 2
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     config = WorkerConfig(
@@ -83,7 +85,14 @@ def _worker(args: argparse.Namespace) -> int:
         heartbeat_seconds=args.heartbeat,
         poll_seconds=args.poll,
     )
-    with PostgresJobQueue.connect(url) as queue:
+    with contextlib.ExitStack() as resources:
+        try:
+            context = HandlerContext(database_url=url, resources=resources)
+            handlers = {kind: factory(context) for kind, factory in factories.items()}
+        except EdgarConfigError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        queue = resources.enter_context(PostgresJobQueue.connect(url))
         try:
             processed = Worker(queue, handlers, config).run(drain=args.drain)
         except KeyboardInterrupt:
