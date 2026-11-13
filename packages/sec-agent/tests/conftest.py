@@ -68,3 +68,10 @@ def facts_db_url(pg_uri: str) -> str:
         apply_facts_schema(conn)
         conn.execute("TRUNCATE jobs, facts, xbrl_ingests RESTART IDENTITY")
     return pg_uri
+
+
+@pytest.fixture(autouse=True)
+def _no_trace_export(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A developer's tracing settings never reach a test: no span leaves the process."""
+    monkeypatch.delenv("PHOENIX_COLLECTOR_ENDPOINT", raising=False)
+    monkeypatch.delenv("SEC_AGENT_TRACE_FILE", raising=False)

@@ -11,6 +11,7 @@ from typing import Any
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from llm_fakes import Clock, ScriptedProvider
+from opentelemetry.trace import Tracer
 
 from sec_agent.agent.config import AgentConfig
 from sec_agent.agent.service import Agent
@@ -25,7 +26,7 @@ ASKED_ON = dt.date(2026, 11, 13)
 APPLE_REVENUE_FY2024 = "391035000000"
 
 
-def router_of(*providers: ScriptedProvider) -> LLMRouter:
+def router_of(*providers: ScriptedProvider, tracer: Tracer | None = None) -> LLMRouter:
     clock = Clock()
     return LLMRouter(
         providers,
@@ -33,6 +34,7 @@ def router_of(*providers: ScriptedProvider) -> LLMRouter:
         breaker=BreakerConfig(failure_threshold=3, cooldown_seconds=30.0),
         clock=clock.monotonic,
         now=clock.now,
+        tracer=tracer,
     )
 
 
@@ -42,12 +44,14 @@ def agent_of(
     checkpointer: BaseCheckpointSaver[Any] | None = None,
     config: AgentConfig | None = None,
     text: TextContext | None = None,
+    tracer: Tracer | None = None,
 ) -> Agent:
     return Agent(
-        router=router_of(*providers),
+        router=router_of(*providers, tracer=tracer),
         tools=ToolRunner(facts, text),
         checkpointer=checkpointer or InMemorySaver(),
         config=config or AgentConfig(),
+        tracer=tracer,
     )
 
 
