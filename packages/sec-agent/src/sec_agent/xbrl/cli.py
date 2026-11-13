@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import psycopg
 
-from sec_agent.database_url import add_database_url, database_url
+from sec_agent.jobs.cli import add_database_url_option, database_url_or_error
 from sec_agent.jobs.models import NewJob
 from sec_agent.jobs.postgres import PostgresJobQueue
 from sec_agent.xbrl.ingest import companyfacts_job
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 def add_commands(subparsers: "Subparsers") -> None:
     xbrl = subparsers.add_parser("xbrl", help="XBRL facts")
-    add_database_url(xbrl)
+    add_database_url_option(xbrl)
     actions = xbrl.add_subparsers(dest="xbrl_command", metavar="action", required=True)
     actions.add_parser("init", help="create the facts tables").set_defaults(run=_init)
     enqueue = actions.add_parser("enqueue", help="queue one companyfacts ingest per CIK")
@@ -29,7 +29,7 @@ def add_commands(subparsers: "Subparsers") -> None:
 
 
 def _init(args: argparse.Namespace) -> int:
-    if (url := database_url(args)) is None:
+    if (url := database_url_or_error(args)) is None:
         return 2
     conn: psycopg.Connection[Any]
     with psycopg.connect(url, autocommit=True) as conn:
@@ -46,7 +46,7 @@ def _enqueue(args: argparse.Namespace) -> int:
     except ValueError as error:
         print(f"error: bad CIK or index version: {error}", file=sys.stderr)
         return 2
-    if (url := database_url(args)) is None:
+    if (url := database_url_or_error(args)) is None:
         return 2
     with PostgresJobQueue.connect(url) as queue:
         inserted = queue.enqueue(jobs)

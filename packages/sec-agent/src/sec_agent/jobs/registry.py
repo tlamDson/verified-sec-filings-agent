@@ -1,21 +1,19 @@
 """Job kinds the `sec-agent worker` command can run.
 
-Ingest steps register here as they are built (XBRL facts, filing sections). Each kind is
-a dotted name such as `xbrl.companyfacts`; each handler must be idempotent.
+Ingest steps register a handler factory here as they are built. Each kind is a dotted name
+such as `filing.sections` or `xbrl.companyfacts`; each handler must be idempotent.
 """
 
-from sec_agent.edgar.client import EdgarClient
-from sec_agent.jobs.worker import Handler
+from sec_agent.filings.handler import filing_sections_handler
+from sec_agent.filings.models import FILING_SECTIONS_KIND
+from sec_agent.jobs.context import HandlerContext, HandlerFactory
 from sec_agent.xbrl import ingest as xbrl_ingest
-from sec_agent.xbrl.store import PostgresFactStore
+
+__all__ = ["HandlerContext", "HandlerFactory", "registered_handlers"]
 
 
-def registered_handlers(database_url: str) -> dict[str, Handler]:
-    """Handlers writing to `database_url`. Raises EdgarConfigError without SEC_USER_AGENT."""
-    client = EdgarClient.from_env()
+def registered_handlers() -> dict[str, HandlerFactory]:
     return {
-        xbrl_ingest.KIND: xbrl_ingest.make_handler(
-            lambda url, refresh: client.get(url, refresh=refresh),
-            lambda: PostgresFactStore.connect(database_url),
-        ),
+        FILING_SECTIONS_KIND: filing_sections_handler,
+        xbrl_ingest.KIND: xbrl_ingest.companyfacts_handler,
     }

@@ -11,6 +11,7 @@ COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 _CIK = re.compile(r"\d{1,10}")
 _ACCESSION = re.compile(r"(\d{10})-?(\d{2})-?(\d{6})")
 _FILENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+_SUBMISSIONS_PAGE = re.compile(r"CIK\d{10}-submissions-\d{3}\.json")
 
 
 def normalize_cik(cik: int | str) -> str:
@@ -25,6 +26,13 @@ def normalize_cik(cik: int | str) -> str:
 
 def submissions_url(cik: int | str) -> str:
     return f"https://data.sec.gov/submissions/CIK{normalize_cik(cik)}.json"
+
+
+def submissions_page_url(name: str) -> str:
+    """URL of an older submissions page named in `filings.files` of the first page."""
+    if not _SUBMISSIONS_PAGE.fullmatch(name):
+        raise ValueError(f"not a submissions page name: {name!r}")
+    return f"https://data.sec.gov/submissions/{name}"
 
 
 def companyfacts_url(cik: int | str) -> str:

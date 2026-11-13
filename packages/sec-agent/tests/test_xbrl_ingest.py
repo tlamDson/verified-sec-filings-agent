@@ -1,8 +1,10 @@
 """The `xbrl.companyfacts` job: fetch through the EDGAR client, normalise, upsert."""
 
+import contextlib
 import datetime as dt
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager
+from pathlib import Path
 
 import pytest
 from pydantic import JsonValue
@@ -12,7 +14,7 @@ from sec_agent.edgar.errors import EdgarNotFoundError, EdgarUnavailableError
 from sec_agent.edgar.urls import companyfacts_url
 from sec_agent.jobs.errors import PermanentJobError
 from sec_agent.jobs.models import Job
-from sec_agent.jobs.registry import registered_handlers
+from sec_agent.jobs.registry import HandlerContext, registered_handlers
 from sec_agent.xbrl.ingest import KIND, companyfacts_job, make_handler
 from sec_agent.xbrl.store import PostgresFactStore
 
@@ -157,8 +159,12 @@ def test_malformed_document_is_a_permanent_failure() -> None:
 
 
 def test_worker_registry_offers_the_companyfacts_handler(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("SEC_USER_AGENT", "Test Runner tests@example.org")
-    handlers = registered_handlers("host=/nonexistent dbname=none")
-    assert set(handlers) == {"xbrl.companyfacts"}
+    monkeypatch.setenv("SEC_RAW_CACHE_DIR", str(tmp_path))
+    factory = registered_handlers()[KIND]
+    with contextlib.ExitStack() as resources:
+        # Building the handler opens no database connection: the store is opened per job.
+        context = HandlerContext(database_url="host=/nonexistent dbname=none", resources=resources)
+        assert callable(factory(context))

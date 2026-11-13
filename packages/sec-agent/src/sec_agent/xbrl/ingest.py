@@ -10,14 +10,16 @@ from contextlib import AbstractContextManager
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from sec_agent.edgar.client import EdgarClient
 from sec_agent.edgar.errors import EdgarNotFoundError
 from sec_agent.edgar.urls import companyfacts_url, normalize_cik
+from sec_agent.jobs.context import HandlerContext
 from sec_agent.jobs.errors import PermanentJobError
 from sec_agent.jobs.models import Job, NewJob
 from sec_agent.jobs.worker import Handler
 from sec_agent.xbrl.companyfacts import parse_companyfacts
 from sec_agent.xbrl.normalize import normalize
-from sec_agent.xbrl.store import FactWriter
+from sec_agent.xbrl.store import FactWriter, PostgresFactStore
 
 KIND = "xbrl.companyfacts"
 
@@ -80,3 +82,14 @@ def make_handler(
             )
 
     return handle
+
+
+def companyfacts_handler(context: HandlerContext) -> Handler:
+    """Handler factory for `sec-agent worker`: EDGAR client from the environment (raises
+    EdgarConfigError without SEC_USER_AGENT), one store connection per job."""
+    client = context.resources.enter_context(EdgarClient.from_env())
+    database_url = context.database_url
+    return make_handler(
+        lambda url, refresh: client.get(url, refresh=refresh),
+        lambda: PostgresFactStore.connect(database_url),
+    )

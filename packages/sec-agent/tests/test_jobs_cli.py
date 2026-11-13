@@ -5,7 +5,6 @@ import pytest
 from sec_agent.cli import main
 from sec_agent.jobs.models import NewJob
 from sec_agent.jobs.postgres import PostgresJobQueue
-from sec_agent.jobs.worker import Handler
 
 
 def test_jobs_init_then_stats(
@@ -37,14 +36,10 @@ def test_missing_database_url_is_an_error(
     assert "DATABASE_URL" in capsys.readouterr().err
 
 
-def _no_handlers(_url: str) -> dict[str, Handler]:
-    return {}
-
-
 def test_worker_without_registered_handlers_refuses_to_start(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", "host=/nonexistent dbname=none")
-    monkeypatch.setattr("sec_agent.jobs.cli.registered_handlers", _no_handlers)
+    monkeypatch.setattr("sec_agent.jobs.cli.registered_handlers", dict)
     assert main(["worker", "--drain"]) == 2
     assert "no job handlers" in capsys.readouterr().err
