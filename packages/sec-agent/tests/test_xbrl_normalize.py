@@ -101,13 +101,12 @@ def test_facts_are_unique_per_version_key() -> None:
 
 
 def test_higher_priority_tag_wins_within_one_filing() -> None:
-    period = {"start": "2023-01-01"}
     raw = document(
         {
-            "Revenues": {"USD": [entry("2023-12-31", 120, A1, **period)]},
+            "Revenues": {"USD": [entry("2023-12-31", 120, A1, start="2023-01-01")]},
             "RevenueFromContractWithCustomerExcludingAssessedTax": {
                 "USD": [
-                    entry("2023-12-31", 100, A1, **period),
+                    entry("2023-12-31", 100, A1, start="2023-01-01"),
                     entry("2022-12-31", 90, A1, start="2022-01-01"),
                 ]
             },

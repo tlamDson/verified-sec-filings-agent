@@ -68,13 +68,25 @@ def test_one_latest_fact_per_concept_unit_and_period() -> None:
 
 
 def test_same_filing_date_breaks_ties_by_accession() -> None:
-    period = {"start": "2023-01-01", "filed": "2024-03-01"}
     raw = document(
         {
             "Revenues": {
                 "USD": [
-                    entry("2023-12-31", 1, "0000001234-24-000005", **period),
-                    entry("2023-12-31", 2, "0000001234-24-000007", form="10-K/A", **period),
+                    entry(
+                        "2023-12-31",
+                        1,
+                        "0000001234-24-000005",
+                        start="2023-01-01",
+                        filed="2024-03-01",
+                    ),
+                    entry(
+                        "2023-12-31",
+                        2,
+                        "0000001234-24-000007",
+                        form="10-K/A",
+                        start="2023-01-01",
+                        filed="2024-03-01",
+                    ),
                 ]
             }
         }

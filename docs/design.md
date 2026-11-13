@@ -146,6 +146,23 @@ queued ──claim──► running ──complete──► done
 - **Delivery is at least once.** A job can run twice (the worker dies after writing but before reporting), so every handler writes under natural keys (CIK, accession number) with upserts. That makes the effect exactly once.
 - **Defaults** (configuration, not measurements): 60 s lease, 20 s heartbeat, 5 attempts, backoff from 5 s capped at 600 s. CLI: `sec-agent jobs init`, `sec-agent jobs stats`, `sec-agent worker [--drain]`.
 
+### XBRL facts (built in s-03)
+
+Code: `sec_agent.xbrl`. One job per company and snapshot, kind `xbrl.companyfacts`, key `<index_version>:<CIK>` (CLI: `sec-agent xbrl init`, `sec-agent xbrl enqueue --index-version v1 CIK...`). The handler fetches `companyfacts` through `EdgarClient`, normalises it in memory, and upserts in one transaction.
+
+```
+companyfacts JSON ──► entries (exact decimals) ──► concept table ──► fiscal calendar ──► facts (every version)
+                                                   tag → concept      own period → label        │
+                                                   unit, period type  (E1)                      ▼
+                                                                                       facts_latest view (E2)
+```
+
+- **Concept table** (`concepts.py`): about 30 canonical concepts (revenue, gross profit, operating income, net income, EPS, cash, assets, liabilities, equity, cash flows...). Each lists its US-GAAP tags in priority order; within one filing and period the first tag that reports a value wins. A tag is listed only when it means the same thing: lines that include more (noncontrolling interest, current portion of debt, restricted cash) are left out. Each concept declares its unit (E5) and period type; entries in another unit or of the other period type are dropped, never converted.
+- **Fiscal labels (E1).** companyfacts' `fy`/`fp` describe the filing, not the value: a 10-K repeats prior years under its own `fy`. The calendar learns each 10-K/10-Q's own period (the latest end date carrying more than half as many facts as the busiest one) and labels each fact by its own end date. A company's offset between `fy` and the year its fiscal year ends in is treated as a constant: years that break a strict-majority offset are relabelled (NVIDIA's early 10-Ks say `fy` one year low). Quarters take the fiscal year that contains them; a quarter ending on a fiscal year end is Q4; six- and nine-month durations are stored as `ytd`. A fact whose end date is no known period end keeps its dates and has no label.
+- **Versions (E2).** Every filing's value is a row, keyed by `(index_version, cik, concept, unit, period_start, period_end, accession)`. The view `facts_latest` returns, per period, the latest filed version (greatest filed date, then accession), the original value, the number of versions, and `restated` when any value differs, including precision changes (thousands, then millions). `versions.latest_versions` applies the same rule in Python; a test holds them equal.
+- **Counted, not hidden.** Each ingest writes a report row (`xbrl_ingests`): entries seen, facts kept, and how many were dropped for form (only 10-K, 10-K/A, 10-Q, 10-Q/A), unit, period type, unsupported duration, conflicting values within one filing, or a lower-priority tag, plus unlabelled facts and relabelled years.
+- **Idempotent.** The upsert on the version key, under a per-company advisory lock, makes a job that runs twice write each row once. A missing company (404) or a malformed document fails the job permanently; SEC unavailability is retried by the queue.
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |

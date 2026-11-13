@@ -5,6 +5,7 @@ from collections.abc import Sequence
 
 from sec_agent import __version__
 from sec_agent.jobs import cli as jobs_cli
+from sec_agent.xbrl import cli as xbrl_cli
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -15,6 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"sec-agent {__version__}")
     subparsers = parser.add_subparsers(dest="command", metavar="command")
     jobs_cli.add_commands(subparsers)
+    xbrl_cli.add_commands(subparsers)
     return parser
 
 

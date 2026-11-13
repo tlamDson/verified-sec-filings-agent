@@ -5,11 +5,20 @@ These are synthetic: every value here is made up for a test, never reported as d
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 FIXTURES = Path(__file__).parent / "fixtures" / "companyfacts"
 NVIDIA = FIXTURES / "CIK0001045810.json"
 APPLE = FIXTURES / "CIK0000320193.json"
+
+
+class FilingFields(TypedDict):
+    """The filing half of `entry`'s keyword arguments, shared by entries of one filing."""
+
+    fy: int | None
+    fp: str | None
+    form: str
+    filed: str
 
 
 def entry(

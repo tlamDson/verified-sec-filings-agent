@@ -1,5 +1,6 @@
 """Facts in Postgres: idempotent upserts, every version kept, `facts_latest` view (E2)."""
 
+import datetime as dt
 from collections.abc import Iterator
 from decimal import Decimal
 
@@ -114,7 +115,7 @@ def test_latest_view_for_a_restated_figure(store: PostgresFactStore, apple: Norm
     rows = [
         x
         for x in store.latest(index_version="v1", cik=APPLE_CIK, concept="net_income")
-        if x.fact.fiscal_year == 2008 and x.fact.period_kind == "annual"
+        if x.fact.period_end == dt.date(2008, 9, 27) and x.fact.period_kind == "annual"
     ]
     assert len(rows) == 1
     assert rows[0].fact.value == Decimal(6119000000)
