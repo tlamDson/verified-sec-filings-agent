@@ -58,14 +58,13 @@ def test_sql_lookup_equals_the_in_memory_lookup(
     concepts: tuple[str, ...],
     years: tuple[int, ...],
 ) -> None:
-    args = {
-        "index_version": FACTS_VERSION,
-        "ciks": ciks,
-        "concepts": concepts,
-        "fiscal_years": years,
-    }
-    from_sql = sorted(pg_store.lookup(**args), key=_key)
-    from_memory = sorted(memory_query.lookup(**args), key=_key)
+    def keyed(source: PostgresFactStore | MemoryFactQuery) -> list[LatestFact]:
+        found = source.lookup(
+            index_version=FACTS_VERSION, ciks=ciks, concepts=concepts, fiscal_years=years
+        )
+        return sorted(found, key=_key)
+
+    from_sql, from_memory = keyed(pg_store), keyed(memory_query)
     assert from_sql == from_memory
     assert all(x.fact.fiscal_year in years for x in from_sql)
 

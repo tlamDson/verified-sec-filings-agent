@@ -47,7 +47,7 @@ DIRECTORY = CompanyDirectory(
 
 def _filing(cik: int, n: int, form: FilingForm, filed: str, report: str) -> FilingRef:
     return FilingRef(
-        cik=cik,
+        cik=str(cik),
         accession=f"{cik:010d}-{filed[2:4]}-{n:06d}",
         form=form,
         filing_date=dt.date.fromisoformat(filed),

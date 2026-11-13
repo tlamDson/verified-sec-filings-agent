@@ -1,6 +1,7 @@
 """Facts in Postgres: write one company's normalised snapshot, read versions and latest."""
 
 import datetime as dt
+from collections.abc import Sequence
 from types import TracebackType
 from typing import Any, Protocol, Self
 
@@ -89,6 +90,23 @@ class PostgresFactStore:
         """One row per concept, unit and period: the latest filed version (E2)."""
         params = {"index_version": index_version, "cik": cik, "concept": concept}
         return [_latest(r) for r in self._conn.execute(sql.LATEST, params)]
+
+    def lookup(
+        self,
+        *,
+        index_version: str,
+        ciks: Sequence[int],
+        concepts: Sequence[str],
+        fiscal_years: Sequence[int],
+    ) -> list[LatestFact]:
+        """Latest versions of these companies' concepts in these fiscal years (`FactQuery`)."""
+        params = {
+            "index_version": index_version,
+            "ciks": list(ciks),
+            "concepts": list(concepts),
+            "fiscal_years": list(fiscal_years),
+        }
+        return [_latest(r) for r in self._conn.execute(sql.LOOKUP, params)]
 
     def ingest_record(self, *, index_version: str, cik: int) -> IngestRecord | None:
         params = {"index_version": index_version, "cik": cik}
