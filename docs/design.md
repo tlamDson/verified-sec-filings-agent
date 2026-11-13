@@ -335,6 +335,32 @@ Claude Desktop (`claude_desktop_config.json`), from a clone with the database lo
 }
 ```
 
+### Web app and API (built in s-17)
+
+Code: `sec_agent.api`, `sec_agent.degraded`, `web/`. The browser talks only to the Next.js app; the app's server talks to the API. Every limit below is configuration, not a measurement.
+
+```
+browser ──► Next.js (Auth.js session) ──► /api/chat, /api/feedback, /api/me   (route handlers)
+                                              │ signs a 60-second identity token (API_AUTH_SECRET)
+                                              ▼
+                              FastAPI replica: verify token ──► count the question (Postgres)
+                                              ▼
+                              Agent.steps ──► turn │ evidence … │ answer   (server-sent events)
+                                              │ no model reachable and no tool result
+                                              ▼
+                              degraded lookup: rules read the question ──► the same tools
+```
+
+- **Routes.** `GET /healthz`; `GET /v1/me` (cohort, today's usage); `POST /v1/chat` (one turn as server-sent events); `POST /v1/feedback` (thumbs up or down on a turn the caller asked). Refusals share one shape, `{"error": {"code", "message"}}`, and never echo what was sent. `sec-agent api init` creates the tables, `sec-agent api serve --facts-version v1` serves one replica pinned to one facts version and text snapshot.
+- **Stream.** `/v1/chat` sends `turn` (thread, cohort, usage), then one `evidence` event per agent step that ran tools (its cards and citations), then `answer`: the text the faithfulness checker passed, the status (`answered`, `step_limit`, `degraded`, `blocked`), every card, citation and chart series, and the checker's summary (figures stated, figures traced, sentences removed). The model's draft is never streamed token by token: text reaches the user only after it is checked, so the stream shows deterministic results early and prose last. A turn that cannot finish ends with `error` (`conversation_conflict` when another request advanced the conversation first).
+- **Cards, citations, charts.** `present` parses each tool result with the tool's own result model and copies fields: a fact with its unit, fiscal period, period end (E1), filing and any restatement (E2); a ratio with its formula and input facts; a peer table with each company's own period end (E3); a risk-factor diff; a notice for a refusal (E7, E4); a value not reported is a card that says so (E12). Passages become citations under the key the answer cites; the filing behind every fact is a citation under its accession number. `charts_of` groups cards into series: one metric over two or more fiscal years (one series per company), or one bar per company of a peer comparison. Values are sent as the exact decimal text the tool returned; the web app groups digits as text and converts to a float only to place a point on an axis.
+- **Identity.** Auth.js keeps the session in a signed cookie (no user table). For each call the Next.js server signs an HS256 token (`sub`, `cohort`, `aud`, 60-second lifetime) with `API_AUTH_SECRET`; the API verifies signature, audience and lifetime and refuses a token that lives longer than five minutes. A conversation is stored under `<user id>:<thread id>`, so two users who send the same thread id never share one.
+- **Cohorts.** An OAuth account (GitHub, Google) has cohort `real`. The simulated sign-in (`SIM_LOGIN_SECRET`, off by default) accepts only `sim-01@example.com` to `sim-50@example.com` and gives cohort `simulated` and a user id that starts `sim:`. The token, the API and a table constraint all require that a `sim:` id and the `simulated` cohort go together, so a simulated row can never be stored as a real user. `cohort_counts` reports users, conversations, turns, degraded turns and thumbs per cohort, side by side, never summed (U1).
+- **Daily limit.** `API_DAILY_QUESTIONS` (default 20) questions per user per UTC day. One statement inserts or increments the user's row only while it is under the limit, so replicas racing for the last question never pass it. Past the limit the API answers 429 with `Retry-After` and calls no model. A question is counted when its turn starts, whatever the outcome.
+- **Degraded mode.** When every provider is out of quota or down the agent ends the turn `degraded`. If it had already run tools, their results are shown. If not (no model was reachable to choose a tool), `sec_agent.degraded` reads the question with fixed rules: companies by ticker in capitals, `$TICKER`, alias (E8) or name; figures by the names and labels of the concepts and ratios plus everyday synonyms, longest match first; fiscal years as written, a span ("last 3 years"), or else the latest reported year found by stepping back from the question's date (E6). It then runs the same tools through the same runner, at most 16 calls: `get_fact` or `compute_ratio` per company, figure and year; `compare_peers` for several companies in one year or for "peers"; `search_filings` with the question when a text index is served. A non-GAAP measure matches no figure (E4); a question that names no company gets no figure. The answer text is the fixed degraded notice, and the web app labels the turn "Degraded mode".
+- **Feedback.** A rating is kept only for a turn the same user asked; rating again replaces it. Simulated feedback is stored with its cohort and only proves the feedback path works; it is not a quality measure.
+- **Not here.** A global semaphore on concurrent LLM calls and the answer cache (see Distributed concerns) are not built in s-17: concurrency is bounded by the worker threads of a replica and by the provider quotas, and load shedding is measured in s-20.
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |

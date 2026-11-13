@@ -5,12 +5,14 @@ description = "Research agent over public SEC filings where every number is trac
 readme = "../../README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "fastapi>=0.115",
     "httpx>=0.28",
     "langgraph>=1.0",
     "langgraph-checkpoint-postgres>=3.0",
     "mcp>=1.20",
     "psycopg[binary]>=3.3",
     "pydantic>=2.12",
+    "uvicorn>=0.30",
 ]
 
 [project.optional-dependencies]

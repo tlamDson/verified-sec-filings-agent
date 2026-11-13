@@ -11,16 +11,17 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-import httpx
+import httpx2
 from agent_kit import agent_of
 from fastapi.testclient import TestClient
 from llm_fakes import T0, ScriptedProvider
 
 from sec_agent.agent.tool_runner import ToolOutput, ToolRunner
-from sec_agent.api.app import ApiDeps, TurnAgent, create_app
+from sec_agent.api.app import ApiDeps, create_app
 from sec_agent.api.config import ApiConfig
 from sec_agent.api.identity import Identity, sign_token
 from sec_agent.api.store import ApiStore, MemoryApiStore
+from sec_agent.api.turns import TurnAgent
 from sec_agent.llm.messages import ToolSchema
 from sec_agent.tools.context import FactsContext
 
@@ -46,7 +47,7 @@ class Api:
         user: Identity = REAL,
         thread_id: str = THREAD,
         asked_on: str | None = None,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         body: dict[str, Any] = {"thread_id": thread_id, "question": question}
         if asked_on is not None:
             body["asked_on"] = asked_on
@@ -62,7 +63,7 @@ def api_of(
 ) -> Api:
     kept = store or MemoryApiStore()
     deps = ApiDeps(
-        agent=agent or agent_of(facts, *providers),
+        agent=agent or agent_of(facts, *(providers or (ScriptedProvider("idle"),))),
         tools=ToolRunner(facts),
         companies=facts.companies,
         store=kept,
@@ -76,7 +77,7 @@ def auth(user: Identity, *, now: dt.datetime = NOW) -> dict[str, str]:
     return {"Authorization": f"Bearer {sign_token(user, SECRET, now=now)}"}
 
 
-def events(response: httpx.Response) -> list[tuple[str, Any]]:
+def events(response: httpx2.Response) -> list[tuple[str, Any]]:
     """The (event, data) pairs of a server-sent event stream."""
     found: list[tuple[str, Any]] = []
     for block in response.text.split("\n\n"):
@@ -89,7 +90,7 @@ def events(response: httpx.Response) -> list[tuple[str, Any]]:
     return found
 
 
-def event(response: httpx.Response, name: str) -> Any:
+def event(response: httpx2.Response, name: str) -> Any:
     """The data of the one event called `name`."""
     (data,) = [d for n, d in events(response) if n == name]
     return data

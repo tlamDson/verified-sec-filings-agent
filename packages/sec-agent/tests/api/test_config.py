@@ -22,11 +22,14 @@ def test_the_daily_limit_is_read_from_the_environment() -> None:
     assert config.daily_questions == 5
 
 
-@pytest.mark.parametrize("secret", ["", "   ", "too-short"])
+@pytest.mark.parametrize(
+    "secret", ["", "   ", "too-short", "change-me-to-a-random-secret-of-32-or-more-characters"]
+)
 def test_a_missing_or_short_secret_is_an_error_that_does_not_repeat_it(secret: str) -> None:
     with pytest.raises(ApiConfigError, match=SECRET_ENV_VAR) as caught:
         config_from_env({SECRET_ENV_VAR: secret})
     assert "too-short" not in str(caught.value)
+    assert "change-me-to" not in str(caught.value)
 
 
 @pytest.mark.parametrize("limit", ["0", "-1", "many", "1.5"])

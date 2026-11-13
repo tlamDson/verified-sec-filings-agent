@@ -9,7 +9,7 @@ import datetime as dt
 import json
 import re
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from faithfulness_kit import (
     SIM_ACCESSION,
@@ -182,13 +182,10 @@ def test_evidence_that_cannot_be_read_is_left_out_without_failing() -> None:
 
 
 def test_cards_and_citations_keep_the_order_of_the_evidence(facts_ctx: FactsContext) -> None:
-    view = present(
-        [
-            _revenue(facts_ctx, 2023, "c1"),
-            search_evidence("SIMULATED passage.", call_id="s1"),
-            _revenue(facts_ctx, 2024, "c2"),
-        ]
+    nvidia = run_tool(
+        facts_ctx, "get_fact", "c2", company="NVDA", concept="revenue", fiscal_year=2024
     )
+    view = present([_revenue(facts_ctx, 2024, "c1"), search_evidence("SIMULATED passage."), nvidia])
     assert [c.call_id for c in view.cards] == ["c1", "c2"]
     assert [c.kind for c in view.citations] == ["filing", "passage", "filing"]
 
@@ -196,9 +193,9 @@ def test_cards_and_citations_keep_the_order_of_the_evidence(facts_ctx: FactsCont
 def _numbers(value: Any) -> set[str]:
     """Every decimal value in a dumped view: strings that are numbers, nothing else."""
     if isinstance(value, dict):
-        return {n for item in value.values() for n in _numbers(item)}
+        return {n for item in cast(dict[str, Any], value).values() for n in _numbers(item)}
     if isinstance(value, list):
-        return {n for item in value for n in _numbers(item)}
+        return {n for item in cast(list[Any], value) for n in _numbers(item)}
     if isinstance(value, str) and _NUMBER.fullmatch(value):
         return {value}
     return set()

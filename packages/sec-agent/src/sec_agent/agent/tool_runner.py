@@ -61,6 +61,11 @@ class ToolRunner:
             spec.name: spec for spec in TOOLS if text is not None or spec.name not in _TEXT_TOOLS
         }
 
+    @property
+    def names(self) -> tuple[str, ...]:
+        """The offered tools, in catalog order."""
+        return tuple(self._specs)
+
     def schemas(self) -> list[ToolSchema]:
         """The offered tools in the OpenAI function shape."""
         return [
