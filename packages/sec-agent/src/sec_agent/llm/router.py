@@ -13,7 +13,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 
 from sec_agent.llm.attempts import Attempt, Outcome
-from sec_agent.llm.breaker import BreakerConfig, BreakerState, CircuitBreaker
+from sec_agent.llm.breaker import BreakerConfig, BreakerState, CircuitBreaker, Permit
 from sec_agent.llm.errors import (
     AllProvidersFailedError,
     LLMConfigError,
@@ -22,7 +22,7 @@ from sec_agent.llm.errors import (
     ProviderRejectedError,
     ProviderResponseError,
 )
-from sec_agent.llm.messages import ChatRequest, Completion
+from sec_agent.llm.messages import ChatRequest, Completion, Usage
 from sec_agent.llm.provider import Provider
 from sec_agent.llm.quota import QuotaStore
 from sec_agent.llm.token_bound import token_bound
@@ -90,7 +90,8 @@ class LLMRouter:
         self, provider: Provider, request: ChatRequest, attempts: list[Attempt]
     ) -> Completion | None:
         name, breaker = provider.name, self._breakers[provider.name]
-        if not breaker.acquire():
+        permit = breaker.acquire()
+        if permit is None:
             attempts.append(Attempt(name, "breaker_open", ""))
             return None
         request, hold = self._bounded(provider, request)
@@ -98,16 +99,16 @@ class LLMRouter:
         try:
             reserved = self._quota.reserve(name, provider.limits, reserved_at, hold)
         except BaseException:  # the count is unreachable: no call was made
-            breaker.release()
+            breaker.release(permit)
             raise
         if not reserved:
-            breaker.release()
+            breaker.release(permit)
             attempts.append(Attempt(name, "quota_exhausted", ""))
             return None
         try:
             completion = provider.complete(request)
         except ProviderError as error:
-            outcome = _settle_breaker(breaker, error)
+            outcome = _settle_breaker(breaker, permit, error)
             if outcome in _SPENT_NOTHING:  # refused before any token was generated
                 self._quota.settle(name, reserved_at, held=hold, used=0)
             # otherwise (timeout, 5xx, broken reply) the provider may have spent tokens
@@ -115,12 +116,10 @@ class LLMRouter:
             attempts.append(Attempt(name, outcome, str(error)))
             return None
         except BaseException:  # a bug or a cancel says nothing about the provider
-            breaker.release()  # the hold stays: the call went out, its cost is unknown
+            breaker.release(permit)  # the hold stays: the call went out, its cost is unknown
             raise
-        breaker.success()
-        used = completion.usage.total
-        # a reply that reports no usage is charged its whole bound, not nothing
-        self._quota.settle(name, reserved_at, held=hold, used=used if used > 0 else hold)
+        breaker.success(permit)
+        self._quota.settle(name, reserved_at, held=hold, used=_charge(completion.usage, hold))
         attempts.append(Attempt(name, "ok", ""))
         return completion
 
@@ -140,13 +139,23 @@ class LLMRouter:
         return request, bound
 
 
-def _settle_breaker(breaker: CircuitBreaker, error: ProviderError) -> Outcome:
+def _charge(usage: Usage, hold: int) -> int:
+    """The tokens an answered call is counted for.
+
+    What it reported, when the report is complete. A report that leaves a count out (or
+    is absent) is only a floor: the call is charged its whole hold, or the floor when
+    that is higher, so a provider that under-reports cannot slip past its daily quota.
+    """
+    return usage.total if usage.complete else max(hold, usage.total)
+
+
+def _settle_breaker(breaker: CircuitBreaker, permit: Permit, error: ProviderError) -> Outcome:
     """Tell the breaker what a failed call means, and name the outcome."""
     if isinstance(error, ProviderRateLimitedError):
-        breaker.trip(error.retry_after)
+        breaker.trip(permit, error.retry_after)
         return "rate_limited"
     if isinstance(error, ProviderRejectedError):
-        breaker.release()  # the provider is up: it refused this request
+        breaker.release(permit)  # the provider is up: it refused this request
         return "rejected"
-    breaker.failure()
+    breaker.failure(permit)
     return "bad_response" if isinstance(error, ProviderResponseError) else "unavailable"

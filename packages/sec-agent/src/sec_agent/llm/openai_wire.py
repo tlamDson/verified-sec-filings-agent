@@ -78,11 +78,13 @@ def _tool_calls(raw: object) -> list[ToolCall]:
 
 
 def _usage(raw: object) -> Usage:
-    """Token counts as the provider reports them; zero when it reports none."""
+    """Token counts as the provider reports them. A count that is missing, or is not a
+    positive whole number, is 0, which leaves the usage incomplete (`Usage.complete`)."""
     usage = cast(dict[str, Any], raw) if isinstance(raw, dict) else {}
     return Usage(
         prompt_tokens=_count(usage.get("prompt_tokens")),
         completion_tokens=_count(usage.get("completion_tokens")),
+        total_tokens=_count(usage.get("total_tokens")),
     )
 
 

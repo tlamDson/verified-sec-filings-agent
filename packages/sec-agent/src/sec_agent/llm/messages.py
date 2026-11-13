@@ -43,12 +43,23 @@ class ToolSchema(TypedDict):
 
 @dataclass(frozen=True)
 class Usage:
+    """Token counts as a provider reported them; a count it left out is 0."""
+
     prompt_tokens: int
     completion_tokens: int
+    total_tokens: int = 0
+    """The provider's own total: some count tokens (hidden reasoning) in neither part."""
 
     @property
     def total(self) -> int:
-        return self.prompt_tokens + self.completion_tokens
+        """The most the reported counts come to."""
+        return max(self.total_tokens, self.prompt_tokens + self.completion_tokens)
+
+    @property
+    def complete(self) -> bool:
+        """Whether both parts were reported. Only then is `total` what the call used;
+        otherwise it is a floor, and the call may have used far more."""
+        return self.prompt_tokens > 0 and self.completion_tokens > 0
 
 
 @dataclass(frozen=True)
