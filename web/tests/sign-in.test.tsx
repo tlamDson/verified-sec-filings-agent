@@ -48,6 +48,15 @@ describe("SignInPanel", () => {
     });
   });
 
+  it("says so when the last attempt to sign in failed", () => {
+    const { rerender } = render(<SignInPanel choices={[github]} onSignIn={vi.fn()} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+    rerender(<SignInPanel choices={[github]} onSignIn={vi.fn()} failed />);
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Sign-in did not succeed. Check the account and try again.",
+    );
+  });
+
   it("says so when no sign-in is configured", () => {
     render(<SignInPanel choices={[]} onSignIn={vi.fn()} />);
     expect(screen.getByText("Sign-in is not configured for this deployment.")).toBeTruthy();

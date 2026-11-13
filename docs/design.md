@@ -340,7 +340,7 @@ Claude Desktop (`claude_desktop_config.json`), from a clone with the database lo
 Code: `sec_agent.api`, `sec_agent.degraded`, `web/`. The browser talks only to the Next.js app; the app's server talks to the API. Every limit below is configuration, not a measurement.
 
 ```
-browser ──► Next.js (Auth.js session) ──► /api/chat, /api/feedback, /api/me   (route handlers)
+browser ──► Next.js (Auth.js session) ──► /api/chat, /api/feedback   (route handlers)
                                               │ signs a 60-second identity token (API_AUTH_SECRET)
                                               ▼
                               FastAPI replica: verify token ──► count the question (Postgres)
