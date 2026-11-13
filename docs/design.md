@@ -38,7 +38,7 @@ All values are _est._ from the plan's sampling choices; ingest and eval PRs repl
 
 | Quantity                        | Estimate               | Derivation                                                                           |
 | ------------------------------- | ---------------------- | ------------------------------------------------------------------------------------ |
-| Companies                       | 50                     | 5 per GICS sector × 10 sectors, seeded sample of the S&P 100                         |
+| Companies                       | 50                     | seeded sample of the S&P 100, sectors taking turns (see Golden sets)                 |
 | Filings                         | ~1,000                 | 50 companies × 5 fiscal years × (1 10-K + 3 10-Q), plus amendments                   |
 | Text chunks                     | ~40,000                | ~40 section chunks of ~400 tokens per filing                                         |
 | Annual XBRL facts               | ~7,500                 | ~30 core US-GAAP concepts × 50 companies × 5 years, plus quarterly facts             |
@@ -202,6 +202,25 @@ snapshot (name, space, SHA-256 of every chunk and vector) ──► pointer "ser
 - **Snapshots for eval.** `sec-agent index snapshot NAME` records a space only when it is complete (every chunk has a vector and a lexical row, statistics match those rows), with chunk and filing counts and a SHA-256 over every chunk key, text hash and vector in key order. `--manifest` writes it as JSON for an eval run to keep beside its results. `verify` recomputes the digest; a name never moves to other content. `activate NAME` verifies, then points `serving` at it: switching the pointer is the blue/green cut-over.
 - **Defaults** (configuration, not measurements): batch 64, 10 results, 50 candidates per arm, RRF k = 60. CLI: `sec-agent index init`, `index build [--device cuda]`, `index snapshot NAME [--manifest PATH]`, `index verify NAME`, `index activate NAME`, `index search QUERY [--mode] [--cik] [--form] [--section] [--report-from] [--report-to] [--json]`.
 
+### Golden sets (built in s-06)
+
+Code: `sec_agent.golden`. Every golden set is split by **company**, never by question, so no test question is about a company seen while tuning.
+
+```
+sp100.csv (S&P 100, sector, CIK, fiscal year end) ──► seeded sample of 50 ──► 30 train · 10 dev · 10 test
+                                                                               │
+facts_latest (E2) ──► G-num candidates ──► per-split quota × 5 types ──► g_num.jsonl
+hand-written questions (test companies) + TREC runs ──► top-k pool ──► blind labels 0/1/2 ──► qrels
+FinanceBench download ──► manifest check (licence, answers, SHA-256 pins) ──► g_public.jsonl
+```
+
+- **Universe.** `sp100.csv` has one row per S&P 100 company (Alphabet's two share classes are one CIK): membership and GICS sector from the index's components table (as of 2026-09-21), CIK and current fiscal year end from SEC (`company_tickers.json`, `submissions`) through `EdgarClient`. Companies with no 10-K for part of FY2020–FY2024 (GE Vernova, Sandisk) carry an exclusion reason and are never sampled.
+- **Sample.** Only seven GICS sectors have five or more S&P 100 members, so the plan's "5 per sector × 10 sectors" cannot hold. Instead sectors take turns, in a seeded order, each giving its next company in a seeded order, until 50 are taken: sectors stay within one company of each other unless one runs out.
+- **Split.** Test, then dev, draw **same-sector pairs**, walking the sectors in seeded order and taking a pair only from a sector that keeps at least one company for train; the rest is train. Pairs let every split ask peer questions inside itself. Until a split holds two companies whose fiscal year does not end in December, the walk prefers sectors that have one, so the fiscal-period trap (E1) can be asked on test. Order comes from SHA-256 of seed and key (no random generator), so adding a company never reorders the others. Committed as `data/golden/company_split.json` (seed 20261113); a test regenerates it from the packaged universe. CLI: `sec-agent golden split`.
+- **G-num.** From each company's latest facts in one `index_version`, five question types: `value` (a reported figure), `fiscal_period` (the same, when the period leaves the calendar year its fiscal year names: E1), `yoy_growth` (same fiscal period a year before, in percent), `ratio` (gross, operating and net margin, effective tax rate: two facts of exactly the same period, positive denominator), `peer_comparison` (two same-sector companies of one split, each on its own fiscal year: E3). Questions are fixed templates; answers are computed in `Decimal` and rounded half-even to six places, with every source fact (accession, filing date, original value if restated). Year-to-date sums and unlabelled facts are not asked. Per split, the quota (configuration: 900 train, 300 dev, 300 test, FY2020–FY2024) is shared equally by the five types; within a type, companies (or pairs) take turns in seeded order. A short stratum keeps every candidate and reports the shortfall; quotas never move between types. CLI: `sec-agent golden gnum --index-version V`.
+- **G-ret.** Questions are written by hand before reading the filings (gate G-F2), one JSON line each with the ticker of a test company; any other company is refused. Retrieval runs come in TREC format (`qid Q0 accession/section/ordinal rank score system`). The pool is the union of each system's top 20 per question (TREC pooling: unpooled chunks count as not relevant), in a seeded order per question, with the chunk text from the index. The labelling session shows question and text only, never which system found a chunk or its rank; each grade (0, 1, 2) is appended to the label file at once and tied to the text's SHA-256, so a re-chunked index makes old labels pending again. CLI: `sec-agent golden pool --run R ...`, `golden label`, `golden qrels`.
+- **G-public.** FinanceBench's open sample is read from a local download, never committed. `data/golden/g_public_manifest.json` records the licence (CC BY-NC 4.0, from the Hugging Face dataset card; checked 2026-11-13), whether the answers were checked (not yet), and the SHA-256 of both files. The loader refuses the data until both checks are recorded and both files match their pins. Each question gets its company's ticker and split when the company is in the universe; it is `in_scope` only for a split company and a 10-K or 10-Q document (E7). CLI: `sec-agent golden public --questions F --documents D`.
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |
@@ -250,5 +269,5 @@ Every component must be justified by a metric or a requirement. Deliberately lef
 
 - Measure local Qwen throughput on the first eval night and replace the eval-cost estimate.
 - Choose the production LLM provider by measuring free quotas.
-- Check FinanceBench licence and answers before using G-public.
+- Check FinanceBench answers (licence checked in s-06) before using G-public.
 - Confirm free-tier database size limits against measured index size.
