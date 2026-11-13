@@ -19,33 +19,33 @@ They are not eval results, so they have no rows in `runs.csv`.
 
 ## Counts
 
-| What | Count |
-| --- | --- |
-| Ingest jobs (50 companyfacts, 1,142 filings), all done, none failed | 1,192 |
-| XBRL facts in `v1` (35 concepts, 50 companies) | 226,088 |
-| Filings fetched | 1,142 |
-| Filings with at least one section, in snapshot `v1` | 1,090 |
-| Chunks in snapshot `v1` | 62,753 |
-| Chunks cut to the model's 512 input tokens when embedded | 25 |
-| G-ret questions run | 100 |
-| G-ret pool items (top 20 of bm25, vector, hybrid, deduplicated) | 3,485 |
+| What                                                                | Count   |
+| ------------------------------------------------------------------- | ------- |
+| Ingest jobs (50 companyfacts, 1,142 filings), all done, none failed | 1,192   |
+| XBRL facts in `v1` (35 concepts, 50 companies)                      | 226,088 |
+| Filings fetched                                                     | 1,142   |
+| Filings with at least one section, in snapshot `v1`                 | 1,090   |
+| Chunks in snapshot `v1`                                             | 62,753  |
+| Chunks cut to the model's 512 input tokens when embedded            | 25      |
+| G-ret questions run                                                 | 100     |
+| G-ret pool items (top 20 of bm25, vector, hybrid, deduplicated)     | 3,485   |
 
 The filings break down by form as follows:
 
-| Form | Filings | Companies | With no section found | Chunks |
-| --- | --- | --- | --- | --- |
-| 10-K | 292 | 49 | 6 | 29,127 |
-| 10-K/A | 11 | 3 | 10 | 85 |
-| 10-Q | 834 | 49 | 32 | 33,515 |
-| 10-Q/A | 5 | 5 | 4 | 26 |
+| Form   | Filings | Companies | With no section found | Chunks |
+| ------ | ------- | --------- | --------------------- | ------ |
+| 10-K   | 292     | 49        | 6                     | 29,127 |
+| 10-K/A | 11      | 3         | 10                    | 85     |
+| 10-Q   | 834     | 49        | 32                    | 33,515 |
+| 10-Q/A | 5       | 5         | 4                     | 26     |
 
 By company split:
 
-| Split | Companies | Facts | Filings with chunks | Chunks |
-| --- | --- | --- | --- | --- |
-| train | 30 | 132,774 | 643 | 39,007 |
-| dev | 10 | 50,249 | 231 | 12,687 |
-| test | 10 | 43,065 | 216 | 11,059 |
+| Split | Companies | Facts   | Filings with chunks | Chunks |
+| ----- | --------- | ------- | ------------------- | ------ |
+| train | 30        | 132,774 | 643                 | 39,007 |
+| dev   | 10        | 50,249  | 231                 | 12,687 |
+| test  | 10        | 43,065  | 216                 | 11,059 |
 
 Each question has between 22 and 50 chunks in the pool. 717 items were ranked in the top 20 by
 all three systems, 1,081 by two and 1,687 by one. Pool items per test company range from 308

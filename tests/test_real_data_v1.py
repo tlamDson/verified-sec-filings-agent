@@ -68,5 +68,11 @@ def test_data_note_states_the_counts_of_the_committed_files(repo_root: Path) -> 
     note = note_path.read_text("utf-8")
     assert snapshot.index_version in note
     assert snapshot.content_sha256 in note
+    cells = {
+        cell.strip()
+        for line in note.splitlines()
+        if line.startswith("|")
+        for cell in line.split("|")
+    }
     for count in (snapshot.chunk_count, snapshot.filing_count, len(pool)):
-        assert f"| {count:,} |" in note or f"| {count} |" in note, count
+        assert f"{count:,}" in cells, count
