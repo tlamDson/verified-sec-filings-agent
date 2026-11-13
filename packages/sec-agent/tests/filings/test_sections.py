@@ -140,3 +140,47 @@ def test_too_short_a_section_is_dropped() -> None:
 def test_unknown_form_is_rejected() -> None:
     with pytest.raises(ValueError, match="8-K"):
         find_sections([], "8-K")
+
+
+def test_heading_whose_title_runs_on_is_a_cross_reference() -> None:
+    # A bullet in forward-looking statements, far from the real Part II Item 1A.
+    blocks = [
+        "Item 1A: Risk Factors in the simulated 2023 Form 10-K.",
+        *[FILLER] * 5,
+        "Item 1A. Risk Factors",
+        FILLER,
+        "Item 2. Unregistered Sales of Equity Securities and Use of Proceeds",
+    ]
+    (risk,) = find_sections(blocks, "10-Q")
+    assert risk.heading == "Item 1A. Risk Factors"
+    assert risk.text == FILLER
+
+
+def test_continued_headings_do_not_cut_a_section() -> None:
+    blocks = [
+        "Item 1A. Risk Factors",
+        FILLER,
+        "Item 1A. Risk Factors (continued)",
+        FILLER,
+        "Item 1B. Unresolved Staff Comments",
+    ]
+    (risk,) = find_sections(blocks, "10-K")
+    assert risk.text == "\n".join([FILLER, "Item 1A. Risk Factors (continued)", FILLER])
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Management's Discussion and Analysis of Results of Operations and Financial Condition",
+        "MANAGEMENT'S DISCUSSION AND ANALYSIS",
+        "Management\u2019s Discussion and Analysis of Financial Condition and Results of"
+        " Operations.",
+    ],
+)
+def test_mdna_title_variants(title: str) -> None:
+    blocks = [
+        f"Item 7. {title}",
+        FILLER,
+        "Item 7A. Quantitative and Qualitative Disclosure of Market Risks",
+    ]
+    assert [s.key for s in find_sections(blocks, "10-K")] == ["mdna"]

@@ -1,6 +1,7 @@
 """PostgresChunkStore against a real Postgres: keyed, idempotent, one version beside another."""
 
 from collections.abc import Callable, Iterator
+from typing import LiteralString
 
 import psycopg
 import pytest
@@ -22,7 +23,7 @@ def indexed(read_fixture: Callable[[str], bytes], filing_10k: FilingRef) -> Inde
     return index_filing(read_fixture("sim-10k.htm"), filing_10k, ChunkConfig(max_tokens=30))
 
 
-def _count(db: str, table: str) -> int:
+def _count(db: str, table: LiteralString) -> int:
     with psycopg.connect(db) as conn:
         row = conn.execute(f"SELECT count(*) FROM {table}").fetchone()
     assert row is not None

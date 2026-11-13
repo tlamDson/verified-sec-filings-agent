@@ -15,7 +15,7 @@ SMALL = ChunkConfig(max_tokens=30)
 # chunker output changes on purpose, bump PARSER_VERSION (so a new index_version is built
 # beside the old one instead of silently mixing into it) and record the new digest here.
 PINNED_VERSION = "chunks-p1-t400-"
-PINNED_DIGEST = "PIN_ME"
+PINNED_DIGEST = "a4592aec953005d8beb084232368713728132773d3a01898310f3093cca55891"
 
 
 def _digest(indexed: IndexedFiling) -> str:

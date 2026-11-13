@@ -5,6 +5,7 @@ from collections.abc import Callable
 
 import psycopg
 import pytest
+from pydantic import JsonValue
 
 from sec_agent.edgar.errors import EdgarNotFoundError, EdgarUnavailableError
 from sec_agent.filings.handler import make_filing_handler
@@ -28,7 +29,7 @@ class FakeStore:
         self.stored.append(indexed)
 
 
-def _job(payload: dict[str, object]) -> Job:
+def _job(payload: dict[str, JsonValue]) -> Job:
     return Job.model_validate(
         {
             "id": 1,
@@ -50,7 +51,7 @@ def _job(payload: dict[str, object]) -> Job:
     )
 
 
-def _payload(filing: FilingRef, version: str | None = None) -> dict[str, object]:
+def _payload(filing: FilingRef, version: str | None = None) -> dict[str, JsonValue]:
     job = FilingJob(index_version=version or index_version(CONFIG), filing=filing)
     return job.to_new_job().payload
 
