@@ -26,7 +26,7 @@ def test_parse_reads_the_custom_metrics() -> None:
         resumes=200,
         resumes_failed=1,
         interrupted=3,
-        interrupted_failed=1,
+        interrupted_failed=0,
         answered=350,
         degraded=46,
         turn_p50_ms=640.0,
@@ -89,7 +89,7 @@ def test_rows_are_valid_simulated_and_carry_intervals() -> None:
     assert errors.ci_low < 0.01 < errors.ci_high
     assert by_metric["LOAD.resume_error_rate"].n == 200
     interrupted = by_metric["LOAD.interrupted_resume_error_rate"]
-    assert (interrupted.n, interrupted.value) == (3, pytest.approx(1 / 3))
+    assert (interrupted.n, interrupted.value) == (3, 0.0)
     assert by_metric["LOAD.degraded_share"].value == pytest.approx(46 / 396)
     assert by_metric["LOAD.degraded_share"].n == 396
     p95 = by_metric["LOAD.turn_p95"]

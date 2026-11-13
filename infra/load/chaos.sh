@@ -7,7 +7,10 @@
 #   3. start 3 API replicas behind nginx and run k6 (200 simulated users by default);
 #      kill api-2 at +90 s, rate-limit model llm-a at +150 s (fail over to llm-b) and llm-b
 #      at +210 s (degraded mode), and restore both at +270 s
-#   4. turn k6's summary into runs.csv rows (cohort simulated) in infra/load/results/
+#   4. turn k6's summary into runs.csv rows (cohort simulated) in infra/load/results/ and
+#      check them: turn, resume and interrupted-resume error rates each under 5%
+# Exits non-zero when k6 fails (99: a threshold was crossed) or the check fails, after the
+# rows of that run are written.
 # Needs .env with POSTGRES_PASSWORD, API_AUTH_SECRET and SEC_USER_AGENT. Costs nothing: every
 # model is `sec-agent chaos fake-llm`.
 set -euo pipefail
@@ -53,10 +56,20 @@ sleep 90 && echo "-- kill api-2" && "${COMPOSE[@]}" kill api-2
 sleep 60 && echo "-- llm-a rate_limited" && mode 8181 rate_limited
 sleep 60 && echo "-- llm-b rate_limited" && mode 8182 rate_limited
 sleep 60 && echo "-- models back" && mode 8181 ok && mode 8182 ok
-wait "$K6" || echo "k6 thresholds crossed (see the summary)"
+K6_STATUS=0
+wait "$K6" || K6_STATUS=$?
 
-echo "== 4. runs.csv rows"
+echo "== 4. runs.csv rows and the chaos check"
+CHECK_STATUS=0
 run sec-agent chaos load-rows /results/summary.json --system api-x3+fake-llm \
   --config "PEAK_VUS=${PEAK_VUS:-200}; kill api-2 +90s; llm-a 429 +150s; llm-b 429 +210s" \
-  --record /results/runs.load.csv --git-sha "$SHA"
+  --record /results/runs.load.csv --git-sha "$SHA" || CHECK_STATUS=$?
 echo "rows in $RESULTS/runs.chaos.csv and $RESULTS/runs.load.csv"
+if [ "$K6_STATUS" -ne 0 ]; then
+  echo "k6 failed with exit $K6_STATUS (99: a threshold was crossed, see the summary)" >&2
+  exit "$K6_STATUS"
+fi
+if [ "$CHECK_STATUS" -ne 0 ]; then
+  echo "chaos check failed with exit $CHECK_STATUS (see above)" >&2
+  exit "$CHECK_STATUS"
+fi

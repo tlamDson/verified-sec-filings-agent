@@ -92,3 +92,28 @@ def test_kill_worker_needs_a_database(
     monkeypatch.delenv("DATABASE_URL", raising=False)
     assert main(["chaos", "kill-worker", "--index-version", "v1"]) == 2
     assert "DATABASE_URL" in capsys.readouterr().err
+
+
+def test_load_rows_fails_a_run_over_the_limit_after_recording_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    data = json.loads(SUMMARY.read_text("utf-8"))
+    data["metrics"]["interrupted_resume_failed"] = {"passes": 1, "fails": 2, "value": 0.3333}
+    summary = tmp_path / "summary.json"
+    summary.write_text(json.dumps(data), "utf-8")
+    runs = tmp_path / "runs.csv"
+    argv = ["chaos", "load-rows", str(summary), "--system", "x", "--git-sha", "abc1234"]
+    assert main([*argv, "--record", str(runs)]) == 1
+    assert "interrupted_resume_failed" in capsys.readouterr().err
+    assert len(read_runs(runs)) == 6  # the failed run is still recorded
+
+
+def test_load_rows_checks_the_limit_without_recording(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    data = json.loads(SUMMARY.read_text("utf-8"))
+    data["metrics"]["turn_failed"] = {"passes": 40, "fails": 360, "value": 0.1}
+    summary = tmp_path / "summary.json"
+    summary.write_text(json.dumps(data), "utf-8")
+    assert main(["chaos", "load-rows", str(summary), "--system", "x"]) == 1
+    assert "turn_failed" in capsys.readouterr().err

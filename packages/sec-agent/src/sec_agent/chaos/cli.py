@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import psycopg
 
+from sec_agent.chaos.acceptance import breaches
 from sec_agent.chaos.fake_llm import DEFAULT_TOOL_ARGUMENTS, FakeLLMState, create_fake_llm
 from sec_agent.chaos.integrity import check_ingest
 from sec_agent.chaos.k6_summary import load_rows, parse_k6_summary
@@ -61,7 +62,10 @@ def add_commands(subparsers: "Subparsers") -> None:
     add_record_options(kill)
     kill.set_defaults(run=_kill_worker)
 
-    rows = actions.add_parser("load-rows", help="k6 summary export -> runs.csv rows")
+    rows = actions.add_parser(
+        "load-rows",
+        help="k6 summary export -> runs.csv rows; exit 1 when the run fails the chaos check",
+    )
     rows.add_argument("summary", type=Path, help="k6 --summary-export JSON")
     rows.add_argument("--system", required=True, help="what was loaded, e.g. api-x3+fake-llm")
     rows.add_argument("--config", default="", help="scenario, e.g. '200 VU, kill api-2'")
@@ -144,9 +148,13 @@ def _load_rows(args: argparse.Namespace) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 2
     print(summary.model_dump_json())
-    return record_rows(
+    code = record_rows(
         args,
         lambda date, sha: load_rows(
             summary, date=date, git_sha=sha, system=args.system, config=args.config
         ),
     )
+    # Rows first: a run that fails the check is still a measured run.
+    for line in breaches(summary):
+        print(f"chaos check failed: {line}", file=sys.stderr)
+    return code or (1 if breaches(summary) else 0)

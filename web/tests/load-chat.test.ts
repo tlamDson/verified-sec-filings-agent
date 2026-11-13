@@ -121,9 +121,18 @@ it("keeps uninterrupted conversations out of the interrupted recovery metric", (
 it("fails the run when turns or recoveries fail too often", async () => {
   const script = path.resolve(import.meta.dirname, "../../infra/load/chat.js");
   const { options } = await import(/* @vite-ignore */ script);
-  expect(Object.keys(options.thresholds).sort()).toEqual([
-    "interrupted_resume_failed",
-    "resume_failed",
-    "turn_failed",
-  ]);
+  // The plan's check: error rate under the limit, conversations resume. 5% is this PR's
+  // limit, the same as `sec_agent.chaos.acceptance.ERROR_RATE_LIMIT`.
+  expect(options.thresholds).toEqual({
+    turn_failed: ["rate<0.05"],
+    resume_failed: ["rate<0.05"],
+    interrupted_resume_failed: ["rate<0.05"],
+  });
+});
+
+it("holds 200 simulated users at the peak unless told otherwise", async () => {
+  const script = path.resolve(import.meta.dirname, "../../infra/load/chat.js");
+  const { options } = await import(/* @vite-ignore */ script);
+  const targets = options.scenarios.chat.stages.map((stage: { target: number }) => stage.target);
+  expect(Math.max(...targets)).toBe(200);
 });

@@ -165,3 +165,20 @@ def test_no_database_url_holds_a_password(repo_root: Path) -> None:
         assert "@" not in url, name
         if url:
             assert _env(service)["PGPASSWORD"].startswith("${POSTGRES_PASSWORD:?"), name
+
+
+def test_k6_thresholds_use_the_acceptance_limit(repo_root: Path) -> None:
+    """The k6 thresholds and `sec_agent.chaos.acceptance` enforce the same limit."""
+    from sec_agent.chaos.acceptance import ERROR_RATE_LIMIT
+    from sec_agent.chaos.k6_summary import INTERRUPTED_RESUME_FAILED, RESUME_FAILED, TURN_FAILED
+
+    block = re.search(r"thresholds: \{(.*?)\}", _text(repo_root, "chat.js"), re.S)
+    assert block is not None
+    found = dict(re.findall(r'(\w+): \["([^"]+)"\]', block.group(1)))
+    limit = f"rate<{ERROR_RATE_LIMIT}"
+    assert found == {TURN_FAILED: limit, RESUME_FAILED: limit, INTERRUPTED_RESUME_FAILED: limit}
+
+
+def test_chaos_script_does_not_swallow_a_failed_k6_run(repo_root: Path) -> None:
+    script = _text(repo_root, "chaos.sh")
+    assert not re.search(r'wait "\$K6" \|\| echo', script)
