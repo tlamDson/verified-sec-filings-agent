@@ -10,6 +10,13 @@ dependencies = [
     "pydantic>=2.12",
 ]
 
+[project.optional-dependencies]
+# Embedding model for `sec-agent index build|search` (GPU). Not needed by tests or CI.
+embed = [
+    "sentence-transformers>=5.1",
+    "torch>=2.8",
+]
+
 [project.scripts]
 sec-agent = "sec_agent.cli:main"
 

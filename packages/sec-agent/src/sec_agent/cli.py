@@ -7,6 +7,7 @@ from sec_agent import __version__
 from sec_agent.filings import cli as filings_cli
 from sec_agent.golden import cli as golden_cli
 from sec_agent.jobs import cli as jobs_cli
+from sec_agent.retrieval import cli as retrieval_cli
 from sec_agent.xbrl import cli as xbrl_cli
 
 
@@ -20,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     jobs_cli.add_commands(subparsers)
     filings_cli.add_commands(subparsers)
     xbrl_cli.add_commands(subparsers)
+    retrieval_cli.add_commands(subparsers)
     golden_cli.add_commands(subparsers)
     return parser
 
