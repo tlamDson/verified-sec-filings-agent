@@ -54,6 +54,15 @@ LATEST = (
     f"restated FROM facts_latest WHERE {_COMPANY} AND {_CONCEPT} {_ORDER}"
 ).encode()
 
+# The numeric tools' read: several companies and concepts, a few fiscal years, one query.
+# A version's fiscal label is its period's, so filtering after picking the latest is exact.
+LOOKUP = (
+    f"SELECT {_FACT_COLUMNS}, original_value, original_accession, original_filed, versions, "
+    "restated FROM facts_latest WHERE index_version = %(index_version)s "
+    "AND cik = ANY(%(ciks)s) AND concept = ANY(%(concepts)s) "
+    f"AND fiscal_year = ANY(%(fiscal_years)s) {_ORDER}"
+).encode()
+
 GET_INGEST = (
     b"SELECT entity_name, facts_written, report, ingested_at FROM xbrl_ingests "
     b"WHERE index_version = %(index_version)s AND cik = %(cik)s"

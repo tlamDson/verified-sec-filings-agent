@@ -241,6 +241,24 @@ G-ret questions ──► snapshot (verified before and after) ──► random 
 - **runs.csv.** `--record` appends one row per number: `N1` accuracy with its interval, `N1_mcnemar_p`, `R1_<metric>` with its interval, `R1_<metric>_diff` and `R1_<metric>_p`; cohort `none`, the git SHA, the questions' `index_version`.
 - CLI: `sec-agent eval numeric --split test --systems b0,b1`, `sec-agent eval retrieval run --snapshot S`, `sec-agent eval retrieval score --run R ... --baseline bm25 --oracle`.
 
+### Deterministic tools (built in s-08)
+
+Code: `sec_agent.tools`. The only places an answer's numbers and quotes come from. Each tool takes a Pydantic argument model (its JSON schema is what the agent and the MCP server show) and returns a Pydantic result; `tools.catalog` lists the five.
+
+```
+FactsContext (facts index_version) ──► get_fact · compute_ratio · compare_peers ──► PostgresFactStore.lookup ──► facts_latest
+TextContext (embedding space)      ──► search_filings ──► retrieval.search (hybrid; BM25 alone without an embedder)
+                                   └─► diff_risk_factors ──► filing_sections (10-K, 10-K/A Item 1A) + facts (fiscal labels)
+```
+
+- **Companies.** Ticker, CIK, name (suffixes such as "Inc." ignored) or a former ticker (`FB` → `META`) resolve to one CIK of the universe (E8); anything else is out of scope (E7), and a name shared by two companies is refused as ambiguous.
+- **get_fact.** One canonical concept, in its own unit (E5), for a fiscal year and period of the company's own calendar (E1): FY is the annual period, Q1–Q4 the quarter, `year_to_date` the six or nine months (Q4 year-to-date is the year); a balance at Q4 is the year-end balance and has no year-to-date. The value is the latest filed version, with the original value, filing and version count beside it (E2). A value not reported is the answer `not_reported` (E12); a name outside the canonical concepts is refused, with non-GAAP measures pointed to the text (E4).
+- **compute_ratio.** Gross, operating and net margin, effective tax rate, R&D and operating cash flow to revenue (percent), current ratio and liabilities to equity (times), and `yoy_growth` of any concept against the same fiscal period a year before. Both parts must be reported for exactly the same period and the denominator be positive (growth: the prior value not zero), else the result is `not_reported` or `undefined` with the reason. `Decimal`, rounded half-even to six places, the same formulas as the G-num answers.
+- **compare_peers.** One concept or ratio for two to ten companies, or a company's GICS sector, read with **one** SQL query. Each company on its own fiscal year (E3), every row with its period end and `same_period_end` saying whether they line up; equal values share a rank; a company without the value is listed unranked.
+- **search_filings.** Retrieval over the pinned space with company, form, section and report-date filters; every passage carries its citation key `accession/section/ordinal`, character span in the section text and filing URL. Defaults (configuration): 8 passages, at most 20.
+- **diff_risk_factors.** Item 1A of a 10-K against an earlier fiscal year's (default: the latest against the year before). A filing's fiscal year is the XBRL label of the year ending on its report date, else the report date's year (`fiscal_year_basis` says which); a 10-K/A with a new Item 1A supersedes the 10-K. Paragraphs equal after case and spacing are unchanged wherever they moved; the rest pair as `changed` most similar first while the Jaccard index of their word sets is at least 0.5 (configuration); the remainder is `added` or `removed`. Each change has its offsets for a citation. A missing year is `not_found`.
+- **In memory.** `MemoryFactQuery` applies the same latest-version rule to facts in memory, per company; a test holds it equal to the SQL lookup, so an eval run can read a fixture without a database.
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |
