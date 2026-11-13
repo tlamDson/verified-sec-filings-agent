@@ -88,6 +88,47 @@ def test_partial_lines_are_not_synonyms_for_totals(tag: str) -> None:
     assert ("us-gaap", tag) not in concepts_by_tag()
 
 
+@pytest.mark.parametrize(
+    ("name", "only_tag"),
+    [
+        # Total dividends cover common, preferred and noncontrolling holders.
+        ("dividends_paid", "PaymentsOfDividends"),
+        # Common-only dividends are their own concept, never the total.
+        ("dividends_paid_common", "PaymentsOfDividendsCommonStock"),
+        # Nonoperating interest leaves out interest charged to operations.
+        ("interest_expense", "InterestExpense"),
+        # The "...EquityMethodInvestments" pretax line is before equity-method income.
+        (
+            "pretax_income",
+            "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+        ),
+        # Marketable securities are one kind of short-term investment, not all of them.
+        ("short_term_investments", "ShortTermInvestments"),
+        ("marketable_securities_current", "MarketableSecuritiesCurrent"),
+        # Depreciation and amortization without depletion is narrower.
+        ("depreciation_amortization", "DepreciationDepletionAndAmortization"),
+    ],
+)
+def test_concepts_with_narrower_or_wider_lookalikes_keep_one_tag(name: str, only_tag: str) -> None:
+    assert [t.tag for t in concept(name).tags] == [only_tag]
+
+
+@pytest.mark.parametrize(
+    "tag",
+    [
+        "PaymentsOfDividendsPreferredStockAndPreferenceStock",
+        "PaymentsOfDividendsMinorityInterest",
+        "InterestExpenseNonoperating",
+        "InterestExpenseDebt",
+        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
+        "DepreciationAndAmortization",
+        "Depreciation",
+    ],
+)
+def test_parts_of_a_line_are_not_in_the_table(tag: str) -> None:
+    assert ("us-gaap", tag) not in concepts_by_tag()
+
+
 def test_unknown_concept_raises() -> None:
     with pytest.raises(KeyError):
         concept("adjusted_ebitda")

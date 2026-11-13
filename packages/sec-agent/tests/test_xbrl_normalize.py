@@ -228,6 +228,38 @@ def test_goods_only_revenue_and_cost_are_not_stored_as_totals() -> None:
     assert [f.concept for f in out.facts] == ["net_income"]
 
 
+def test_common_stock_dividends_are_not_stored_as_total_dividends() -> None:
+    # A filer with preferred stock: common-only dividends must never become the total.
+    period = "2023-01-01"
+    raw = document(
+        {
+            "PaymentsOfDividendsCommonStock": {"USD": [entry("2023-12-31", 80, A1, start=period)]},
+            "PaymentsOfDividendsPreferredStockAndPreferenceStock": {
+                "USD": [entry("2023-12-31", 20, A1, start=period)]
+            },
+        }
+    )
+    out = _run(raw)
+    assert [f.concept for f in out.facts] == ["dividends_paid_common"]
+    assert [f.value for f in out.facts] == [80]
+
+
+def test_total_and_common_dividends_are_kept_apart_in_one_filing() -> None:
+    period = "2023-01-01"
+    raw = document(
+        {
+            "PaymentsOfDividends": {"USD": [entry("2023-12-31", 100, A1, start=period)]},
+            "PaymentsOfDividendsCommonStock": {"USD": [entry("2023-12-31", 80, A1, start=period)]},
+        }
+    )
+    out = _run(raw)
+    assert {f.concept: f.value for f in out.facts} == {
+        "dividends_paid": 100,
+        "dividends_paid_common": 80,
+    }
+    assert out.report.lower_priority_tag == 0
+
+
 def test_tags_outside_the_table_are_ignored() -> None:
     raw = document(
         {
