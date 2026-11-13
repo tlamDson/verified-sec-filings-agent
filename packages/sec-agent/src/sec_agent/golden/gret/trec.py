@@ -1,7 +1,9 @@
-"""TREC text formats: runs in (`qid Q0 docid rank score system`), qrels out (`qid 0 docid grade`).
+"""TREC text formats: runs (`qid Q0 docid rank score system`) and qrels (`qid 0 docid grade`).
 
 The docid of a chunk is `accession/section/ordinal`; the index version is fixed per pool.
 """
+
+from collections.abc import Iterable
 
 from sec_agent.golden.gret.models import ChunkRef, RunHit
 
@@ -28,6 +30,11 @@ def _hit(line: str) -> RunHit:
     return RunHit(
         qid=qid, chunk=ChunkRef.parse(docid), rank=int(rank), score=float(score), system=system
     )
+
+
+def run_text(hits: Iterable[RunHit]) -> str:
+    """Hits as run lines, in the order given; `parse_run` reads them back."""
+    return "".join(f"{h.qid} Q0 {h.chunk.docid} {h.rank} {h.score:.6f} {h.system}\n" for h in hits)
 
 
 def qrels_text(lines: list[str]) -> str:

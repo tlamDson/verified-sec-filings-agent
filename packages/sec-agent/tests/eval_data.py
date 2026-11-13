@@ -56,7 +56,7 @@ def number_question(
 def peer_question(name: str, winner: str = "SIMB") -> NumQuestion:
     return NumQuestion.model_validate(
         {
-            "id": qid(name),
+            "id": qid(f"peer-{name}"),
             "split": "test",
             "qtype": "peer_comparison",
             "question": f"Which company reported the higher {name}: SIMW or SIMB?",

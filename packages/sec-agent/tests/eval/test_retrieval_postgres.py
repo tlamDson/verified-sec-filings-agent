@@ -7,17 +7,20 @@ from typing import Any
 
 import psycopg
 import pytest
+from eval_data import number_question
 from golden_data import split_company
 from retrieval_corpus import CIK_A, CONFIG, VERSION, store_corpus
 from retrieval_fakes import HASH_SPEC, HashEmbedder
 
 from sec_agent.cli import main
+from sec_agent.eval.numeric.passages import SearchPassages
 from sec_agent.eval.retrieval.postgres import CompanyChunks, random_ranker, search_ranker
 from sec_agent.golden.gret.models import RetQuestion
 from sec_agent.golden.gret.trec import parse_run
 from sec_agent.golden.jsonl import write_jsonl
 from sec_agent.golden.split import CompanySplit, write_split
 from sec_agent.retrieval.build import build_index
+from sec_agent.retrieval.models import EmbedderSpec
 from sec_agent.retrieval.schema import apply_schema
 from sec_agent.retrieval.snapshot import create_snapshot
 from sec_agent.retrieval.space import make_space
@@ -26,6 +29,10 @@ Conn = psycopg.Connection[Any]
 QUESTION = RetQuestion(
     id="q-001", ticker="SIMW", question="supplier risk", written_on=dt.date(2026, 1, 1)
 )
+
+
+def _fake_embedder(spec: EmbedderSpec, device: str | None) -> HashEmbedder:
+    return HashEmbedder(spec)
 
 
 @pytest.fixture
@@ -82,9 +89,7 @@ def test_eval_retrieval_run_writes_one_run_per_system(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     create_snapshot(conn, "eval-1", make_space(VERSION, HASH_SPEC))
-    monkeypatch.setattr(
-        "sec_agent.eval.retrieval_cli.query_embedder", lambda spec, device: HashEmbedder(spec)
-    )
+    monkeypatch.setattr("sec_agent.eval.retrieval_cli.query_embedder", _fake_embedder)
     split = CompanySplit(
         seed=1, universe_sha256="0" * 64, companies=(split_company("SIMW", int(CIK_A), "test"),)
     )
@@ -111,3 +116,12 @@ def test_eval_retrieval_run_refuses_an_unknown_snapshot(
     args += ["--out-dir", str(tmp_path)]
     assert main(args) == 1
     assert "nope" in capsys.readouterr().err
+
+
+def test_b1_passages_come_from_the_question_companies(conn: Conn) -> None:
+    question = number_question("revenue", "1")  # about SIMW, CIK_A
+    source = SearchPassages(conn, make_space(VERSION, HASH_SPEC), HashEmbedder())
+    passages = source.passages(question, 3)
+    assert 0 < len(passages) <= 3
+    assert {p.docid.split("/")[0] for p in passages} <= _accessions(conn, CIK_A)
+    assert all(p.text for p in passages)
