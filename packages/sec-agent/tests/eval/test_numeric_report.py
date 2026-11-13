@@ -76,10 +76,17 @@ def test_only_questions_every_system_answered_are_scored() -> None:
     assert [s.n for s in report.systems] == [3, 3]
 
 
-def test_the_latest_record_of_a_question_counts() -> None:
+def test_two_answers_to_one_question_are_refused_not_guessed() -> None:
     fixed = _record(COGS, "b0", RIGHT.format(v=40, u="USD"), at=5)
-    report = numeric_report(QUESTIONS, {"b0": [*B0, fixed]})
-    assert report.systems[0].correct == 2
+    with pytest.raises(ValueError, match="two answers"):
+        numeric_report(QUESTIONS, {"b0": [*B0, fixed]})
+
+
+def test_results_mixing_models_are_refused() -> None:
+    other = _record(COGS, "b0", RIGHT.format(v=40, u="USD"), model="m2")
+    records = [r for r in B0 if r.qid != COGS.id] + [other]
+    with pytest.raises(ValueError, match="mix models"):
+        numeric_report(QUESTIONS, {"b0": records})
 
 
 def test_answers_to_questions_outside_the_set_are_ignored() -> None:

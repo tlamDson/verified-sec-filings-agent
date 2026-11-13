@@ -2,8 +2,9 @@
 type, and an exact McNemar test for every pair of systems.
 
 Systems are compared on the same questions: those of the set every system has an answer
-for (the latest record of a question counts). How many each system lacks is reported, so
-a short run shows as a smaller N, never as a better accuracy.
+for. How many each system lacks is reported, so a short run shows as a smaller N, never as
+a better accuracy. A system's results must hold one answer per question, all from one
+model (as `runner.run_numeric` writes them); anything else is refused rather than guessed.
 """
 
 from collections import Counter
@@ -61,7 +62,7 @@ def numeric_report(
 ) -> NumericReport:
     """`records`: system -> its answer records, systems in the order to report them."""
     by_id = {q.id: q for q in questions}
-    latest = {system: _latest(system, rs, by_id) for system, rs in records.items()}
+    latest = {system: _answers(system, rs, by_id) for system, rs in records.items()}
     answered = set(by_id)
     for answers in latest.values():
         answered &= set(answers)
@@ -96,15 +97,24 @@ def numeric_report(
     )
 
 
-def _latest(
+def _answers(
     system: str, records: Sequence[AnswerRecord], questions: Mapping[str, NumQuestion]
 ) -> dict[str, AnswerRecord]:
     out: dict[str, AnswerRecord] = {}
-    for record in sorted(records, key=lambda r: r.answered_at):
+    for record in records:
         if record.system != system:
             raise ValueError(f"results of {system} hold an answer of {record.system}")
-        if record.qid in questions:
-            out[record.qid] = record
+        if record.qid not in questions:
+            continue
+        if record.qid in out:
+            raise ValueError(
+                f"results of {system} hold two answers to {record.qid}; rerun the system"
+                " so its results hold only the answers of one model and prompt"
+            )
+        out[record.qid] = record
+    models = sorted({r.model for r in out.values()})
+    if len(models) > 1:
+        raise ValueError(f"results of {system} mix models {models}; rerun with one model")
     return out
 
 

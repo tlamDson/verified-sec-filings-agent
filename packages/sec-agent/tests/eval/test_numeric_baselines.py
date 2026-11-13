@@ -8,7 +8,8 @@ import pytest
 from eval_data import number_question, peer_question
 
 from sec_agent.eval.numeric.baselines import B0, B1, Message, Passage
-from sec_agent.eval.numeric.runner import AnswerRecord, prompt_sha256, run_numeric
+from sec_agent.eval.numeric.report import numeric_report
+from sec_agent.eval.numeric.runner import AnswerRecord, cache_path, prompt_sha256, run_numeric
 from sec_agent.golden.gnum.models import NumQuestion
 from sec_agent.golden.jsonl import read_jsonl
 
@@ -102,8 +103,58 @@ def test_rerun_hits_the_cache_unless_model_or_prompt_changed(tmp_path: Path) -> 
     assert (other.asked, other.cached) == (1, 0)
 
 
-def test_run_refuses_a_results_file_of_another_system(tmp_path: Path) -> None:
+def test_run_refuses_a_cache_of_another_system(tmp_path: Path) -> None:
     results = tmp_path / "b0.jsonl"
     run_numeric([REVENUE], B0(), FakeModel(), results=results, now=lambda: NOW)
     with pytest.raises(ValueError, match="b0"):
         run_numeric([REVENUE], B1(FakePassages()), FakeModel(), results=results, now=lambda: NOW)
+
+
+def test_cache_sits_beside_the_results() -> None:
+    assert cache_path(Path("results/numeric/test/b0.jsonl")) == Path(
+        "results/numeric/test/b0.cache.jsonl"
+    )
+
+
+def test_rerun_of_an_earlier_model_scores_that_model(tmp_path: Path) -> None:
+    """A then B then A again: every A answer is cached, and A's answers are what is scored."""
+    results = tmp_path / "b0.jsonl"
+    right = (
+        '{"answer": "number", "value": 60922000000, "unit": "USD",'
+        ' "fiscal_year": 2024, "fiscal_period": "FY"}'
+    )
+    run_numeric([REVENUE], B0(), FakeModel(right, name="a"), results=results, now=lambda: NOW)
+    later = NOW + dt.timedelta(hours=1)
+    run_numeric([REVENUE], B0(), FakeModel(name="b"), results=results, now=lambda: later)
+    again = FakeModel(right, name="a")
+    summary = run_numeric([REVENUE], B0(), again, results=results, now=lambda: later)
+    assert (summary.asked, summary.cached, again.prompts) == (0, 1, [])
+    records = read_jsonl(results, AnswerRecord)
+    assert [(r.qid, r.model) for r in records] == [(REVENUE.id, "a")]
+    report = numeric_report([REVENUE], {"b0": records})
+    assert (report.systems[0].models, report.systems[0].correct) == (("a",), 1)
+    assert len(read_jsonl(cache_path(results), AnswerRecord)) == 2
+
+
+class _Prompted:
+    """A system whose instructions can change, to show a reverted prompt is cached."""
+
+    name = "b0"
+
+    def __init__(self, extra: str) -> None:
+        self._extra = extra
+
+    def prompt(self, question: NumQuestion) -> list[Message]:
+        return [Message(role="system", content=self._extra), *B0().prompt(question)[1:]]
+
+
+def test_rerun_of_an_earlier_prompt_scores_that_prompt(tmp_path: Path) -> None:
+    results = tmp_path / "b0.jsonl"
+    model = FakeModel()
+    run_numeric([REVENUE], _Prompted("one"), model, results=results, now=lambda: NOW)
+    later = NOW + dt.timedelta(hours=1)
+    run_numeric([REVENUE], _Prompted("two"), model, results=results, now=lambda: later)
+    summary = run_numeric([REVENUE], _Prompted("one"), model, results=results, now=lambda: later)
+    assert (summary.asked, summary.cached) == (0, 1)
+    (record,) = read_jsonl(results, AnswerRecord)
+    assert record.prompt_sha256 == prompt_sha256(_Prompted("one").prompt(REVENUE))
