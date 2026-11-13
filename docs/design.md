@@ -378,6 +378,24 @@ invoke_agent sec-agent            Agent.ask: conversation id, turn, status, reas
 - **No content.** Spans hold names, ids, counts, timings and error codes, never a question, an answer, a prompt or a tool result, and no error's text is exported: a failed span carries a code of ours in `error.type` (router outcome, degraded reason, refusal code, exception type) and no status description, since a provider's or an exception's message may quote a URL, a key or a response body.
 - **The L1 table.** `sec-agent traces table spans.jsonl` prints p50 and p95 latency per step (`turn` end to end, `llm_call`, `chat:<provider>`, `tool:<name>`, and `agent_overhead`: the turn minus its model calls and tools) with the count of failed spans, and tokens per question (input, output, total summed over the turn's provider calls, as the providers reported them). Failed spans stay in the latency, since a timeout is time a user waited. Percentiles interpolate between closest ranks (type 7). `--record runs.csv --system S --split X --cohort C` appends the rows (`L1.latency_p95.turn`, `L1.tokens_per_question_mean.total`, ...); traffic from simulated users is recorded as cohort `simulated`, never `real`.
 
+### Deployment (built in s-19)
+
+Code: `infra/terraform/`, `infra/hf-space/`, `.github/workflows/deploy-api.yml`, `.github/workflows/terraform.yml`. Everything runs on free plans with no card attached: Neon (Postgres), Vercel Hobby (web app), a Hugging Face Docker Space on free CPU (API). Azure is not used: the school tenant blocks the Azure CLI and service principals.
+
+```
+terraform apply (owner's machine; NEON_API_KEY, VERCEL_API_TOKEN)
+  ├─ neon_project: Postgres 17, 0.25–1 CU, scales to zero after 5 minutes, 6-hour history
+  └─ vercel_project web/ (Next.js) + API_BASE_URL, NEXTAUTH_URL, API_AUTH_SECRET, NEXTAUTH_SECRET
+GitHub Actions "Deploy API" (main or manual; secret HF_TOKEN, variable HF_SPACE)
+  stage Dockerfile, start.sh, pyproject.toml, uv.lock, packages/sec-agent ──► Space secrets ──► git push
+Space: agent init ─► api init ─► api serve --lexical --facts-version $FACTS_VERSION on port 7860
+```
+
+- **Terraform.** Providers `kislerdm/neon` and `vercel/vercel` are pinned in `.terraform.lock.hcl`. Tokens come from the environment, values from a git-ignored `terraform.tfvars` (`terraform.tfvars.example` holds placeholders), and state stays local and git-ignored. `API_BASE_URL` is derived from the Space id (`owner/name` → `https://owner-name.hf.space`). The output `database_url` is sensitive; it becomes the GitHub secret `DATABASE_URL`, which the workflow copies to the Space. The `Terraform` workflow only formats and validates; plan and apply need the owner's tokens.
+- **Space image.** Python 3.12 slim with uv 0.10.9, `uv sync --locked --no-dev`, run as uid 1000. The `embed` extra (torch, the embedding model) is left out, so the Space searches filing text with BM25 only (`--lexical`). The start script creates the agent and API tables and serves one replica; the facts and text index are loaded into Neon from the owner's machine beforehand, and the replica refuses to start while the pinned facts version is missing.
+- **Deploy workflow.** It never runs on pull requests, so a fork never sees `HF_TOKEN`. It creates the Space when missing, copies `DATABASE_URL`, `API_AUTH_SECRET`, `LLM_PROVIDERS`, `SEC_USER_AGENT` and `FACTS_VERSION` when they are set in GitHub (a value not set there is left as the Space has it), and pushes one commit. The Space holds only deploy snapshots, so each push replaces its history. Its job name is not one of the required checks.
+- **Free-plan limits.** Every figure in this section is configuration, not a measurement. A free Space sleeps when unused; the first question after that is a cold start (see Failure modes). Free-plan quotas are the providers' and are not measured here.
+
 ### Simulated users (built in s-21)
 
 Code: `sec_agent.simusers`, and `sec-agent api cohorts` in `sec_agent.api`. Every count below is simulated traffic, cohort `simulated`.

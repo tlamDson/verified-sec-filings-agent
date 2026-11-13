@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars (git-ignored) and fill in. Tokens go in the environment:
+# NEON_API_KEY and VERCEL_API_TOKEN.
+hf_space        = "your-hf-user/sec-agent-api"
+api_auth_secret = "change-me-to-the-same-secret-as-the-space"
+nextauth_secret = "change-me-to-another-random-secret"
+# github_repo        = "your-github-user/verified-sec-filings-agent"
+# auth_github_id     = ""
+# auth_github_secret = "change-me-or-leave-unset"

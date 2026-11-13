@@ -13,7 +13,8 @@
       "!**/next-env.d.ts",
       "!**/.venv",
       "!**/*.py",
-      "!**/tests/fixtures"
+      "!**/tests/fixtures",
+      "!infra/hf-space/README.md"
     ]
   },
   "formatter": {
