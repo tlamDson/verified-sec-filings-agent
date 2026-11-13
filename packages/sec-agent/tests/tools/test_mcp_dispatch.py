@@ -25,7 +25,9 @@ def _error(ctx: FactsContext, name: str, arguments: dict[str, Any] | None) -> di
 
 
 def test_get_fact_returns_the_json_result_with_exact_value(facts_ctx: FactsContext) -> None:
-    payload = _ok(facts_ctx, "get_fact", {"company": "AAPL", "concept": "revenue", "fiscal_year": 2024})
+    payload = _ok(
+        facts_ctx, "get_fact", {"company": "AAPL", "concept": "revenue", "fiscal_year": 2024}
+    )
     assert payload["status"] == "found"
     fact = payload["fact"]
     assert fact["value"] == "391035000000"  # a decimal string: never rounded through a float
@@ -36,7 +38,9 @@ def test_get_fact_returns_the_json_result_with_exact_value(facts_ctx: FactsConte
 
 def test_compute_ratio_and_compare_peers_dispatch(facts_ctx: FactsContext) -> None:
     ratio = _ok(
-        facts_ctx, "compute_ratio", {"company": "AAPL", "ratio": "gross_margin", "fiscal_year": 2024}
+        facts_ctx,
+        "compute_ratio",
+        {"company": "AAPL", "ratio": "gross_margin", "fiscal_year": 2024},
     )
     assert ratio["value"] == "46.206350"
     peers = _ok(
@@ -55,7 +59,9 @@ def test_json_lists_and_numeric_strings_are_accepted(facts_ctx: FactsContext) ->
 
 
 def test_not_reported_is_a_result_not_an_error(facts_ctx: FactsContext) -> None:
-    payload = _ok(facts_ctx, "get_fact", {"company": "AAPL", "concept": "revenue", "fiscal_year": 2030})
+    payload = _ok(
+        facts_ctx, "get_fact", {"company": "AAPL", "concept": "revenue", "fiscal_year": 2030}
+    )
     assert payload["status"] == "not_reported"
     assert payload["fact"] is None
 
