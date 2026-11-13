@@ -51,7 +51,10 @@ def test_a_figure_is_read_with_its_scale_precision_and_unit(
     assert not mention.signed
 
 
-@pytest.mark.parametrize("text", ["Revenue fell (2.5)%.", "Revenue changed by -2.5%."])
+@pytest.mark.parametrize(
+    "text",
+    ["Revenue fell (2.5)%.", "Revenue changed by -2.5%.", "Revenue changed by \u22122.5%."],
+)
 def test_an_explicit_sign_is_kept(text: str) -> None:
     mention = _number(text)
     assert (mention.value, mention.signed, mention.unit) == (Decimal("-2.5"), True, "percent")
@@ -146,3 +149,10 @@ def test_a_bracket_without_a_citation_key_is_ordinary_text() -> None:
 def test_offsets_are_shifted_by_the_sentence_start() -> None:
     mention = scan("Margin was 46.2%.", offset=100).numbers[0]
     assert (mention.start, mention.end) == (111, 116)
+
+
+@pytest.mark.parametrize(
+    "text", ["Its H100 and A17 chips.", "COVID-19 hurt sales.", "It sells 5G phones."]
+)
+def test_digits_inside_a_name_are_not_figures(text: str) -> None:
+    assert scan(text).numbers == ()

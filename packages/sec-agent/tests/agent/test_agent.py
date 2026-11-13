@@ -254,7 +254,7 @@ def test_calls_beyond_the_limit_of_one_reply_are_refused_and_not_run(
 )
 def test_limits_must_be_positive(field: str) -> None:
     with pytest.raises(ValueError, match=field):
-        AgentConfig(**{field: 0})
+        AgentConfig.model_validate({field: 0})
 
 
 def test_one_llm_call_is_not_enough_to_use_a_tool() -> None:

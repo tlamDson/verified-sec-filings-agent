@@ -1,8 +1,9 @@
 """What one turn returns: the text, how it ended, and the record behind it.
 
 `evidence` is every tool result of the turn, exactly as the model saw it: the only place
-a number in `text` may come from. `llm_calls` says which provider answered each model
-call and what it used.
+a number in `text` may come from. `draft` is what the model wrote and `faithfulness` what
+the checker traced of it; `text` is what the user is shown. `llm_calls` says which
+provider answered each model call and what it used.
 """
 
 import datetime as dt
@@ -10,10 +11,13 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from sec_agent.faithfulness.models import FaithfulnessReport
 from sec_agent.llm.attempts import Attempt
 
-Status = Literal["answered", "step_limit", "degraded"]
-Reason = Literal["max_llm_calls", "llm_unavailable", "empty_reply", "truncated_reply"]
+Status = Literal["answered", "step_limit", "degraded", "blocked"]
+Reason = Literal[
+    "max_llm_calls", "llm_unavailable", "empty_reply", "truncated_reply", "untraced_figures"
+]
 
 
 class Evidence(BaseModel):
@@ -53,6 +57,11 @@ class Answer(BaseModel):
     reason: Reason | None
     """Why the model's answer is missing; None when `status` is answered."""
     text: str
-    """The model's answer, or a fixed notice when it wrote none."""
+    """What the user is shown: the model's answer as the checker passed it, or a fixed
+    notice when the model wrote none or the checker blocked it."""
+    draft: str | None = None
+    """The model's answer before the check; None when it wrote none."""
+    faithfulness: FaithfulnessReport | None = None
+    """The check of `draft`; None when there was no draft or checking is off."""
     evidence: tuple[Evidence, ...]
     llm_calls: tuple[LLMCall, ...]
