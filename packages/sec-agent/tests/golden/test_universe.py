@@ -53,3 +53,14 @@ def test_universe_digest_changes_with_any_company_field() -> None:
     assert universe_digest((a,)) == universe_digest((a,))
     assert universe_digest((a,)) != universe_digest((b,))
     assert len(universe_digest((a,))) == 64
+
+
+def test_fiscal_year_end_comes_from_sec_and_marks_off_calendar_years() -> None:
+    by_ticker = {c.ticker: c for c in load_universe()}
+    assert by_ticker["AAPL"].fiscal_year_end == "0926"
+    assert by_ticker["NVDA"].fiscal_year_end == "0131"
+    assert by_ticker["AAPL"].off_calendar
+    assert by_ticker["NVDA"].off_calendar
+    assert not by_ticker["JPM"].off_calendar
+    assert not by_ticker["JNJ"].off_calendar  # 52/53-week year ending near January 1
+    assert not by_ticker["INTC"].off_calendar  # 52/53-week year ending late December

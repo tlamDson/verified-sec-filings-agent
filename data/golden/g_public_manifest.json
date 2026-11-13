@@ -1,0 +1,19 @@
+{
+  "source": "https://github.com/patronus-ai/financebench (data/, open-source sample)",
+  "license": "cc-by-nc-4.0",
+  "license_source": "Hugging Face dataset card metadata, https://huggingface.co/datasets/PatronusAI/financebench; the GitHub repository states no licence",
+  "license_checked_on": "2026-11-13",
+  "license_note": "Creative Commons Attribution-NonCommercial 4.0: usable for this non-commercial evaluation with attribution. The files are not committed here; each user downloads them and the pins below must match.",
+  "answers_checked_on": null,
+  "answers_note": "not checked yet: compare each in-scope answer with the cited filing (and XBRL for numbers), record the result, then set answers_checked_on",
+  "files": {
+    "financebench_open_source.jsonl": {
+      "sha256": "a5a2aa673e573e55675fc3c0f9aa38c1cf59d2abc91edb077534f71f10a71877",
+      "rows": 150
+    },
+    "financebench_document_information.jsonl": {
+      "sha256": "1c69127783879de8cdadb159d2181f39bc3123b8e0ebf74031c3969d69189575",
+      "rows": 361
+    }
+  }
+}

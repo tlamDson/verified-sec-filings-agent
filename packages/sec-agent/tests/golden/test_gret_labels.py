@@ -89,7 +89,7 @@ class Console:
 
 def test_session_saves_each_grade_at_once_and_stops_on_quit() -> None:
     items = [_item("q-001", n) for n in range(3)]
-    console, saved = Console(["2", "q"]), []
+    console, saved = Console(["2", "q"]), list[Label]()
     result = label_session(
         items, QUESTIONS, ask=console.ask, show=console.show, save=saved.append, now=lambda: NOW
     )
@@ -101,7 +101,7 @@ def test_session_saves_each_grade_at_once_and_stops_on_quit() -> None:
 
 def test_session_skips_reprompts_bad_input_and_stops_at_end_of_input() -> None:
     items = [_item("q-001", n) for n in range(3)]
-    console, saved = Console(["s", "7", "x", "1"]), []
+    console, saved = Console(["s", "7", "x", "1"]), list[Label]()
     result = label_session(
         items, QUESTIONS, ask=console.ask, show=console.show, save=saved.append, now=lambda: NOW
     )

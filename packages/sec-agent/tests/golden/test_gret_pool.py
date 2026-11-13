@@ -143,7 +143,8 @@ def test_pool_refuses_hits_for_unknown_questions(questions: list[RetQuestion]) -
 
 
 def test_attach_text_adds_the_chunk_text_and_its_hash(questions: list[RetQuestion]) -> None:
-    pool = build_pool(questions[:1], _hits(), depth=1, seed=1)
+    first = [h for h in _hits() if h.qid == "q-001"]
+    pool = build_pool(questions[:1], first, depth=1, seed=1)
     texts = {
         e.chunk: ChunkText(cik="9999999999", text=f"text of {e.chunk.docid}", text_sha256="a" * 64)
         for e in pool

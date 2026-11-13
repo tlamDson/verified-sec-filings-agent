@@ -119,3 +119,19 @@ def test_write_then_read_round_trips(tmp_path: Path, split: CompanySplit) -> Non
     write_split(path, split)
     assert read_split(path) == split
     assert path.read_text("utf-8").endswith("\n")
+
+
+def test_test_and_dev_each_hold_two_companies_with_off_calendar_fiscal_years(
+    split: CompanySplit,
+) -> None:
+    for name in ("test", "dev"):
+        assert sum(c.off_calendar for c in split.of(name)) >= 2, name
+
+
+def test_off_calendar_preference_falls_back_when_no_such_company_is_left() -> None:
+    sectors = ("Energy", "Utilities", "Materials", "Real Estate", "Financials")
+    december = tuple(
+        Company(ticker=f"T{i}", name=f"T{i}", sector=sectors[i % 5], cik=i + 1) for i in range(50)
+    )
+    split = build_split(december, seed=1)
+    assert len(split.of("test")) == len(split.of("dev")) == 10
