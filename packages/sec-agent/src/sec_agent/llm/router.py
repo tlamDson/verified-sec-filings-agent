@@ -131,7 +131,7 @@ class LLMRouter:
                 # otherwise (timeout, 5xx, broken reply) the provider may have spent tokens
                 # nobody reported: the hold stays, so the count can only err on the safe side
                 attempts.append(Attempt(name, outcome, str(error)))
-                failed(span, outcome, str(error))
+                failed(span, outcome)  # the outcome code only: the error's text stays here
                 return None
             except BaseException:  # a bug or a cancel says nothing about the provider
                 breaker.release(permit)  # the hold stays: the call went out, its cost is unknown

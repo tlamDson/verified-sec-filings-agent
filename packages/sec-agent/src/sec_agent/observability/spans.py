@@ -117,10 +117,12 @@ def tool_span(tracer: Tracer, name: str, call_id: str) -> Generator[Span]:
         yield span
 
 
-def failed(span: Span, error_type: str, description: str | None = None) -> None:
-    """Mark a span failed with a code (`error.type`) and, optionally, a short reason."""
+def failed(span: Span, error_type: str) -> None:
+    """Mark a span failed with a code of ours (`error.type`) and no description: an
+    error's text (a provider's, a tool's) is not exported, since it may quote a URL, a
+    key or a response body."""
     span.set_attribute(c.ERROR_TYPE, error_type)
-    span.set_status(Status(StatusCode.ERROR, description))
+    span.set_status(Status(StatusCode.ERROR))
 
 
 @contextmanager
