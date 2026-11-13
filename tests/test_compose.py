@@ -29,6 +29,21 @@ def test_init_sql_creates_both_extensions(repo_root: Path) -> None:
     assert "CREATE EXTENSION IF NOT EXISTS pg_search" in sql
 
 
+def test_init_dir_is_mounted_into_postgres_entrypoint(repo_root: Path) -> None:
+    """Without this mount the init SQL never runs and neither extension is created."""
+    mounts: list[tuple[Path, str, str]] = []
+    for volume in _services(repo_root)["postgres"]["volumes"]:
+        source, target, *mode = str(volume).split(":")
+        mounts.append(((repo_root / source).resolve(), target, mode[0] if mode else "rw"))
+    init_dir = (repo_root / "infra" / "postgres" / "init").resolve()
+    assert (init_dir, "/docker-entrypoint-initdb.d", "ro") in mounts
+
+
+def test_postgres_password_has_no_committed_default(repo_root: Path) -> None:
+    password = str(_services(repo_root)["postgres"]["environment"]["POSTGRES_PASSWORD"])
+    assert password.startswith("${POSTGRES_PASSWORD:?")
+
+
 def test_phoenix_is_pinned_and_exposes_ui_and_otlp(repo_root: Path) -> None:
     phoenix = _services(repo_root)["phoenix"]
     assert phoenix["image"].startswith("arizephoenix/phoenix:version-")

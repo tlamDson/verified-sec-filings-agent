@@ -7,7 +7,7 @@ services:
     image: paradedb/paradedb:0.26.3-pg17
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-sec}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sec}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}
       POSTGRES_DB: ${POSTGRES_DB:-sec}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
