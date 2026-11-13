@@ -1,0 +1,17 @@
+{
+  "name": "v1",
+  "space": "chunks-p1-t400-8462c38b.e-baai-bge-base-en-v1-5-d768-5faa5b5a",
+  "index_version": "chunks-p1-t400-8462c38b",
+  "spec": {
+    "model": "BAAI/bge-base-en-v1.5",
+    "dimensions": 768,
+    "normalized": true,
+    "query_prefix": "Represent this sentence for searching relevant passages: ",
+    "passage_prefix": "",
+    "max_input_tokens": 512
+  },
+  "chunk_count": 62753,
+  "filing_count": 1090,
+  "content_sha256": "6951c8e1bb9616f46005ef0a9dabf70b0b704d7461eaf98b7afae026a4a29ed7",
+  "created_at": "2026-11-13T20:17:20.465199Z"
+}
