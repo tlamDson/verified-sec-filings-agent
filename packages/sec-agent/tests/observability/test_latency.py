@@ -5,6 +5,7 @@ Timings and token counts below are simulated (hand-built spans), not measured.
 
 import datetime as dt
 from dataclasses import astuple
+from typing import Any
 
 import pytest
 from span_records import Trace, turn_trace
@@ -93,7 +94,8 @@ def test_failed_spans_are_counted_and_kept_in_the_latency() -> None:
 def test_provider_calls_outside_a_turn_count_as_calls_not_questions() -> None:
     """An eval baseline calls the router without the agent: latency yes, questions no."""
     trace = Trace(9)
-    trace.span("chat", 0, 70, **{"gen_ai.provider.name": "a", "gen_ai.usage.input_tokens": 9})
+    usage: dict[str, Any] = {"gen_ai.provider.name": "a", "gen_ai.usage.input_tokens": 9}
+    trace.span("chat", 0, 70, **usage)
     report = trace_report([*turn_trace(1, turn_ms=10, llm_ms=(8,)), *trace.records])
     steps = {s.step: s for s in report.steps}
     assert steps["chat:a"].n == 2

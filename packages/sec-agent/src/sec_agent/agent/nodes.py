@@ -1,10 +1,13 @@
 """The three steps of a turn: begin it, call the model, run the tools it asked for.
 
-Each step returns the state it changes; LangGraph checkpoints after each one.
+Each step returns the state it changes; LangGraph checkpoints after each one. A model call
+and each tool call are spans of the turn's trace (`observability.spans`).
 """
 
 import datetime as dt
 from typing import Any, Literal
+
+from opentelemetry.trace import Tracer
 
 from sec_agent.agent.answer import Evidence, LLMCall, Reason, Status
 from sec_agent.agent.config import AgentConfig
@@ -16,15 +19,19 @@ from sec_agent.agent.tool_runner import ToolRunner, refusal
 from sec_agent.llm.errors import AllProvidersFailedError
 from sec_agent.llm.messages import ChatRequest, Message, assistant, system, tool_result, user
 from sec_agent.llm.router import LLMRouter
+from sec_agent.observability.spans import failed, llm_call_span, tool_span
 
 Update = dict[str, Any]
 
 
 class TurnNodes:
-    def __init__(self, router: LLMRouter, tools: ToolRunner, config: AgentConfig) -> None:
+    def __init__(
+        self, router: LLMRouter, tools: ToolRunner, config: AgentConfig, tracer: Tracer
+    ) -> None:
         self._router = router
         self._tools = tools
         self._config = config
+        self._tracer = tracer
 
     def begin(self, state: AgentState) -> Update:
         """Start a turn: the question joins the conversation, the turn's record is reset."""
@@ -42,6 +49,15 @@ class TurnNodes:
         """One model call. It ends the turn unless the reply asks for tools."""
         calls = list(state.get("llm_calls", []))
         last_call = len(calls) + 1 >= self._config.max_llm_calls
+        with llm_call_span(self._tracer, tools_offered=not last_call) as span:
+            update = self._model_step(state, calls, last_call)
+            if update.get("status") == "degraded":
+                failed(span, update["reason"])
+        return update
+
+    def _model_step(
+        self, state: AgentState, calls: list[dict[str, Any]], last_call: bool
+    ) -> Update:
         request = ChatRequest(
             messages=self._prompt(state),
             tools=self._tools.schemas(),
@@ -89,10 +105,13 @@ class TurnNodes:
         results: list[Message] = []
         for index, call in enumerate(state.get("messages", [])[-1].get("tool_calls", [])):
             function = call["function"]
-            if index < limit:
-                output = self._tools.run(function["name"], function["arguments"])
-            else:
-                output = refusal("too_many_calls", f"at most {limit} tool calls in one reply")
+            with tool_span(self._tracer, function["name"], call["id"]) as span:
+                if index < limit:
+                    output = self._tools.run(function["name"], function["arguments"])
+                else:
+                    output = refusal("too_many_calls", f"at most {limit} tool calls in one reply")
+                if not output.ok:
+                    failed(span, output.code or "refused")
             results.append(tool_result(call["id"], output.content))
             record = Evidence(
                 call_id=call["id"],
