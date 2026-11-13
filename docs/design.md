@@ -1,0 +1,179 @@
+# System design: Verified SEC Filings Research Agent
+
+Version 0 (scaffold). This document is written before most of the system exists. It records the intended design and the reasons for it; later PRs update it as parts are built and measured.
+
+**About numbers in this document.** Measured results appear only in `runs.csv` and are quoted from there. No row exists yet, so this version contains no measured results. Every figure below is a **planning estimate** (marked _est._) or a fixed external limit (marked _limit_), with the arithmetic shown so it can be checked and replaced by a measurement later.
+
+## Problem
+
+An analyst reading a listed company's 10-K and 10-Q filings asks questions such as "How did NVIDIA's gross margin over three years compare with AMD's?" or "Which risk factors are new in this year's 10-K?". A plain LLM chatbot answers fluently but invents numbers or picks the wrong period (fiscal versus calendar year, original versus restated figure), and the reader cannot tell which sentences are right.
+
+The core idea: **numbers never come from the model.** Numbers come from deterministic tools over SEC XBRL data; text comes from hybrid retrieval with citations; an output checker blocks any figure it cannot trace to a tool result or a cited passage.
+
+## Requirements
+
+### Functional
+
+1. Answer numeric questions (value, year-over-year growth, ratios, peer comparison, tricky fiscal periods) from XBRL facts, with period end date and unit shown.
+2. Answer qualitative questions from filing text (Items 1, 1A, 7, 7A of 10-K; MD&A and Risk Factors of 10-Q) with citations to the exact passage.
+3. Check every number in an answer against tool results and cited passages; drop the sentence or block the answer when a number cannot be traced.
+4. Serve the same agent through a web chat (citations panel, charts, feedback), an MCP server, and a CLI for evaluation.
+5. Degrade gracefully when every LLM provider is out of quota: return a deterministic "fact card" (XBRL numbers, ratios, chart, cited passages) without LLM prose, and say so.
+6. Keep simulated users in their own cohort, end to end, from accounts to dashboards to `runs.csv`.
+
+### Non-functional
+
+| Concern         | Requirement                                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| Correctness     | No untraced number reaches the user (the faithfulness checker is the last gate).                                |
+| Cost            | $0: free tiers and local models only; no per-request billing.                                                   |
+| SEC fair access | At most 10 requests per second across all workers (_limit_, SEC policy), with a real contact in the User-Agent. |
+| Reproducibility | Every eval number is tied to a git SHA, an `index_version`, a split, and a config in `runs.csv`.                |
+| Availability    | API replicas are stateless; any replica can resume any conversation.                                            |
+| Observability   | One OpenTelemetry trace per question across API, agent, tools, and LLM calls.                                   |
+
+## Capacity estimates
+
+All values are _est._ from the plan's sampling choices; ingest and eval PRs replace them with measured rows in `runs.csv`.
+
+| Quantity                        | Estimate               | Derivation                                                                           |
+| ------------------------------- | ---------------------- | ------------------------------------------------------------------------------------ |
+| Companies                       | 50                     | 5 per GICS sector × 10 sectors, seeded sample of the S&P 100                         |
+| Filings                         | ~1,000                 | 50 companies × 5 fiscal years × (1 10-K + 3 10-Q), plus amendments                   |
+| Text chunks                     | ~40,000                | ~40 section chunks of ~400 tokens per filing                                         |
+| Annual XBRL facts               | ~7,500                 | ~30 core US-GAAP concepts × 50 companies × 5 years, plus quarterly facts             |
+| Vector storage                  | ~123 MB for d = 768    | 40,000 chunks × d dimensions × 4 bytes; scales linearly with the embedding model's d |
+| SEC requests for a full ingest  | a few thousand         | 1 submissions + 1 companyfacts per company, plus index and document pages per filing |
+| Minimum full-ingest fetch time  | minutes, not hours     | requests ÷ 10 per second; the raw cache makes re-runs free                           |
+| LLM calls per question          | ~4                     | tool selection, tool follow-up, answer, optional repair                              |
+| Questions per day in production | provider quota ÷ 4     | bounded by the free provider's daily quota, then degraded mode                       |
+| Eval cost with local Qwen       | ~1 minute per question | ~10,000 prompt + ~500 output tokens; the first night measures the real rate          |
+
+These sizes decide several choices below: ~40,000 chunks fit comfortably in pgvector inside the same Postgres as the facts, and SEC filings arrive daily, so batch ingest is enough.
+
+## Architecture
+
+```
+                 ┌──────────── Ingest (scheduled batch) ────────────┐
+SEC EDGAR ──►  scheduler ──► jobs (Postgres queue, SKIP LOCKED) ──► N ingest workers
+ (10 req/s)                                                         │  shared token bucket, 10 req/s
+                                                                    ▼
+                    raw cache (disk) ──► parse XBRL → facts │ parse HTML → sections → chunks
+                                                                    ▼
+                                   embed (GPU) ──► Postgres: facts, chunks, pgvector, BM25
+                                                    (every row carries index_version)
+
+                 ┌──────────── Query (online) ────────────┐
+Web (Next.js) / MCP client ──► API replicas ×2–3 (stateless, behind a load balancer)
+                                 │ per-user rate limit + global LLM semaphore
+                                 ▼
+                        LangGraph agent (checkpoints in Postgres)
+                         ├─ get_fact / compute_ratio / compare_peers ──► SQL
+                         ├─ search_filings ──► hybrid SQL ──► reranker (breaker, timeout)
+                         └─ LLM router ──► provider A │ B │ local (failover, per-provider quota)
+                                 ▼
+                        numeric faithfulness checker ──► streamed answer (SSE) with citations
+                                 │
+                          OpenTelemetry ──► Phoenix   │   answer cache (question, index_version, model)
+
+                 ┌──────────── Eval (offline: CI and nightly) ────────────┐
+golden sets ──► runner ──► results/*.json ──► CI gate (deterministic part) ──► runs.csv ──► README
+```
+
+### Components
+
+| Component             | Responsibility                                                                                            | Built in |
+| --------------------- | --------------------------------------------------------------------------------------------------------- | -------- |
+| EDGAR client          | Token bucket, User-Agent from `SEC_USER_AGENT`, raw cache, retry with jittered backoff                    | s-01     |
+| Job queue and workers | Postgres queue with leases and heartbeats; idempotent upserts keyed by accession number                   | s-02     |
+| XBRL parser           | companyfacts → facts; concept normalisation table; all amendment versions kept with filing date           | s-03     |
+| Filing parser         | 10-K/10-Q HTML → sections → ~400-token chunks, tagged with `index_version`                                | s-04     |
+| Retrieval             | Embeddings in pgvector (HNSW), BM25 via `pg_search` (fallback `tsvector`), RRF fusion in SQL              | s-05     |
+| Deterministic tools   | `get_fact`, `compute_ratio`, `compare_peers`, `search_filings`, `diff_risk_factors`                       | s-08     |
+| Agent and LLM router  | LangGraph state graph, Postgres checkpoints, OpenAI-compatible router with failover and quota             | s-09     |
+| Faithfulness checker  | Extract every number from an answer; match it to a tool result or cited passage, unit and period included | s-10     |
+| Web and API           | FastAPI SSE + Next.js chat, citations panel, charts, feedback, Auth.js, quotas, degraded mode             | s-17     |
+| Observability         | OpenTelemetry GenAI spans → Phoenix                                                                       | s-18     |
+
+### Data stores
+
+One Postgres 17 instance (ParadeDB image locally: pgvector and `pg_search` bundled) holds facts, chunks, vectors, the BM25 index, the job queue, and agent checkpoints. Locally it runs from `compose.yaml`; in production it is a free-tier managed Postgres. Phoenix stores traces separately.
+
+### Experiment record
+
+`runs.csv` is the single source of reported numbers. Columns (validated by `sec_agent.runs.RunRow`):
+
+| Column                             | Meaning                                                                           |
+| ---------------------------------- | --------------------------------------------------------------------------------- |
+| `date`, `git_sha`                  | When and at which commit the number was measured                                  |
+| `metric`                           | Metric ID from the plan (N1, N2, R1, C1, A1, J1, S1, G1, L1, U1) or a sub-metric  |
+| `system`                           | Configuration measured, e.g. `b0`, `b1`, `b2`, `bm25`, `hybrid+rerank`            |
+| `split`                            | `train`, `dev`, `test`, or `none`                                                 |
+| `cohort`                           | `real`, `simulated`, or `none`; user metrics (U*) must name `real` or `simulated` |
+| `n`, `value`, `unit`               | Sample size, the number, and its unit                                             |
+| `ci_low`, `ci_high`                | Confidence interval, both or neither; the value must lie inside                   |
+| `index_version`, `config`, `notes` | Index snapshot, configuration string, free text                                   |
+
+## Distributed concerns
+
+| Problem                                                                 | Approach                                                                                                                  | Concept                                                             |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Several ingest workers must not duplicate work or exceed SEC's 10 req/s | Postgres queue with `FOR UPDATE SKIP LOCKED`, one shared token bucket, idempotent upserts keyed by accession number       | work queue, at-least-once delivery + idempotency, global rate limit |
+| A worker dies mid-job                                                   | Jobs hold a lease renewed by heartbeat; an expired lease returns the job to the queue; keyed writes make re-runs harmless | lease, crash recovery, exactly-once effect                          |
+| Several API replicas must continue the same conversation                | Replicas hold no state; LangGraph checkpoints live in Postgres; any replica resumes                                       | stateless service, externalised state                               |
+| Two replicas resume one conversation at once                            | Versioned checkpoints with optimistic locking                                                                             | optimistic concurrency                                              |
+| Reindexing must not mix into answers in flight                          | Every fact and chunk carries `index_version`; each query pins one version; blue/green reindex, then switch the pointer    | versioned snapshot, blue/green                                      |
+| An LLM provider is slow, out of quota, or down                          | Router with per-provider circuit breaker and quota counter, ordered failover, per-step timeouts                           | failover, circuit breaker, bulkhead                                 |
+| Too many users at once                                                  | Per-user rate limit, global semaphore on concurrent LLM calls, queue with timeout, answer cache                           | backpressure, load shedding                                         |
+| Finding where time goes                                                 | OpenTelemetry trace across API → agent → tool → LLM                                                                       | distributed tracing                                                 |
+
+## Failure modes
+
+| Failure                                         | Effect                              | Mitigation                                                                                                  |
+| ----------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| SEC returns 429 or is unavailable               | Ingest stops or the IP is blocked   | Token bucket, jittered backoff, raw cache, idempotent re-runs                                               |
+| Companies tag XBRL differently, or wrongly      | Numeric answers wrong at the source | Tested concept normalisation table; questions that cannot be normalised are excluded and counted separately |
+| Restated figures (10-K/A)                       | Two "right answers" for one period  | Keep every version with its filing date; default rule in E2                                                 |
+| LLM invents a number or the wrong period        | The most serious error              | Numbers only from tools; faithfulness checker (N2); CI gate                                                 |
+| Prompt injection inside filing text             | Agent follows foreign instructions  | Source text marked as data, canary tokens, read-only tools, S1 test set                                     |
+| Reranker slow or down                           | Latency rises                       | Timeout, breaker, fall back to hybrid order                                                                 |
+| Embedding model differs between index and query | Retrieval silently wrong            | Store model name and `index_version` with the index; refuse queries on mismatch                             |
+| Cold start with zero minimum replicas           | First question slow                 | Reported separately in L1; warm-up health check                                                             |
+| Very long filings                               | Context overflow or token cost      | Only reranked chunks enter the prompt; token budget per step                                                |
+
+## Edge-case rules
+
+These decide what counts as the correct answer, so eval and product follow the same rule.
+
+| #   | Case                                   | Example                                   | Rule                                                                                                                                  |
+| --- | -------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| E1  | Fiscal year differs from calendar year | NVIDIA FY2024 ends January 2024           | Always use the fiscal year and show the period end date; for a calendar-year question, ask or state the assumption                    |
+| E2  | Restated figures                       | A 10-K/A corrects prior-year revenue      | Use the latest filed figure; note the original when it differs                                                                        |
+| E3  | Peers with different fiscal calendars  | Apple (September) and Microsoft (June)    | Compare each company's own fiscal year with a period-end column; no conversion to calendar years                                      |
+| E4  | Non-GAAP measures                      | "Adjusted EBITDA" is not in XBRL          | Answer only if the company reports it in text, with a citation and the label "non-GAAP, as reported by the company"; never compute it |
+| E5  | Units and scale                        | Thousands versus units; USD versus shares | Take units from XBRL; the checker rejects unit mismatches                                                                             |
+| E6  | Relative time                          | "last quarter", "this year"               | Anchor on the question date and state the concrete period used                                                                        |
+| E7  | Company outside the 50 in scope        | A small-cap company                       | Say it is out of scope; no ingest at question time                                                                                    |
+| E8  | Renames and mergers                    | FB → META; Activision into Microsoft      | Look up by CIK, with an alias table of names and tickers                                                                              |
+| E9  | Forecasts or investment advice         | "Should I buy NVDA?"                      | Decline to advise; still give historical figures with a disclaimer                                                                    |
+| E10 | Text and XBRL disagree                 | An MD&A table rounds differently          | XBRL wins for numbers; mention the gap when it exceeds a threshold                                                                    |
+| E11 | Segment versus consolidated figures    | Data Center segment revenue               | Prefer consolidated; segment figures only when asked explicitly, with a citation                                                      |
+| E12 | No answer exists                       | The figure is not disclosed               | Answer "not in the filings"; this counts as a correct answer                                                                          |
+
+## Non-goals
+
+Every component must be justified by a metric or a requirement. Deliberately left out:
+
+- **Kafka or streaming.** Filings arrive slowly, by day; batch ingest is enough.
+- **A separate vector database.** pgvector in the same Postgres as the facts handles ~40,000 chunks (_est._).
+- **Redis or BullMQ.** The Postgres queue does the job with one component fewer.
+- **Microservices beyond API, worker, and reranker.**
+- **Fine-tuning the LLM.** Only a small reranker is fine-tuned, and kept only if it beats the baseline.
+- **Multi-region or Kubernetes in the core.** k3d + Helm is an optional last step.
+
+## Open items
+
+- Measure local Qwen throughput on the first eval night and replace the eval-cost estimate.
+- Choose the production LLM provider by measuring free quotas.
+- Check FinanceBench licence and answers before using G-public.
+- Confirm free-tier database size limits against measured index size.

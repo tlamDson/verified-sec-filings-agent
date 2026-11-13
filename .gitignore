@@ -9,3 +9,13 @@ node_modules/
 data/raw/
 .worktrees/
 .claude/worktrees/
+
+# Python tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Web build output
+*.tsbuildinfo
+coverage/
+out/
+next-env.d.ts

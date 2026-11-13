@@ -1,0 +1,36 @@
+# Local stack. Start with: docker compose up -d
+name: sec-agent
+
+services:
+  postgres:
+    # ParadeDB = Postgres 17 with pg_search (BM25) and pgvector bundled.
+    image: paradedb/paradedb:0.26.3-pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sec}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sec}
+      POSTGRES_DB: ${POSTGRES_DB:-sec}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  phoenix:
+    # Arize Phoenix: trace UI and OTLP HTTP on 6006, OTLP gRPC on 4317.
+    image: arizephoenix/phoenix:version-20.27.0
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+    ports:
+      - "6006:6006"
+      - "4317:4317"
+    volumes:
+      - phoenix:/mnt/data
+
+volumes:
+  pgdata:
+  phoenix:

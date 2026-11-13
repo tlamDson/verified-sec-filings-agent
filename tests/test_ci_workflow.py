@@ -6,7 +6,7 @@ from typing import Any
 import yaml
 
 
-def _workflow(repo_root: Path) -> dict[str, Any]:
+def _workflow(repo_root: Path) -> dict[Any, Any]:
     return yaml.safe_load((repo_root / ".github" / "workflows" / "ci.yml").read_text("utf-8"))
 
 
@@ -37,5 +37,10 @@ def test_python_job_runs_lint_types_tests(repo_root: Path) -> None:
 
 def test_web_job_runs_lint_types_tests(repo_root: Path) -> None:
     run = _steps(repo_root, "Web checks")
-    for command in ("pnpm install --frozen-lockfile", "pnpm biome ci", "pnpm typecheck", "pnpm test"):
+    for command in (
+        "pnpm install --frozen-lockfile",
+        "pnpm biome ci",
+        "pnpm typecheck",
+        "pnpm test",
+    ):
         assert command in run

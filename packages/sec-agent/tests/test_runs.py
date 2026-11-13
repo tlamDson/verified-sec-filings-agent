@@ -31,13 +31,15 @@ def _row(**overrides: object) -> RunRow:
 
 
 def test_columns_follow_field_order() -> None:
-    assert RUNS_COLUMNS == tuple(RunRow.model_fields)
+    assert tuple(RunRow.model_fields) == RUNS_COLUMNS
 
 
 def test_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "runs.csv"
     first = _row()
-    second = _row(metric="U1", cohort="simulated", value=42, unit="sessions", ci_low=None, ci_high=None)
+    second = _row(
+        metric="U1", cohort="simulated", value=42, unit="sessions", ci_low=None, ci_high=None
+    )
     append_run(path, first)
     append_run(path, second)
     assert read_runs(path) == [first, second]

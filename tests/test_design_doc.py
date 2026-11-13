@@ -1,5 +1,6 @@
 """docs/design.md: the first system-design write-up."""
 
+import re
 from pathlib import Path
 
 REQUIRED_SECTIONS = (
@@ -22,4 +23,4 @@ def test_design_doc_has_required_sections(repo_root: Path) -> None:
 def test_design_doc_lists_every_edge_case(repo_root: Path) -> None:
     text = (repo_root / "docs" / "design.md").read_text("utf-8")
     for n in range(1, 13):
-        assert f"| E{n} |" in text, f"E{n}"
+        assert re.search(rf"^\|\s*E{n}\s*\|", text, re.MULTILINE), f"E{n}"
