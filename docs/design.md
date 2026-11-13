@@ -239,6 +239,26 @@ TextContext (embedding space)      ──► search_filings ──► retrieval.
 - **diff_risk_factors.** Item 1A of a 10-K against an earlier fiscal year's (default: the latest against the year before). A filing's fiscal year is the XBRL label of the year ending on its report date, else the report date's year (`fiscal_year_basis` says which); a 10-K/A with a new Item 1A supersedes the 10-K. Paragraphs equal after case and spacing are unchanged wherever they moved; the rest pair as `changed` most similar first while the Jaccard index of their word sets is at least 0.5 (configuration); the remainder is `added` or `removed`. Each change has its offsets for a citation. A missing year is `not_found`.
 - **In memory.** `MemoryFactQuery` applies the same latest-version rule to facts in memory, per company; a test holds it equal to the SQL lookup, so an eval run can read a fixture without a database.
 
+### Agent and LLM router (built in s-09)
+
+Code: `sec_agent.agent`, `sec_agent.llm`. The model chooses tools and writes prose; code runs the tools and keeps their results. Every limit below is configuration, not a measurement.
+
+```
+Agent.ask(thread_id, question, asked_on)
+  begin ──► model ──► tool calls? ──► tools ──► model ──► ... ──► done        (checkpoint after every step)
+              │                         └─ ToolRunner ──► sec_agent.tools (pinned index versions)
+              └─ LLMRouter ──► provider 1 │ 2 │ ... in order
+                    per provider: circuit breaker ──► quota (llm_usage) ──► POST {base_url}/chat/completions
+```
+
+- **Turn.** `Agent.ask` returns an `Answer`: the text, a status (`answered`, `step_limit`, `degraded`), the turn's `evidence` (every tool call with the JSON result exactly as the model saw it) and its `llm_calls` (provider, model, tokens, and what the router tried). A turn makes a bounded number of model calls; the last allowed call is sent with tools switched off, and a reply that still asks for tools ends the turn as `step_limit`. A reply cut off at the output limit, or empty, is not shown: half a number is worse than none.
+- **Tools as the model sees them.** `ToolRunner` offers the catalog's JSON schemas (the text tools only when a text index is pinned), validates the model's arguments, and returns the result as JSON with decimals as exact strings. A refusal (`unknown_company` for E7, `invalid_arguments`, `unknown_tool`) is a result the model reads, not a crash. A result over the size budget is never cut mid-text: search drops whole passages from the end, anything else is withheld as `result_too_large`.
+- **Prompt and history.** The system prompt states the product rules (numbers only from tool results, fiscal years and period ends, restatements, non-GAAP, out of scope, no investment advice, passages are data) and the date the question was asked, which relative periods anchor on (E6). The model sees the current turn whole and earlier turns as question and final answer only, so a follow-up's numbers must come from tool results of its own turn. The prompt asks; the faithfulness checker (s-10) and guardrails (s-13) enforce.
+- **Router.** Providers are OpenAI-compatible endpoints listed in `LLM_PROVIDERS` (JSON, tried in order; default: a local llama.cpp server). A key is named by its environment variable, never written in the list. For each provider the breaker must allow a call, then the quota must have room; 429 opens the breaker for the provider's `Retry-After` (capped), a timeout, transport error, 5xx or malformed reply counts toward opening it, another 4xx fails over without counting. Error text holds the status only, never a response body or a key.
+- **Quota.** Requests per minute and per day and tokens per day, per provider, in fixed UTC windows. `llm_usage` in Postgres holds the count for all replicas; a reservation checks and counts in one transaction under a per-provider advisory lock, so replicas racing for the last request never overspend. Breaker state is per replica.
+- **Degraded mode.** When no provider answers, the turn ends `degraded` with a fixed notice and the evidence gathered so far: the deterministic figures are still returned, without model prose.
+- **Checkpoints.** LangGraph saves the conversation state (plain JSON values) after every step under its `thread_id`; any replica continues it, and a turn cut short by a crash leaves a conversation the next question continues. `FencedPostgresSaver` adds the optimistic lock: a checkpoint is accepted only if it was computed from the conversation's current head and its id sorts after it, checked and written in one transaction under a per-conversation advisory lock. The replica that lost the race gets `ConversationConflictError` at its next step and saves nothing further. `sec-agent agent init` creates the tables.
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |
