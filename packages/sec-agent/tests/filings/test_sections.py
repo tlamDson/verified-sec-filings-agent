@@ -184,3 +184,25 @@ def test_mdna_title_variants(title: str) -> None:
         "Item 7A. Quantitative and Qualitative Disclosure of Market Risks",
     ]
     assert [s.key for s in find_sections(blocks, "10-K")] == ["mdna"]
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "Item 1A: Risk Factors in the simulated 2023 Form 10-K.",
+        "Item 7. Management's Discussion and Analysis in our 2023 Annual Report.",
+        "Item 1A. Risk Factors of this report.",
+        "Item 8. Financial Statements, incorporated herein by reference.",
+    ],
+)
+def test_cross_reference_lines_do_not_cut_the_section_they_stand_in(reference: str) -> None:
+    blocks = ["Item 1. Business", FILLER, reference, FILLER, "Item 1A. Risk Factors", FILLER]
+    found = _by_key(find_sections(blocks, "10-K"))
+    assert found["business"].text == "\n".join([FILLER, reference, FILLER])
+    assert found["risk_factors"].text == FILLER
+
+
+def test_a_title_that_names_a_form_is_still_a_heading() -> None:
+    blocks = ["Item 7A. Quantitative and Qualitative Disclosures About Market Risk", FILLER]
+    (market,) = find_sections([*blocks, "Item 16. Form 10-K Summary", "None."], "10-K")
+    assert market.text == FILLER

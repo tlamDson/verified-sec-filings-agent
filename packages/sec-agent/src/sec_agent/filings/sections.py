@@ -11,7 +11,8 @@ from its heading to the next heading of any item, a "PART" line, or "SIGNATURES"
 Item numbers repeat between 10-Q parts, so a section is matched by item number *and* title,
 and the title must be the whole rest of the heading (a page number and punctuation aside):
 "Item 1A: Risk Factors in our 2023 Form 10-K." is a cross-reference, not a section start.
-"(continued)" headings repeated at page tops are neither starts nor ends. Every item heading
+Cross-references and "(continued)" headings repeated at page tops are neither starts nor
+ends, so they cannot cut short the section they stand in. Every item heading
 appears at least twice (table of contents, then body); the candidate with the longest body
 wins, which skips the table of contents.
 """
@@ -39,6 +40,16 @@ _HEADING = re.compile(
 _ALSO_ITEM = re.compile(rf"(?:and|&|,)\s*\d{{1,2}}[a-c]?\s*[.:{_DASHES}]?\s*", re.IGNORECASE)
 _OTHER_BOUNDARY = re.compile(r"part\s+(?:iv|i{1,3})\b.*|signatures?|exhibit\s+index", re.IGNORECASE)
 _CONTINUED = re.compile(r"\bcontinued\b", re.IGNORECASE)
+# "Item 1A: Risk Factors in our 2023 Form 10-K." points to another document or place. It is
+# neither a section start nor a section end: as an end it would silently cut the section it
+# stands in. A real title may name a form ("Item 16. Form 10-K Summary"), so only a reference
+# introduced by a preposition counts.
+_CROSS_REFERENCE = re.compile(
+    r"\b(?:in|of|to|under|see)\b.{0,80}?"
+    r"\b(?:form\s+10-?[kq]|annual\s+report|quarterly\s+report|proxy\s+statement|this\s+report)\b"
+    r"|\bincorporated\b.{0,20}\bby\s+reference\b",
+    re.IGNORECASE,
+)
 # What may follow a title: punctuation and a table-of-contents page number.
 _TITLE_TAIL = re.compile(r"[\s.:;,]*(?:(?:page\s+)?\d{1,3})?[\s.]*", re.IGNORECASE)
 
@@ -126,6 +137,8 @@ def _parse_heading(index: int, block: str) -> _Heading | None:
     rest = match["rest"]
     if _CONTINUED.search(rest):
         return None  # "Item 7. MD&A (continued)" repeats a heading at a page top
+    if _CROSS_REFERENCE.search(rest):
+        return None
     if also := _ALSO_ITEM.match(rest):
         rest = rest[also.end() :]
     elif match["sep"] is None and rest and not rest[0].isupper():
