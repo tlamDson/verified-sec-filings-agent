@@ -95,6 +95,18 @@ def test_model_with_another_dimension_is_refused(fake_module: type[_Model]) -> N
         SentenceTransformerEmbedder(SPEC.model_copy(update={"dimensions": 768}))
 
 
+def test_newer_dimension_method_is_preferred(fake_module: type[_Model]) -> None:
+    class _Renamed(_Model):
+        def get_embedding_dimension(self) -> int:
+            return 3
+
+        def get_sentence_embedding_dimension(self) -> int:
+            raise AssertionError("deprecated name called")
+
+    sys.modules["sentence_transformers"].SentenceTransformer = _Renamed  # type: ignore[attr-defined]
+    assert SentenceTransformerEmbedder(SPEC).spec == SPEC
+
+
 def test_missing_package_says_how_to_install(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, "sentence_transformers", None)
     with pytest.raises(EmbedderUnavailableError, match="--extra embed"):

@@ -180,6 +180,28 @@ primary HTML (EdgarClient) ──► text blocks ──► sections ──► ch
 - **Defaults** (configuration, not measurements): 400 tokens per chunk; report window 2019-04-01 to 2025-01-31, a superset of FY2020–FY2024 under any fiscal calendar (exact fiscal years come from XBRL). CLI: `sec-agent filings init`, `sec-agent filings enqueue CIK… [--report-from] [--report-to]`, then `sec-agent worker`.
 - **Known gap.** Filings that put MD&A outside the item structure (an "Item 7" line that only points to an annual-report section elsewhere in the document) yield only that pointer text for the item.
 
+### Hybrid retrieval (built in s-05)
+
+Code: `sec_agent.retrieval`. A chunk build (`index_version`) becomes searchable once it is embedded into an **embedding space**: that build plus one model and its settings.
+
+```
+chunks (index_version) ──► build_index ──► chunk_embeddings (vector) + partial HNSW index per space
+                                      └──► chunk_lexical (tsvector, length) ──► lexical_df, lexical_stats
+query ──► dense arm (cosine, HNSW or exact) ─┐
+      └─► lexical arm (BM25 in SQL) ─────────┴─► RRF in SQL ──► hits with citation spans
+snapshot (name, space, SHA-256 of every chunk and vector) ──► pointer "serving" (blue/green)
+```
+
+- **Embedding space.** Named `<index_version>.e-<model>-d<dims>-<digest>`, the digest covering every setting that changes vectors: model id, dimensions, normalisation, query and passage prefixes, input limit. A new model or prefix is a new space built beside the old one. Default model: `BAAI/bge-base-en-v1.5` (768 dimensions, 512 input tokens, normalised, its documented query instruction), run locally with `sentence-transformers` on the GPU. It is the optional `embed` extra (`uv sync --all-packages --extra embed`); tests and CI use a deterministic hashing stand-in.
+- **Vectors.** One `vector` column without a fixed dimension, so spaces of different models share the table; each space gets a partial HNSW index (`m = 16`, `ef_construction = 64`, cosine) on `embedding::vector(<dims>)` `WHERE space = '<name>'`, as pgvector recommends for mixed dimensions. Each batch is checked before it is written: one vector per text, the space's dimension, finite values, unit length.
+- **Build.** `sec-agent index build` embeds only chunks with no vector in the space, in key order, one transaction per batch, so a re-run costs nothing and a crashed run resumes. A re-ingested filing loses its vectors by cascade and is embedded again. Passages longer than the model's input limit are counted in the build report (`truncated`), not hidden: chunk sizes use the model-free token proxy from s-04.
+- **Dense arm.** Without filters it walks the space's HNSW index, with `hnsw.ef_search` raised to cover the request. With any filter (company, form, section, report dates) it ranks every matching chunk exactly: an approximate scan followed by a selective filter would silently return fewer results, and one company's chunks are few. Exact ties (the same boilerplate in two filings) rank by chunk key.
+- **Lexical arm: BM25 in plain SQL.** Lexemes from `to_tsvector('english', …)`; Okapi BM25 with `k1 = 1.2`, `b = 0.75` and Lucene's non-negative idf, using per-version document frequencies and average length rebuilt by the build. A test checks every score against a Python BM25 over the same lexemes. The query is never parsed as `tsquery` syntax: its lexemes are quoted and joined with OR. `pg_search` is not used: plain SQL runs the same on the local ParadeDB image, the test Postgres and a managed free-tier Postgres.
+- **RRF in SQL.** Hybrid takes each arm's top `candidates` (default 50), adds `1 / (60 + rank)` per arm through a full outer join, and orders by that sum, then the best rank either arm gave, then chunk key: the order `rrf.rrf_fuse` defines, and a test holds the SQL equal to it. Modes `dense`, `lexical` and `hybrid` share one query, so the retrieval baselines in R1 differ only in the arm.
+- **Pinning and mismatch.** A query names one space; the stored space must equal it and the query embedder must have the same settings, or the search is refused (failure mode "embedding model differs between index and query"). Every hit carries `index_version`, accession, section, `char_start`/`char_end` into the section text, and the filing URL, so a citation points at an exact span.
+- **Snapshots for eval.** `sec-agent index snapshot NAME` records a space only when it is complete (every chunk has a vector and a lexical row, statistics match those rows), with chunk and filing counts and a SHA-256 over every chunk key, text hash and vector in key order. `--manifest` writes it as JSON for an eval run to keep beside its results. `verify` recomputes the digest; a name never moves to other content. `activate NAME` verifies, then points `serving` at it: switching the pointer is the blue/green cut-over.
+- **Defaults** (configuration, not measurements): batch 64, 10 results, 50 candidates per arm, RRF k = 60. CLI: `sec-agent index init`, `index build [--device cuda]`, `index snapshot NAME [--manifest PATH]`, `index verify NAME`, `index activate NAME`, `index search QUERY [--mode] [--cik] [--form] [--section] [--report-from] [--report-to] [--json]`.
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |

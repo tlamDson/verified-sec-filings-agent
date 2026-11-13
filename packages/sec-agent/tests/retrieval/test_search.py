@@ -150,7 +150,9 @@ def test_every_filter_applies_to_every_mode(
 def test_unfiltered_dense_query_can_use_the_hnsw_index(conn: Conn, space: EmbeddingSpace) -> None:
     qvec = vector_literal(hash_vector("query: x", HASH_SPEC.dimensions), HASH_SPEC.dimensions)
     with conn.transaction():
+        # The table is tiny, so make every other path look expensive: only usability counts.
         conn.execute(b"SET LOCAL enable_seqscan = off")
+        conn.execute(b"SET LOCAL enable_sort = off")
         rows = conn.execute(
             sql.SQL("EXPLAIN ") + dense_sql(space, filtered=False), {"qvec": qvec, "limit": 5}
         ).fetchall()

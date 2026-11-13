@@ -19,7 +19,7 @@ HASH_SPEC = EmbedderSpec(
     normalized=True,
     query_prefix="query: ",
     passage_prefix="passage: ",
-    max_input_tokens=40,
+    max_input_tokens=24,
 )
 
 
