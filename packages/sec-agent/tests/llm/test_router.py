@@ -15,11 +15,14 @@ from sec_agent.llm.errors import (
     ProviderResponseError,
     ProviderUnavailableError,
 )
-from sec_agent.llm.messages import ChatRequest, Usage
+from sec_agent.llm.messages import ChatRequest, Message, Usage
 from sec_agent.llm.quota import MemoryQuotaStore, QuotaLimits, QuotaUsage
 from sec_agent.llm.router import Attempt, LLMRouter
+from sec_agent.llm.token_bound import token_bound
 
 REQUEST = ChatRequest(messages=[{"role": "user", "content": "question"}])
+CAPPED = ChatRequest(messages=REQUEST.messages, max_tokens=64)
+TOKENS = QuotaLimits(tokens_per_day=10_000)
 DOWN = ProviderUnavailableError("503 from provider")
 
 
@@ -82,6 +85,93 @@ def test_each_call_counts_one_request_and_its_tokens_for_the_provider_that_ran()
     _router(a, b, clock=clock, quota=quota).complete(REQUEST)
     assert quota.usage("a", clock.now()) == QuotaUsage(1, 1, 0), "a failed call still used a slot"
     assert quota.usage("b", clock.now()) == QuotaUsage(1, 1, 931)
+
+
+def _bound(request: ChatRequest) -> int:
+    bound = token_bound(request)
+    assert bound is not None
+    return bound
+
+
+def test_a_call_in_flight_holds_its_token_bound_and_returns_what_it_did_not_use() -> None:
+    clock, quota = Clock(), MemoryQuotaStore()
+    in_flight: list[int] = []
+
+    def reply(request: ChatRequest) -> Message:
+        in_flight.append(quota.usage("a", clock.now()).day_tokens)
+        return says("ok")
+
+    a = ScriptedProvider("a", [reply], limits=TOKENS, usage=Usage(40, 7))
+    _router(a, clock=clock, quota=quota).complete(CAPPED)
+    assert in_flight == [_bound(CAPPED)], "held before the call went out"
+    assert _bound(CAPPED) > 47
+    assert quota.usage("a", clock.now()).day_tokens == 47, "settled to what the call used"
+
+
+def test_a_call_that_could_pass_the_token_quota_is_not_made() -> None:
+    clock, quota = Clock(), MemoryQuotaStore()
+    quota.settle("a", clock.now(), held=0, used=10_000 - _bound(CAPPED) + 1)
+    a = ScriptedProvider("a", limits=TOKENS)
+    b = ScriptedProvider("b", [says("from b")])
+    result = _router(a, b, clock=clock, quota=quota).complete(CAPPED)
+    assert [(x.provider, x.outcome) for x in result.attempts] == [
+        ("a", "quota_exhausted"),
+        ("b", "ok"),
+    ]
+    assert a.requests == []
+    assert quota.usage("a", clock.now()).day_requests == 0, "a refused call is not counted"
+
+
+def test_under_a_token_quota_a_request_without_an_output_limit_gets_one() -> None:
+    """Without a limit on the output, no bound on the call's tokens could be held."""
+    a = ScriptedProvider("a", [DOWN], limits=TOKENS)
+    b = ScriptedProvider("b", [says("from b")])
+    router = LLMRouter([a, b], quota=MemoryQuotaStore(), default_max_tokens=256)
+    router.complete(REQUEST)
+    assert a.requests[0].max_tokens == 256
+    assert a.requests[0].messages == REQUEST.messages
+    assert b.requests == [REQUEST], "a provider without a token quota gets the request as it is"
+
+
+def test_a_reply_that_reports_no_usage_is_charged_its_whole_bound() -> None:
+    clock, quota = Clock(), MemoryQuotaStore()
+    a = ScriptedProvider("a", [says("ok")], limits=TOKENS, usage=Usage(0, 0))
+    _router(a, clock=clock, quota=quota).complete(CAPPED)
+    assert quota.usage("a", clock.now()).day_tokens == _bound(CAPPED)
+
+
+def test_a_refused_call_returns_its_hold_and_a_call_of_unknown_outcome_keeps_it() -> None:
+    """429 and 4xx spent nothing; after a timeout or a broken reply nobody knows."""
+    clock, quota = Clock(), MemoryQuotaStore()
+    refused = ScriptedProvider(
+        "refused",
+        [ProviderRateLimitedError("429 from provider"), ProviderRejectedError("400 from provider")],
+        limits=TOKENS,
+    )
+    unknown = ScriptedProvider(
+        "unknown", [DOWN, ProviderResponseError("not a chat completion")], limits=TOKENS
+    )
+    last = ScriptedProvider("last", [says("1"), says("2")])
+    router = _router(refused, unknown, last, clock=clock, quota=quota)
+    router.complete(CAPPED)
+    clock.advance(30)  # the 429 opened the first breaker for its cooldown
+    router.complete(CAPPED)
+    assert quota.usage("refused", clock.now()).day_requests == 2
+    assert quota.usage("refused", clock.now()).day_tokens == 0
+    assert quota.usage("unknown", clock.now()).day_tokens == 2 * _bound(CAPPED)
+
+
+def test_a_provider_bug_keeps_the_hold_of_the_call_it_broke() -> None:
+    clock, quota = Clock(), MemoryQuotaStore()
+    a = ScriptedProvider("a", [ValueError("bug")], limits=TOKENS)
+    with pytest.raises(ValueError, match="bug"):
+        _router(a, clock=clock, quota=quota).complete(CAPPED)
+    assert quota.usage("a", clock.now()).day_tokens == _bound(CAPPED)
+
+
+def test_a_router_needs_a_positive_default_output_limit() -> None:
+    with pytest.raises(LLMConfigError, match="default_max_tokens"):
+        LLMRouter([ScriptedProvider("a")], quota=MemoryQuotaStore(), default_max_tokens=0)
 
 
 def test_repeated_failures_open_the_breaker_and_the_provider_is_left_alone() -> None:
