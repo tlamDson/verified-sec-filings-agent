@@ -3,7 +3,7 @@
 import pytest
 from llm_fakes import Clock
 
-from sec_agent.llm.breaker import BreakerConfig, CircuitBreaker
+from sec_agent.llm.breaker import BreakerConfig, CircuitBreaker, Permit
 
 CONFIG = BreakerConfig(failure_threshold=3, cooldown_seconds=30.0)
 
@@ -12,10 +12,15 @@ def _breaker(clock: Clock) -> CircuitBreaker:
     return CircuitBreaker(CONFIG, clock.monotonic)
 
 
+def _sent(breaker: CircuitBreaker) -> Permit:
+    permit = breaker.acquire()
+    assert permit is not None
+    return permit
+
+
 def _fail(breaker: CircuitBreaker, times: int) -> None:
     for _ in range(times):
-        assert breaker.acquire()
-        breaker.failure()
+        breaker.failure(_sent(breaker))
 
 
 def test_closed_breaker_lets_every_call_through() -> None:
@@ -37,8 +42,7 @@ def test_opens_after_consecutive_failures_and_refuses_calls() -> None:
 def test_a_success_resets_the_failure_count() -> None:
     breaker = _breaker(Clock())
     _fail(breaker, 2)
-    assert breaker.acquire()
-    breaker.success()
+    breaker.success(_sent(breaker))
     _fail(breaker, 2)
     assert breaker.state == "closed"
 
@@ -60,8 +64,7 @@ def test_a_successful_trial_closes_the_breaker() -> None:
     breaker = _breaker(clock)
     _fail(breaker, 3)
     clock.advance(30)
-    assert breaker.acquire()
-    breaker.success()
+    breaker.success(_sent(breaker))
     assert breaker.state == "closed"
     assert breaker.acquire()
 
@@ -71,8 +74,7 @@ def test_a_failed_trial_opens_it_for_another_cooldown() -> None:
     breaker = _breaker(clock)
     _fail(breaker, 3)
     clock.advance(30)
-    assert breaker.acquire()
-    breaker.failure()
+    breaker.failure(_sent(breaker))
     assert breaker.state == "open"
     clock.advance(29)
     assert not breaker.acquire()
@@ -85,8 +87,7 @@ def test_a_trial_that_was_not_used_can_be_taken_again() -> None:
     breaker = _breaker(clock)
     _fail(breaker, 3)
     clock.advance(30)
-    assert breaker.acquire()
-    breaker.release()
+    breaker.release(_sent(breaker))
     assert breaker.state == "half_open"
     assert breaker.acquire()
 
@@ -94,7 +95,7 @@ def test_a_trial_that_was_not_used_can_be_taken_again() -> None:
 def test_trip_opens_at_once_for_the_given_time() -> None:
     clock = Clock()
     breaker = _breaker(clock)
-    breaker.trip(120.0)
+    breaker.trip(_sent(breaker), 120.0)
     assert breaker.state == "open"
     clock.advance(119)
     assert not breaker.acquire()
@@ -105,7 +106,7 @@ def test_trip_opens_at_once_for_the_given_time() -> None:
 def test_trip_without_a_time_uses_the_cooldown() -> None:
     clock = Clock()
     breaker = _breaker(clock)
-    breaker.trip()
+    breaker.trip(_sent(breaker))
     clock.advance(30)
     assert breaker.state == "half_open"
 
@@ -115,7 +116,7 @@ def test_a_trip_is_never_longer_than_the_longest_allowed() -> None:
     clock = Clock()
     config = BreakerConfig(failure_threshold=3, cooldown_seconds=30.0, max_open_seconds=600.0)
     breaker = CircuitBreaker(config, clock.monotonic)
-    breaker.trip(86_400.0)
+    breaker.trip(_sent(breaker), 86_400.0)
     clock.advance(599)
     assert breaker.state == "open"
     clock.advance(1)
