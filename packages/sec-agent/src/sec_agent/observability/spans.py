@@ -1,6 +1,6 @@
 """The spans of a turn, opened and closed with their attributes.
 
-    invoke_agent sec-agent        the turn (`Agent.ask`)
+    invoke_agent sec-agent        the turn (`Agent.ask`, `Agent.steps`)
     ├─ llm_call                   one model call of the turn, failover included
     │  └─ chat                    one call to one provider (`LLMRouter`)
     └─ execute_tool <name>        one tool call
@@ -10,8 +10,8 @@ event on the model call, not a span: no call was made. Only names, counts, timin
 error codes are recorded, never the question, the answer or a tool result.
 """
 
-from collections.abc import Generator
-from contextlib import contextmanager
+from collections.abc import Callable, Generator
+from contextlib import AbstractContextManager, contextmanager
 
 from opentelemetry import trace
 from opentelemetry.trace import Span, SpanKind, Status, StatusCode, Tracer
@@ -30,9 +30,8 @@ def default_tracer() -> Tracer:
     return trace.get_tracer(TRACER_NAME)
 
 
-@contextmanager
-def turn_span(tracer: Tracer, thread_id: str) -> Generator[Span]:
-    attributes: Attributes = {
+def _turn_attributes(thread_id: str) -> Attributes:
+    return {
         c.OPERATION: "invoke_agent",
         c.AGENT_NAME: c.AGENT,
         c.CONVERSATION_ID: thread_id,
@@ -40,8 +39,47 @@ def turn_span(tracer: Tracer, thread_id: str) -> Generator[Span]:
         c.OI_SPAN_KIND: "AGENT",
         c.STEP: "turn",
     }
-    with _span(tracer, f"invoke_agent {c.AGENT}", SpanKind.INTERNAL, attributes) as span:
+
+
+@contextmanager
+def turn_span(tracer: Tracer, thread_id: str) -> Generator[Span]:
+    name = f"invoke_agent {c.AGENT}"
+    with _span(tracer, name, SpanKind.INTERNAL, _turn_attributes(thread_id)) as span:
         yield span
+
+
+@contextmanager
+def stepped_turn_span(
+    tracer: Tracer, thread_id: str
+) -> Generator[tuple[Span, Callable[[], AbstractContextManager[Span]]]]:
+    """The span of a turn that is run step by step (`Agent.steps`), and a context manager
+    that makes it the current span for one step.
+
+    Unlike `turn_span` the span is not current for the whole block. The block is a
+    generator that hands each step to its caller, and the caller may resume it on another
+    thread, where a context entered earlier cannot be left. The span ends with the block;
+    an exception that escapes, an abandoned generator included, marks it failed.
+    """
+    span = tracer.start_span(
+        f"invoke_agent {c.AGENT}",
+        kind=SpanKind.INTERNAL,
+        attributes=_turn_attributes(thread_id),
+        record_exception=False,
+        set_status_on_exception=False,
+    )
+
+    def in_turn() -> AbstractContextManager[Span]:
+        return trace.use_span(
+            span, end_on_exit=False, record_exception=False, set_status_on_exception=False
+        )
+
+    try:
+        yield span, in_turn
+    except BaseException as error:
+        failed(span, type(error).__name__)
+        raise
+    finally:
+        span.end()
 
 
 def turn_ended(span: Span, *, turn: int, status: str, reason: str | None) -> None:

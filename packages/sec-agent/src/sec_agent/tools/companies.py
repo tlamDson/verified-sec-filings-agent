@@ -79,6 +79,34 @@ class CompanyDirectory:
     def by_cik(self, cik: int) -> CompanyRef | None:
         return self._by_cik.get(cik)
 
+    def by_ticker(self, text: str) -> CompanyRef | None:
+        """The company with exactly this ticker, compared in upper case."""
+        return self._by_ticker.get(text.upper())
+
+    def by_alias(self, text: str) -> CompanyRef | None:
+        """The company a former ticker or name now belongs to (E8)."""
+        return self._aliases.get(text.upper())
+
+    def by_name(self, text: str) -> CompanyRef | None:
+        """The one company with this name, suffixes such as Inc. aside; None when no
+        company or several have it."""
+        matches = self._by_name.get(_name_key(text), [])
+        return matches[0] if len(matches) == 1 else None
+
+    def name_starting(self, word: str) -> CompanyRef | None:
+        """The one company whose longer name starts with `word` ("Meta" for Meta
+        Platforms); None when no company or several do."""
+        first = _name_key(word)
+        if not first or " " in first:
+            return None
+        matches = [
+            ref
+            for key, refs in self._by_name.items()
+            if key.startswith(f"{first} ")
+            for ref in refs
+        ]
+        return matches[0] if len(matches) == 1 else None
+
     def resolve(self, text: str) -> CompanyRef:
         """Ticker, alias, CIK, then name; raise when none or several companies match."""
         query = text.strip()

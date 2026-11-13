@@ -35,7 +35,7 @@ def add_commands(subparsers: "Subparsers") -> None:
 def _serve(args: argparse.Namespace) -> int:
     if (url := database_url_or_error(args)) is None:
         return 2
-    factory = _no_embedder if args.lexical else _model_embedder(args.device)
+    factory = no_embedder if args.lexical else model_embedder(args.device)
     try:
         with open_contexts(
             url, facts_version=args.facts_version, snapshot=args.snapshot, embedder=factory
@@ -53,11 +53,14 @@ def _serve(args: argparse.Namespace) -> int:
     return 0
 
 
-def _no_embedder(spec: EmbedderSpec) -> Embedder | None:
+def no_embedder(spec: EmbedderSpec) -> Embedder | None:
+    """Search with BM25 alone."""
     return None
 
 
-def _model_embedder(device: str | None) -> EmbedderFactory:
+def model_embedder(device: str | None) -> EmbedderFactory:
+    """The snapshot's own embedding model; BM25 alone, with a note, when it cannot load."""
+
     def load(spec: EmbedderSpec) -> Embedder | None:
         from sec_agent.retrieval.sentence_transformer import SentenceTransformerEmbedder
 
