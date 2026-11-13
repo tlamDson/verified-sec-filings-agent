@@ -18,6 +18,7 @@ from sec_agent.agent.graph import build_turn_runner
 from sec_agent.agent.nodes import TurnNodes
 from sec_agent.agent.state import AgentState, TurnInput
 from sec_agent.agent.tool_runner import ToolRunner
+from sec_agent.faithfulness.models import FaithfulnessReport
 from sec_agent.llm.router import LLMRouter
 from sec_agent.observability.spans import default_tracer, turn_ended, turn_span
 
@@ -80,6 +81,7 @@ def _question(question: str, max_chars: int) -> str:
 
 
 def _answer(thread_id: str, asked_on: dt.date, state: AgentState) -> Answer:
+    report = state.get("faithfulness")
     return Answer(
         thread_id=thread_id,
         turn=state.get("turn", 0),
@@ -87,6 +89,8 @@ def _answer(thread_id: str, asked_on: dt.date, state: AgentState) -> Answer:
         status=cast(Any, state.get("status")),
         reason=cast(Any, state.get("reason")),
         text=state.get("text") or "",
+        draft=state.get("draft"),
+        faithfulness=None if report is None else FaithfulnessReport.model_validate(report),
         evidence=tuple(Evidence.model_validate(e) for e in state.get("evidence", [])),
         llm_calls=tuple(LLMCall.model_validate(c) for c in state.get("llm_calls", [])),
     )

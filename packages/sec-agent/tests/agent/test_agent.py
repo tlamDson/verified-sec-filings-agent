@@ -167,7 +167,9 @@ def test_failover_shows_which_provider_answered_and_what_it_used(
 def test_a_follow_up_sees_the_earlier_question_and_answer_not_its_tool_calls(
     facts_ctx: FactsContext,
 ) -> None:
-    model = ScriptedProvider("a", [calls(REVENUE), says(ANSWER), calls(NET_INCOME), says("SIM 2")])
+    model = ScriptedProvider(
+        "a", [calls(REVENUE), says(ANSWER), calls(NET_INCOME), says("SIM second answer")]
+    )
     agent = agent_of(facts_ctx, model)
     agent.ask("t-1", QUESTION, asked_on=ASKED_ON)
     follow_up = agent.ask("t-1", "And net income?", asked_on=ASKED_ON)
@@ -252,7 +254,7 @@ def test_calls_beyond_the_limit_of_one_reply_are_refused_and_not_run(
 )
 def test_limits_must_be_positive(field: str) -> None:
     with pytest.raises(ValueError, match=field):
-        AgentConfig(**{field: 0})
+        AgentConfig.model_validate({field: 0})
 
 
 def test_one_llm_call_is_not_enough_to_use_a_tool() -> None:
