@@ -6,8 +6,12 @@ concept lists its tags in priority order; within one filing and period the first
 reports a value wins. A tag is listed only when it has the same accounting meaning as the
 concept, so lines that include more (noncontrolling interest, current portion of debt,
 restricted cash) or less (goods-only or services-only revenue and cost, such as
-`SalesRevenueGoodsNet` and `CostOfGoodsSold`) are left out rather than mixed in: a filing
-that splits goods from services must never have one part stored as the total. Each concept
+`SalesRevenueGoodsNet` and `CostOfGoodsSold`; nonoperating-only interest; pretax income
+before equity-method income; depreciation without depletion) are left out rather than mixed
+in: a filing that splits a line must never have one part stored as the total. A narrower
+line worth keeping is its own concept, never a fallback for the wider one: common-stock
+dividends (`dividends_paid_common`) beside total dividends (`dividends_paid`), current
+marketable securities beside short-term investments. Each concept
 declares its unit (E5) and whether it is a duration (income, cash flow) or an instant
 (balance sheet).
 """
@@ -94,7 +98,6 @@ CONCEPTS: tuple[Concept, ...] = (
         DUR,
         "USD",
         "InterestExpense",
-        "InterestExpenseNonoperating",
     ),
     _c(
         "pretax_income",
@@ -102,7 +105,6 @@ CONCEPTS: tuple[Concept, ...] = (
         DUR,
         "USD",
         "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
-        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
     ),
     _c("income_tax", "Income tax expense", DUR, "USD", "IncomeTaxExpenseBenefit"),
     _c("net_income", "Net income", DUR, "USD", "NetIncomeLoss"),
@@ -128,7 +130,6 @@ CONCEPTS: tuple[Concept, ...] = (
         DUR,
         "USD",
         "DepreciationDepletionAndAmortization",
-        "DepreciationAndAmortization",
     ),
     # Balance sheet
     _c(
@@ -144,6 +145,12 @@ CONCEPTS: tuple[Concept, ...] = (
         INST,
         "USD",
         "ShortTermInvestments",
+    ),
+    _c(
+        "marketable_securities_current",
+        "Marketable securities, current",
+        INST,
+        "USD",
         "MarketableSecuritiesCurrent",
     ),
     _c("accounts_receivable", "Accounts receivable", INST, "USD", "AccountsReceivableNetCurrent"),
@@ -202,6 +209,12 @@ CONCEPTS: tuple[Concept, ...] = (
         DUR,
         "USD",
         "PaymentsOfDividends",
+    ),
+    _c(
+        "dividends_paid_common",
+        "Dividends paid on common stock",
+        DUR,
+        "USD",
         "PaymentsOfDividendsCommonStock",
     ),
     _c(
