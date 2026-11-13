@@ -72,6 +72,22 @@ def test_tags_with_a_different_meaning_are_not_synonyms() -> None:
     assert ("us-gaap", "LongTermDebt") not in lookup
 
 
+@pytest.mark.parametrize(
+    "tag",
+    [
+        "SalesRevenueGoodsNet",
+        "SalesRevenueServicesNet",
+        "RevenueFromContractWithCustomerProductMember",
+        "CostOfGoodsSold",
+        "CostOfServices",
+    ],
+)
+def test_partial_lines_are_not_synonyms_for_totals(tag: str) -> None:
+    # Goods-only or services-only revenue and cost are parts of the total: a filing that
+    # reports goods and services separately must not have one part stored as the total.
+    assert ("us-gaap", tag) not in concepts_by_tag()
+
+
 def test_unknown_concept_raises() -> None:
     with pytest.raises(KeyError):
         concept("adjusted_ebitda")

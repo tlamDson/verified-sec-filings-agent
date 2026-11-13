@@ -214,6 +214,20 @@ def test_facts_without_a_fiscal_label_are_kept_and_counted() -> None:
     assert out.report.unlabelled == 1
 
 
+def test_goods_only_revenue_and_cost_are_not_stored_as_totals() -> None:
+    period = "2023-01-01"
+    raw = document(
+        {
+            "SalesRevenueGoodsNet": {"USD": [entry("2023-12-31", 70, A1, start=period)]},
+            "SalesRevenueServicesNet": {"USD": [entry("2023-12-31", 30, A1, start=period)]},
+            "CostOfGoodsSold": {"USD": [entry("2023-12-31", 40, A1, start=period)]},
+            "NetIncomeLoss": {"USD": [entry("2023-12-31", 9, A1, start=period)]},
+        }
+    )
+    out = _run(raw)
+    assert [f.concept for f in out.facts] == ["net_income"]
+
+
 def test_tags_outside_the_table_are_ignored() -> None:
     raw = document(
         {

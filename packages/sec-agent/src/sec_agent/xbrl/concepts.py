@@ -5,8 +5,11 @@ Companies tag the same line differently (Apple's revenue was `SalesRevenueNet` u
 concept lists its tags in priority order; within one filing and period the first tag that
 reports a value wins. A tag is listed only when it has the same accounting meaning as the
 concept, so lines that include more (noncontrolling interest, current portion of debt,
-restricted cash) are left out rather than mixed in. Each concept declares its unit (E5) and
-whether it is a duration (income, cash flow) or an instant (balance sheet).
+restricted cash) or less (goods-only or services-only revenue and cost, such as
+`SalesRevenueGoodsNet` and `CostOfGoodsSold`) are left out rather than mixed in: a filing
+that splits goods from services must never have one part stored as the total. Each concept
+declares its unit (E5) and whether it is a duration (income, cash flow) or an instant
+(balance sheet).
 """
 
 from functools import cache
@@ -59,7 +62,6 @@ CONCEPTS: tuple[Concept, ...] = (
         "RevenueFromContractWithCustomerExcludingAssessedTax",
         "RevenueFromContractWithCustomerIncludingAssessedTax",
         "SalesRevenueNet",
-        "SalesRevenueGoodsNet",
     ),
     _c(
         "cost_of_revenue",
@@ -68,7 +70,6 @@ CONCEPTS: tuple[Concept, ...] = (
         "USD",
         "CostOfRevenue",
         "CostOfGoodsAndServicesSold",
-        "CostOfGoodsSold",
     ),
     _c("gross_profit", "Gross profit", DUR, "USD", "GrossProfit"),
     _c(
