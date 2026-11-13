@@ -7,15 +7,15 @@ or loopback (Windows). No Docker, no external network, nothing to configure in C
 from collections.abc import Iterator
 from pathlib import Path
 
-import pgserver
 import psycopg
 import pytest
+from pgserver.postgres_server import get_server
 
 
 @pytest.fixture(scope="session")
 def pg_uri(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     data_dir: Path = tmp_path_factory.mktemp("pg")
-    server = pgserver.get_server(data_dir, cleanup_mode="stop")
+    server = get_server(data_dir, cleanup_mode="stop")
     try:
         yield server.get_uri()
     finally:

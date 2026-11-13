@@ -127,6 +127,25 @@ One Postgres 17 instance (ParadeDB image locally: pgvector and `pg_search` bundl
 | Too many users at once                                                  | Per-user rate limit, global semaphore on concurrent LLM calls, queue with timeout, answer cache                           | backpressure, load shedding                                         |
 | Finding where time goes                                                 | OpenTelemetry trace across API → agent → tool → LLM                                                                       | distributed tracing                                                 |
 
+### Job queue (built in s-02)
+
+Code: `sec_agent.jobs`. One table, `jobs`, unique on `(kind, key)`; enqueueing the same `(kind, key)` again does nothing, so a scheduler can enqueue everything it sees on every run.
+
+```
+queued ──claim──► running ──complete──► done
+  ▲                 │ │
+  └──fail (retry)───┘ └──fail (final, permanent, or lease expired on last attempt)──► failed
+  ▲                 │
+  └─lease expired───┘   (the next claim takes the job over; attempts + 1)
+```
+
+- **Claim** is one statement: select the oldest job that is queued and due, or running with an expired lease, `FOR UPDATE SKIP LOCKED`, and lease it. Claimers never wait on each other and never get the same row.
+- **Lease and fencing.** A claim writes a new random `lease_token` and an expiry. Heartbeat, complete, and fail all match on the token, so a worker whose lease was taken over gets "lease lost" and its late report changes nothing.
+- **Heartbeat** runs in a background thread while the handler runs. A failed heartbeat (dropped connection) is retried at the next interval; only a lost lease stops it.
+- **Retry** uses exponential backoff with full jitter, capped. A `PermanentJobError` fails the job at once. A job whose lease expires on its last attempt is failed with that reason instead of being retried.
+- **Delivery is at least once.** A job can run twice (the worker dies after writing but before reporting), so every handler writes under natural keys (CIK, accession number) with upserts. That makes the effect exactly once.
+- **Defaults** (configuration, not measurements): 60 s lease, 20 s heartbeat, 5 attempts, backoff from 5 s capped at 600 s. CLI: `sec-agent jobs init`, `sec-agent jobs stats`, `sec-agent worker [--drain]`.
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |

@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Sequence
 
 from sec_agent import __version__
+from sec_agent.jobs import cli as jobs_cli
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -12,7 +13,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="Research agent over SEC filings with traceable numbers.",
     )
     parser.add_argument("--version", action="version", version=f"sec-agent {__version__}")
-    parser.add_subparsers(dest="command", metavar="command")
+    subparsers = parser.add_subparsers(dest="command", metavar="command")
+    jobs_cli.add_commands(subparsers)
     return parser
 
 
@@ -22,4 +24,5 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command is None:
         parser.print_help()
         return 2
-    return 0
+    code: int = args.run(args)
+    return code
