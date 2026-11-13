@@ -164,10 +164,47 @@ def test_a_figure_from_filing_text_needs_a_citation_of_its_passage() -> None:
     assert _statuses(bare, [passages]) == ["uncited"]
 
 
-def test_a_passage_figure_in_a_table_stated_in_millions_matches_its_digits() -> None:
+@pytest.mark.parametrize(
+    ("figure", "status"),
+    [
+        ("$12,345 million", "traced"),
+        ("$12.3 billion", "traced"),
+        ("12,345", "traced"),
+        ("$12,345 billion", "untraced"),
+        ("$12,345 thousand", "untraced"),
+        ("$12,345 trillion", "untraced"),
+    ],
+)
+def test_a_bare_table_figure_takes_only_the_scale_its_heading_states(
+    figure: str, status: str
+) -> None:
+    """A table "in millions" writes 12,345 for 12,345 million, and for nothing else."""
     passages = search_evidence("Net sales (in millions) 12,345 11,980")
+    text = f"Net sales were {figure} [{passage_citation(0)}]."
+    assert _statuses(text, [passages]) == [status]
+
+
+@pytest.mark.parametrize(
+    ("figure", "status"),
+    [("12,345", "traced"), ("$12,345 million", "untraced"), ("$12,345 billion", "untraced")],
+)
+def test_a_bare_figure_of_text_that_states_no_scale_is_only_what_it_says(
+    figure: str, status: str
+) -> None:
+    passages = search_evidence("Net sales were 12,345 in the SIM table.")
+    text = f"Net sales were {figure} [{passage_citation(0)}]."
+    assert _statuses(text, [passages]) == [status]
+
+
+def test_a_text_stating_two_scales_gives_its_bare_figures_neither() -> None:
+    passages = search_evidence("SIM table (in millions) 12,345; units in thousands 980.")
     text = f"Net sales were $12,345 million [{passage_citation(0)}]."
-    assert _statuses(text, [passages]) == ["traced"]
+    assert _statuses(text, [passages]) == ["untraced"]
+
+
+def test_a_per_share_figure_of_a_table_in_millions_keeps_its_own_value() -> None:
+    passages = search_evidence("SIM table (in millions, except per share amounts) EPS $6.08")
+    assert _statuses(f"EPS was $6.08 per share [{passage_citation(0)}].", [passages]) == ["traced"]
 
 
 def test_a_citation_must_name_a_passage_or_filing_of_the_turn(revenue: Evidence) -> None:
@@ -228,3 +265,29 @@ def test_an_answer_saying_a_value_was_not_reported_has_nothing_to_trace(
         0,
         True,
     )
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        f"{SIM_ACCESSION}/mdna",
+        f"{SIM_ACCESSION}/MDNA/0",
+        f"{SIM_ACCESSION}/mdna/0x",
+        f"{SIM_ACCESSION}/mdna/0/extra",
+        f"{SIM_ACCESSION}/",
+    ],
+)
+def test_a_malformed_passage_key_is_not_taken_for_its_filing(key: str) -> None:
+    """The filing is in the evidence, but the key does not name it, nor any passage."""
+    passages = search_evidence("SIM Widgets sells widgets.")
+    report = check_answer(f"It sells widgets [{key}].", [passages], asked_on=ASKED_ON)
+    (sentence,) = report.sentences
+    assert [(c.key, c.status) for c in sentence.citations] == [(key, "unknown")]
+    assert not sentence.passed
+
+
+def test_a_well_formed_key_and_a_bare_accession_still_cite() -> None:
+    passages = search_evidence("SIM Widgets sells widgets.")
+    for key in (passage_citation(0), SIM_ACCESSION):
+        report = check_answer(f"It sells widgets [{key}].", [passages], asked_on=ASKED_ON)
+        assert [c.status for s in report.sentences for c in s.citations] == ["valid"]

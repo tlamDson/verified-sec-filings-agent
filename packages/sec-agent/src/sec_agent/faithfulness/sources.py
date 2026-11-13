@@ -15,6 +15,7 @@ from typing import Literal, get_args
 from pydantic import BaseModel, ValidationError
 
 from sec_agent.agent.answer import Evidence
+from sec_agent.faithfulness import patterns
 from sec_agent.faithfulness.models import SourceRef
 from sec_agent.faithfulness.scan import NumberMention, scan
 from sec_agent.tools.fact_value import FactValue
@@ -200,6 +201,31 @@ class _Reader:
                 )
 
     def _text(self, text: str, keys: set[str], path: str, citation: str) -> None:
-        numbers = scan(text).numbers
+        numbers = _at_stated_scale(text, scan(text).numbers)
         if numbers:
             self._s.texts.append(SourceText(frozenset(keys), numbers, self._ref(path, citation)))
+
+
+def _at_stated_scale(text: str, numbers: tuple[NumberMention, ...]) -> tuple[NumberMention, ...]:
+    """The numbers of a passage, plus each bare number at the one scale its text states.
+
+    A table "in millions" writes 12,345 for 12,345,000,000, so that value is a source too.
+    No other scale is: a passage that states none, or several, supports its bare numbers
+    only as written, so an answer cannot give them a scale the filing does not.
+    """
+    stated = {m["scale"].lower() for m in patterns.STATED_SCALE.finditer(text)}
+    if len(stated) != 1:
+        return numbers
+    scale = patterns.SCALES[stated.pop()]
+    scaled = tuple(
+        n.model_copy(
+            update={
+                "value": n.value.scaleb(scale),
+                "tolerance": n.tolerance.scaleb(scale),
+                "scale": scale,
+            }
+        )
+        for n in numbers
+        if n.scale == 0 and n.unit in ("none", "usd", "shares")
+    )
+    return numbers + scaled

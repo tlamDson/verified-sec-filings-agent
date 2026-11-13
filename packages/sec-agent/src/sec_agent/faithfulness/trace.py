@@ -4,9 +4,9 @@ A figure traces to a tool value when rounding that value to the digits shown giv
 (within `tolerance`), the units agree (E5), and the value's period is one the sentence
 names, or the sentence names none (E1). Without a written sign the magnitude is compared,
 since "fell 2.5%" states -2.5 in words. Among several matches the closest wins. A figure
-traces to filing text only through a passage the sentence cites; a table's figure stated
-"in millions" matches by its digits. A date traces when the evidence holds it or it is
-the day the question was asked.
+traces to filing text only through a passage the sentence cites, at the value the passage
+states (a bare table number also at the scale its heading states, see `sources`). A
+date traces when the evidence holds it or it is the day the question was asked.
 """
 
 import datetime as dt
@@ -109,14 +109,4 @@ def _text_match(mention: NumberMention, number: NumberMention) -> bool:
         same = _SAME_TEXT_UNIT.get(mention.unit, frozenset({mention.unit}))
         if number.unit not in same:
             return False
-    if _gap(mention, number.value) is not None:
-        return True
-    if number.scale != 0 or mention.scale == 0:
-        return False
-    shown = mention.model_copy(
-        update={
-            "value": mention.value.scaleb(-mention.scale),
-            "tolerance": mention.tolerance.scaleb(-mention.scale),
-        }
-    )
-    return _gap(shown, number.value) is not None
+    return _gap(mention, number.value) is not None

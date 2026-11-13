@@ -156,3 +156,12 @@ def test_offsets_are_shifted_by_the_sentence_start() -> None:
 )
 def test_digits_inside_a_name_are_not_figures(text: str) -> None:
     assert scan(text).numbers == ()
+
+
+def test_a_malformed_citation_key_is_read_whole() -> None:
+    text = "It says so [9999999999-25-000008/mdna; 9999999999-25-000008/mdna/3x]."
+    assert [c.key for c in scan(text).citations] == [
+        "9999999999-25-000008/mdna",
+        "9999999999-25-000008/mdna/3x",
+    ]
+    assert scan(text).numbers == ()

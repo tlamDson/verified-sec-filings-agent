@@ -21,7 +21,9 @@ MONTH_NUMBERS = {
 
 ACCESSION = r"\d{10}-\d{2}-\d{6}"
 BRACKET = re.compile(r"\[([^\[\]]*)\]")
-CITATION_KEY = re.compile(rf"(?<![\w-]){ACCESSION}(?:/[a-z_]+/\d+)?(?![\w-])")
+CITATION_KEY = re.compile(rf"(?<![\w-]){ACCESSION}(?:/[^\s;,\[\]]*)?(?![\w-])")
+"""An accession and whatever follows it up to a separator: `acc`, `acc/mdna/3`, and also
+malformed keys such as `acc/mdna`, read whole so they are judged as written."""
 
 MONTH_DAY_YEAR = re.compile(
     rf"\b(?P<month>{_MONTHS})\.?\s+(?P<day>\d{{1,2}})(?:st|nd|rd|th)?,?\s+(?P<year>\d{{4}})\b", _I
@@ -66,6 +68,9 @@ NUMBER = re.compile(
     r"(?:\s?(?P<scale>thousand|million|billion|trillion|bn|mm|k|m|b|t)\b)?",
     _I,
 )
+STATED_SCALE = re.compile(r"\bin\s+(?P<scale>thousands|millions|billions)\b", _I)
+"""A table heading's scale: "(in millions, except per share amounts)"."""
+
 SCALES = {
     "thousand": 3,
     "k": 3,
@@ -77,6 +82,9 @@ SCALES = {
     "b": 9,
     "trillion": 12,
     "t": 12,
+    "thousands": 3,
+    "millions": 6,
+    "billions": 9,
 }
 
 PERCENT_AFTER = re.compile(r"\s?(?:%|percent\b|per\s?cent\b|percentage\s+points?\b|pp\b)", _I)
