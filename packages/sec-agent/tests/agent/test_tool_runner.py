@@ -173,3 +173,12 @@ def test_search_with_no_room_for_one_passage_is_withheld(
     )
     assert not output.ok
     assert _error(output.content)["code"] == "result_too_large"
+
+
+def test_a_text_index_that_cannot_answer_is_a_refusal_the_model_can_read(
+    facts_ctx: FactsContext, text_conn: psycopg.Connection[Any]
+) -> None:
+    """Nothing was built for the pinned space: retrieval refuses, and the turn goes on."""
+    output = ToolRunner(facts_ctx, _text_ctx(text_conn)).run("search_filings", SEARCH)
+    assert not output.ok
+    assert _error(output.content)["code"] == "search_unavailable"
