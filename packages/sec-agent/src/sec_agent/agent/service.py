@@ -9,6 +9,7 @@ import datetime as dt
 from typing import Any, cast
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from opentelemetry.trace import Tracer
 
 from sec_agent.agent.answer import Answer, Evidence, LLMCall
 from sec_agent.agent.config import AgentConfig
@@ -19,6 +20,7 @@ from sec_agent.agent.state import AgentState, TurnInput
 from sec_agent.agent.tool_runner import ToolRunner
 from sec_agent.faithfulness.models import FaithfulnessReport
 from sec_agent.llm.router import LLMRouter
+from sec_agent.observability.spans import default_tracer, turn_ended, turn_span
 
 MAX_THREAD_ID_CHARS = 200
 
@@ -31,9 +33,13 @@ class Agent:
         tools: ToolRunner,
         checkpointer: BaseCheckpointSaver[Any],
         config: AgentConfig | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
+        """`tracer` defaults to the process's (`observability.setup.tracing`); each turn is
+        one trace. Give the router the same tracer, so its provider calls join the turn."""
         self._config = config or AgentConfig()
-        nodes = TurnNodes(router, tools, self._config)
+        self._tracer = tracer or default_tracer()
+        nodes = TurnNodes(router, tools, self._config, self._tracer)
         self._run = build_turn_runner(nodes, checkpointer)
 
     def ask(self, thread_id: str, question: str, *, asked_on: dt.date) -> Answer:
@@ -48,8 +54,11 @@ class Agent:
             "question": _question(question, self._config.max_question_chars),
             "asked_on": asked_on.isoformat(),
         }
-        state = self._run(thread, turn, 2 * self._config.max_llm_calls + 4)
-        return _answer(thread, asked_on, state)
+        with turn_span(self._tracer, thread) as span:
+            state = self._run(thread, turn, 2 * self._config.max_llm_calls + 4)
+            answer = _answer(thread, asked_on, state)
+            turn_ended(span, turn=answer.turn, status=answer.status, reason=answer.reason)
+        return answer
 
 
 def _thread_id(thread_id: str) -> str:

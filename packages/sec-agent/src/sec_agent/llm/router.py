@@ -5,12 +5,17 @@ then the quota must have room for the request and for the tokens the call can us
 most (`token_bound`), which are held while it runs; a provider that fails is noted and
 the next one is tried. When none answers, `AllProvidersFailedError` carries what each one
 did, and the agent falls back to its degraded answer.
+
+Each call made to a provider is a `chat` span; a provider passed over without a call is
+an event on the caller's span (`observability.spans`).
 """
 
 import datetime as dt
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
+
+from opentelemetry.trace import Tracer
 
 from sec_agent.llm.attempts import Attempt, Outcome
 from sec_agent.llm.breaker import BreakerConfig, BreakerState, CircuitBreaker, Permit
@@ -26,6 +31,13 @@ from sec_agent.llm.messages import ChatRequest, Completion, Usage
 from sec_agent.llm.provider import Provider
 from sec_agent.llm.quota import QuotaStore
 from sec_agent.llm.token_bound import token_bound
+from sec_agent.observability.spans import (
+    chat_answered,
+    chat_span,
+    default_tracer,
+    failed,
+    provider_skipped,
+)
 
 __all__ = ["Attempt", "LLMRouter", "RouterResult"]
 
@@ -55,6 +67,7 @@ class LLMRouter:
         default_max_tokens: int = DEFAULT_MAX_TOKENS,
         clock: Callable[[], float] = time.monotonic,
         now: Callable[[], dt.datetime] = _utc_now,
+        tracer: Tracer | None = None,
     ) -> None:
         """`default_max_tokens` is the output limit given to a request that has none when
         it goes to a provider with a daily token quota: without one, the call's tokens
@@ -68,6 +81,7 @@ class LLMRouter:
         self._quota = quota
         self._default_max_tokens = default_max_tokens
         self._now = now
+        self._tracer = tracer or default_tracer()
         self._breakers: dict[str, CircuitBreaker] = {}
         for provider in self._providers:
             if provider.name in self._breakers:
@@ -93,6 +107,7 @@ class LLMRouter:
         permit = breaker.acquire()
         if permit is None:
             attempts.append(Attempt(name, "breaker_open", ""))
+            provider_skipped(name, "breaker_open")
             return None
         request, hold = self._bounded(provider, request)
         reserved_at = self._now()
@@ -104,20 +119,24 @@ class LLMRouter:
         if not reserved:
             breaker.release(permit)
             attempts.append(Attempt(name, "quota_exhausted", ""))
+            provider_skipped(name, "quota_exhausted")
             return None
-        try:
-            completion = provider.complete(request)
-        except ProviderError as error:
-            outcome = _settle_breaker(breaker, permit, error)
-            if outcome in _SPENT_NOTHING:  # refused before any token was generated
-                self._quota.settle(name, reserved_at, held=hold, used=0)
-            # otherwise (timeout, 5xx, broken reply) the provider may have spent tokens
-            # nobody reported: the hold stays, so the count can only err on the safe side
-            attempts.append(Attempt(name, outcome, str(error)))
-            return None
-        except BaseException:  # a bug or a cancel says nothing about the provider
-            breaker.release(permit)  # the hold stays: the call went out, its cost is unknown
-            raise
+        with chat_span(self._tracer, name, request) as span:
+            try:
+                completion = provider.complete(request)
+            except ProviderError as error:
+                outcome = _settle_breaker(breaker, permit, error)
+                if outcome in _SPENT_NOTHING:  # refused before any token was generated
+                    self._quota.settle(name, reserved_at, held=hold, used=0)
+                # otherwise (timeout, 5xx, broken reply) the provider may have spent tokens
+                # nobody reported: the hold stays, so the count can only err on the safe side
+                attempts.append(Attempt(name, outcome, str(error)))
+                failed(span, outcome)  # the outcome code only: the error's text stays here
+                return None
+            except BaseException:  # a bug or a cancel says nothing about the provider
+                breaker.release(permit)  # the hold stays: the call went out, its cost is unknown
+                raise
+            chat_answered(span, completion)
         breaker.success(permit)
         self._quota.settle(name, reserved_at, held=hold, used=_charge(completion.usage, hold))
         attempts.append(Attempt(name, "ok", ""))
