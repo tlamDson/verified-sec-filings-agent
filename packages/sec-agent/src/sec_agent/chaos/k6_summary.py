@@ -2,8 +2,10 @@
 
 The script counts outcomes per turn, not per HTTP request: a turn fails when the stream
 does not end with an `answer` event (a refused request, a dropped connection, an `error`
-event). k6 writes a Rate as `passes` (true samples) and `fails` (false samples), a Trend as
-percentiles, a Counter as `count`.
+event). Every conversation asks a follow-up on the same thread, even after a failed first
+turn; `interrupted_resume_failed` holds the follow-ups of those interrupted conversations,
+which is the recovery the chaos check measures. k6 writes a Rate as `passes` (true samples)
+and `fails` (false samples), a Trend as percentiles, a Counter as `count`.
 """
 
 import datetime as dt
@@ -17,11 +19,19 @@ from sec_agent.runs import RunRow
 
 TURN_FAILED = "turn_failed"
 RESUME_FAILED = "resume_failed"
+INTERRUPTED_RESUME_FAILED = "interrupted_resume_failed"
 TURN_MS = "turn_ms"
 TURN_ANSWERED = "turn_answered"
 TURN_DEGRADED = "turn_degraded"
 LOAD_NOTE = "simulated accounts against a simulated model (sec-agent chaos fake-llm)"
-METRIC_NAMES: tuple[str, ...] = (TURN_FAILED, RESUME_FAILED, TURN_MS, TURN_ANSWERED, TURN_DEGRADED)
+METRIC_NAMES: tuple[str, ...] = (
+    TURN_FAILED,
+    RESUME_FAILED,
+    INTERRUPTED_RESUME_FAILED,
+    TURN_MS,
+    TURN_ANSWERED,
+    TURN_DEGRADED,
+)
 
 
 class LoadSummary(BaseModel):
@@ -31,8 +41,11 @@ class LoadSummary(BaseModel):
     turns: int = Field(gt=0)
     turns_failed: int = Field(ge=0)
     resumes: int = Field(ge=0)
-    """Second turns on a conversation that already had one."""
+    """Follow-ups, one per conversation, whether or not its first turn succeeded."""
     resumes_failed: int = Field(ge=0)
+    interrupted: int = Field(ge=0)
+    """Follow-ups of conversations whose first turn failed (cut by a kill or a 429)."""
+    interrupted_failed: int = Field(ge=0)
     answered: int = Field(ge=0)
     degraded: int = Field(ge=0)
     turn_p50_ms: float = Field(ge=0)
@@ -50,6 +63,13 @@ def parse_k6_summary(data: Mapping[str, Any]) -> LoadSummary:
     if turns == 0:
         raise ValueError("the run recorded no turn")
     resumes_failed, resumes = _rate(metrics, RESUME_FAILED)
+    interrupted_failed, interrupted = _optional_rate(metrics, INTERRUPTED_RESUME_FAILED)
+    if interrupted > resumes or interrupted_failed > resumes_failed:
+        raise ValueError(
+            f"{INTERRUPTED_RESUME_FAILED!r} ({interrupted_failed}/{interrupted}) does not fit "
+            f"in {RESUME_FAILED!r} ({resumes_failed}/{resumes}): interrupted follow-ups are "
+            "a subset of all follow-ups"
+        )
     trend = _metric(metrics, TURN_MS)
     return LoadSummary(
         max_vus=_max_vus(metrics),
@@ -57,6 +77,8 @@ def parse_k6_summary(data: Mapping[str, Any]) -> LoadSummary:
         turns_failed=turns_failed,
         resumes=resumes,
         resumes_failed=resumes_failed,
+        interrupted=interrupted,
+        interrupted_failed=interrupted_failed,
         answered=_count(metrics, TURN_ANSWERED),
         degraded=_count(metrics, TURN_DEGRADED),
         turn_p50_ms=_number(trend, "med", TURN_MS),
@@ -85,6 +107,15 @@ def load_rows(
         rows.append(
             proportion_row(
                 "LOAD.resume_error_rate", summary.resumes_failed, summary.resumes, common
+            )
+        )
+    if summary.interrupted:
+        rows.append(
+            proportion_row(
+                "LOAD.interrupted_resume_error_rate",
+                summary.interrupted_failed,
+                summary.interrupted,
+                common,
             )
         )
     if summary.turns_completed:
@@ -118,6 +149,13 @@ def _rate(metrics: Mapping[str, Any], name: str) -> tuple[int, int]:
     true = int(_number(metric, "passes", name))
     false = int(_number(metric, "fails", name))
     return true, true + false
+
+
+def _optional_rate(metrics: Mapping[str, Any], name: str) -> tuple[int, int]:
+    """A Rate that never got a sample is absent from the export: no sample at all."""
+    if metrics.get(name) is None:
+        return 0, 0
+    return _rate(metrics, name)
 
 
 def _max_vus(metrics: Mapping[str, Any]) -> int:

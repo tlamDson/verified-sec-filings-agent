@@ -44,7 +44,7 @@ def test_load_rows_appends_valid_rows(tmp_path: Path) -> None:
     )
     assert code == 0
     rows = read_runs(runs)
-    assert len(rows) == 5
+    assert len(rows) == 6  # the fixture has interrupted conversations
     assert {row.cohort for row in rows} == {"simulated"}
 
 

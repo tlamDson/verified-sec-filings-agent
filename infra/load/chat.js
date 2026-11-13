@@ -4,8 +4,11 @@
 // Each iteration is one conversation: a first question, then a follow-up on the same
 // thread, so a conversation started on one replica continues on whichever replica nginx
 // picks next (state lives in Postgres). A turn counts as failed unless its stream ends
-// with an `answer` event. The custom metrics below are what `sec-agent chaos load-rows`
-// reads from the summary export.
+// with an `answer` event. The follow-up is asked even when the first turn failed: a
+// conversation interrupted by a replica kill is exactly the one whose recovery the chaos
+// check measures, so `resume_failed` counts every follow-up and `interrupted_resume_failed`
+// counts the follow-ups of interrupted conversations on their own. The custom metrics
+// below are what `sec-agent chaos load-rows` reads from the summary export.
 import { check, sleep } from "k6";
 import crypto from "k6/crypto";
 import encoding from "k6/encoding";
@@ -18,6 +21,7 @@ const PEAK = Number(__ENV.PEAK_VUS || 200);
 
 const turnFailed = new Rate("turn_failed");
 const resumeFailed = new Rate("resume_failed");
+const interruptedResumeFailed = new Rate("interrupted_resume_failed");
 const turnMs = new Trend("turn_ms", true);
 const turnAnswered = new Counter("turn_answered");
 const turnDegraded = new Counter("turn_degraded");
@@ -35,10 +39,12 @@ export const options = {
       gracefulRampDown: "30s",
     },
   },
-  // The thresholds of the plan's chaos check: turns keep succeeding with a replica down.
+  // The thresholds of the plan's chaos check: turns keep succeeding with a replica down,
+  // and a conversation cut by the kill resumes on another replica.
   thresholds: {
     turn_failed: ["rate<0.05"],
     resume_failed: ["rate<0.05"],
+    interrupted_resume_failed: ["rate<0.05"],
   },
   summaryTrendStats: ["avg", "min", "med", "max", "p(90)", "p(95)"],
 };
@@ -115,8 +121,8 @@ export default function () {
   const question = QUESTIONS[(__VU + __ITER) % QUESTIONS.length];
   const first = ask(userId, threadId, question);
   sleep(1 + Math.random() * 2);
-  if (first) {
-    resumeFailed.add(!ask(userId, threadId, FOLLOW_UP));
-  }
+  const resumed = ask(userId, threadId, FOLLOW_UP);
+  resumeFailed.add(!resumed);
+  if (!first) interruptedResumeFailed.add(!resumed);
   sleep(1 + Math.random() * 2);
 }
