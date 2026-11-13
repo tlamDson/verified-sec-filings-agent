@@ -29,3 +29,7 @@ class AgentState(TypedDict, total=False):
     """None while the turn is running."""
     reason: str | None
     text: str | None
+    draft: str | None
+    """The model's answer before the faithfulness check."""
+    faithfulness: dict[str, Any] | None
+    """The `FaithfulnessReport` of `draft`."""

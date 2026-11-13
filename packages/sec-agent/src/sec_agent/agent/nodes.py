@@ -1,6 +1,7 @@
 """The three steps of a turn: begin it, call the model, run the tools it asked for.
 
-Each step returns the state it changes; LangGraph checkpoints after each one.
+Each step returns the state it changes; LangGraph checkpoints after each one. The answer
+the model writes is shown only as the faithfulness checker passes it (`_checked`).
 """
 
 import datetime as dt
@@ -13,6 +14,7 @@ from sec_agent.agent.notices import DEGRADED_TEXT, STEP_LIMIT_TEXT
 from sec_agent.agent.prompt import system_prompt
 from sec_agent.agent.state import AgentState
 from sec_agent.agent.tool_runner import ToolRunner, refusal
+from sec_agent.faithfulness.check import check_answer
 from sec_agent.llm.errors import AllProvidersFailedError
 from sec_agent.llm.messages import ChatRequest, Message, assistant, system, tool_result, user
 from sec_agent.llm.router import LLMRouter
@@ -36,6 +38,8 @@ class TurnNodes:
             "status": None,
             "reason": None,
             "text": None,
+            "draft": None,
+            "faithfulness": None,
         }
 
     def call_model(self, state: AgentState) -> Update:
@@ -80,7 +84,7 @@ class TurnNodes:
         text = (message["content"] or "").strip()
         if not text:
             return _end(calls, "degraded", "empty_reply", DEGRADED_TEXT)
-        return _end(calls, "answered", None, text)
+        return self._checked(state, calls, text)
 
     def run_tools(self, state: AgentState) -> Update:
         """Run every call of the last reply, in order; each gets a result message."""
@@ -104,6 +108,20 @@ class TurnNodes:
             )
             evidence.append(record.model_dump(mode="json"))
         return {"messages": results, "evidence": evidence}
+
+    def _checked(self, state: AgentState, calls: list[dict[str, Any]], draft: str) -> Update:
+        """The answer as the user may see it: only figures traced to this turn's evidence."""
+        config = self._config.faithfulness
+        if config is None:
+            return {**_end(calls, "answered", None, draft), "draft": draft}
+        evidence = [Evidence.model_validate(e) for e in state.get("evidence", [])]
+        asked_on = dt.date.fromisoformat(state.get("asked_on", ""))
+        report = check_answer(draft, evidence, asked_on=asked_on, config=config)
+        if report.verdict == "blocked":
+            end = _end(calls, "blocked", "untraced_figures", report.text)
+        else:
+            end = _end(calls, "answered", None, report.text)
+        return {**end, "draft": draft, "faithfulness": report.model_dump(mode="json")}
 
     def _prompt(self, state: AgentState) -> list[Message]:
         asked_on = dt.date.fromisoformat(state.get("asked_on", ""))

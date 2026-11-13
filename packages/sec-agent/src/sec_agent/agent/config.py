@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt
 
+from sec_agent.faithfulness.config import FaithfulnessConfig
+
 
 class AgentConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -16,3 +18,6 @@ class AgentConfig(BaseModel):
     max_question_chars: PositiveInt = 2000
     max_history_turns: int = Field(default=4, ge=0)
     """Earlier turns shown to the model, as question and final answer only."""
+    faithfulness: FaithfulnessConfig | None = Field(default_factory=FaithfulnessConfig)
+    """How the answer is checked against the turn's evidence. None shows the model's
+    answer unchecked: the agent-without-checker baseline of N2, never the product."""
