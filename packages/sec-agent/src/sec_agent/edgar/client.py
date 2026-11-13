@@ -3,7 +3,8 @@
 Per request: refuse non-SEC hosts; answer from the raw cache when possible; otherwise take
 one token from the shared bucket per network attempt, send the SEC_USER_AGENT contact, and
 retry 429/5xx and transport errors with jittered backoff. Only 2xx bodies are cached.
-Redirects are not followed, so every network attempt costs exactly one token.
+Redirects are never followed, even by an injected httpx client, so every network attempt
+costs exactly one token and stays on the checked URL.
 """
 
 import json
@@ -125,7 +126,9 @@ class EdgarClient:
         self.limiter.acquire()
         with self._sent_lock:
             self._sent += 1
-        return self._http.get(url, headers={"User-Agent": self.user_agent})
+        # Per request, so an injected client built with follow_redirects=True cannot send
+        # an unmetered, unchecked request to wherever a Location header points.
+        return self._http.get(url, headers={"User-Agent": self.user_agent}, follow_redirects=False)
 
     def close(self) -> None:
         if self._owns_http:

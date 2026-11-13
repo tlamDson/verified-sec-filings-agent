@@ -202,6 +202,23 @@ def test_redirects_are_not_followed(harness: Callable[..., Harness]) -> None:
     assert len(h.server.requests) == 1
 
 
+@pytest.mark.parametrize(
+    "location", ["https://example.com/", "https://www.sec.gov/files/company_tickers.json"]
+)
+def test_injected_client_that_follows_redirects_is_overridden(
+    tmp_path: Path, location: str
+) -> None:
+    server = Server(status(302, {"Location": location}), ok(b"should never be fetched"))
+    limiter = CountingLimiter()
+    http = httpx.Client(transport=httpx.MockTransport(server), follow_redirects=True)
+    client = EdgarClient(UA, http=http, limiter=limiter, cache=RawCache(tmp_path))
+    with pytest.raises(EdgarHTTPError) as info:
+        client.get(URL)
+    assert info.value.status == 302
+    assert [str(r.url) for r in server.requests] == [URL]
+    assert limiter.acquired == 1
+
+
 @pytest.mark.parametrize("reply", [status(404), status(400), status(403)])
 def test_errors_are_never_cached(harness: Callable[..., Harness], reply: httpx.Response) -> None:
     h = harness(reply)

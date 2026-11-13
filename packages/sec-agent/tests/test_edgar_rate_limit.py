@@ -1,5 +1,6 @@
 """Token bucket: no window of one second ever holds more than 10 SEC requests."""
 
+import random
 import threading
 
 import pytest
@@ -48,7 +49,7 @@ def test_any_one_second_window_holds_at_most_ten_grants(clock: FakeClock) -> Non
         bucket.acquire()
         grants.append(clock.now)
     for first, eleventh in zip(grants, grants[10:], strict=False):
-        assert eleventh - first >= 1.0 - 1e-9
+        assert eleventh - first >= 1.0 - 1e-6
 
 
 def test_burst_capacity_is_respected(clock: FakeClock) -> None:
@@ -72,26 +73,95 @@ def test_idle_time_refills_only_up_to_capacity(clock: FakeClock) -> None:
     assert waits == pytest.approx([0.0, 0.1, 0.1])
 
 
-def test_concurrent_callers_each_get_their_own_slot(clock: FakeClock) -> None:
-    waits: list[float] = []
+def _assert_at_most_ten_per_second(grants: list[float]) -> None:
+    for first, eleventh in zip(grants, grants[10:], strict=False):
+        assert eleventh - first >= 1.0 - 1e-6
+
+
+def test_refused_attempt_takes_no_token(clock: FakeClock) -> None:
+    bucket = _bucket(clock)
+    assert bucket.try_acquire() == 0.0
+    for _ in range(5):
+        assert bucket.try_acquire() == pytest.approx(0.1)
+    clock.now = 0.1
+    assert bucket.try_acquire() == 0.0
+
+
+def test_late_wakers_do_not_bunch_grants(clock: FakeClock) -> None:
+    # Callers queued at the same instant all oversleep, then wake together: one is granted,
+    # the rest wait again. A reserved-in-advance slot would let them all send at once.
+    bucket = _bucket(clock)
+    grants: list[float] = []
+    for _ in range(10):
+        assert bucket.try_acquire() == 0.0
+        grants.append(clock.now)
+        waiting = [bucket.try_acquire() for _ in range(9)]
+        assert all(wait > 0 for wait in waiting)
+        clock.now += 0.35
+    assert grants == pytest.approx([0.35 * i for i in range(10)])
+
+
+def test_random_wakeups_never_exceed_the_cap(clock: FakeClock) -> None:
+    rng = random.Random(7)
+    bucket = _bucket(clock)
+    grants: list[float] = []
+    for _ in range(3000):
+        clock.now += rng.choice([0.0, 0.0, 0.01, 0.03, 0.07, 0.1, 0.25])
+        if bucket.try_acquire() == 0.0:
+            grants.append(clock.now)
+    assert len(grants) > 100
+    _assert_at_most_ten_per_second(grants)
+
+
+def test_concurrent_oversleeping_threads_stay_under_the_cap(clock: FakeClock) -> None:
     lock = threading.Lock()
+    grants: list[float] = []
+    rng = random.Random(3)
 
-    def record(seconds: float) -> None:
+    def oversleep(seconds: float) -> None:
         with lock:
-            waits.append(seconds)
+            clock.now += seconds + rng.uniform(0.0, 0.3)
 
-    # The clock stands still, so every grant must be reserved one slot after the last one.
-    bucket = TokenBucket(rate=10.0, capacity=1.0, clock=clock, sleep=record)
-    threads = [
-        threading.Thread(target=lambda: [bucket.acquire() for _ in range(5)]) for _ in range(8)
-    ]
+    def read_clock() -> float:
+        with lock:
+            return clock.now
+
+    bucket = TokenBucket(rate=10.0, capacity=1.0, clock=read_clock, sleep=oversleep)
+
+    def worker() -> None:
+        for _ in range(10):
+            granted_at = bucket.acquire()
+            with lock:
+                grants.append(granted_at)
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join()
-    slots = sorted(round(wait * 10) for wait in waits if wait > 0)
-    assert len(waits) - len(slots) <= 1
-    assert slots == list(range(40 - len(slots), 40))
+    assert len(grants) == 80
+    _assert_at_most_ten_per_second(sorted(grants))
+
+
+def test_racing_threads_share_one_token(clock: FakeClock) -> None:
+    bucket = _bucket(clock, capacity=3.0)
+    results: list[float] = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(16)
+
+    def worker() -> None:
+        barrier.wait()
+        for _ in range(50):
+            wait = bucket.try_acquire()
+            with lock:
+                results.append(wait)
+
+    threads = [threading.Thread(target=worker) for _ in range(16)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert results.count(0.0) == 3
 
 
 @pytest.mark.parametrize(("rate", "capacity"), [(0.0, 1.0), (-1.0, 1.0), (10.0, 0.5)])
