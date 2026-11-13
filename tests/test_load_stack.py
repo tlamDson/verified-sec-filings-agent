@@ -115,11 +115,11 @@ def test_k6_script_speaks_as_simulated_users_and_emits_the_parsed_metrics(
 
     script = _text(repo_root, "chat.js")
     for metric in METRIC_NAMES:
-        assert f"'{metric}'" in script, metric
+        assert f'"{metric}"' in script, metric
     assert "sim:" in script
-    assert "cohort: 'simulated'" in script
-    assert "aud: 'sec-agent-api'" in script
-    assert re.search(r"target: 200\b", script)
+    assert 'cohort: "simulated"' in script
+    assert 'aud: "sec-agent-api"' in script
+    assert "PEAK_VUS || 200" in script  # 200 virtual users unless told otherwise
     assert "thresholds" in script
 
 

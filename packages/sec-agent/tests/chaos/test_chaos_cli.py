@@ -19,7 +19,7 @@ def test_chaos_commands_are_wired() -> None:
         ["chaos", "fake-llm", "--port", "9"],
         ["chaos", "integrity", "--index-version", "v1"],
         ["chaos", "kill-worker", "--index-version", "v1"],
-        ["chaos", "load-rows", "s.json", "--system", "x", "--git-sha", "abc1234"],
+        ["chaos", "load-rows", "s.json", "--system", "x"],
     ):
         assert callable(parser.parse_args(argv).run)
 
@@ -38,7 +38,7 @@ def test_load_rows_appends_valid_rows(tmp_path: Path) -> None:
             "200 VU",
             "--git-sha",
             "abc1234",
-            "--runs-csv",
+            "--record",
             str(runs),
         ]
     )
@@ -54,7 +54,7 @@ def test_load_rows_refuses_a_summary_without_the_metrics(
     bad = tmp_path / "bad.json"
     bad.write_text('{"metrics": {}}', "utf-8")
     argv = ["chaos", "load-rows", str(bad), "--system", "x", "--git-sha", "abc1234"]
-    assert main([*argv, "--runs-csv", str(tmp_path / "runs.csv")]) == 2
+    assert main([*argv, "--record", str(tmp_path / "runs.csv")]) == 2
     assert "turn_failed" in capsys.readouterr().err
     assert not (tmp_path / "runs.csv").exists()
 

@@ -1,0 +1,8 @@
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!packages/sec-agent
+packages/sec-agent/tests
+**/__pycache__
+**/.venv

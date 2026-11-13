@@ -48,7 +48,7 @@ def test_after_a_tool_result_it_answers_without_any_number(client: TestClient) -
     assert choice["finish_reason"] == "stop"
     assert choice["message"]["content"] == FAKE_ANSWER
     assert not re.search(r"\d", FAKE_ANSWER)  # numbers only ever come from tools
-    assert "simulated" in FAKE_ANSWER
+    assert "simulated" in FAKE_ANSWER.lower()
 
 
 def test_without_tools_it_answers(client: TestClient) -> None:

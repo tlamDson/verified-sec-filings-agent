@@ -1,11 +1,13 @@
 """A worker process for the kill test: each job sleeps, then writes one keyed row.
 
-Run as a script with DATABASE_URL set. Its owner names its pid the way `sec-agent worker`
-does (`host:pid:tag`), so the chaos driver can find the process that holds a job.
+Run as a script with DATABASE_URL set and the owner tag as its argument. Its lease owner is
+`host:pid:tag`, like `sec-agent worker --owner-tag`, so the chaos driver can find the
+process that holds a job.
 """
 
 import os
 import socket
+import sys
 import time
 
 import psycopg
@@ -31,7 +33,7 @@ def main() -> None:
             )
 
     config = WorkerConfig(
-        owner=f"{socket.gethostname()}:{os.getpid()}:slow",
+        owner=f"{socket.gethostname()}:{os.getpid()}:{sys.argv[1]}",
         lease_seconds=2.0,
         heartbeat_seconds=0.5,
         poll_seconds=0.2,

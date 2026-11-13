@@ -15,6 +15,7 @@ from sec_agent.chaos.worker_kill import (
     PostgresQueueProbe,
     kill_worker_mid_job,
     owner_pid,
+    owner_tag,
 )
 from sec_agent.jobs.models import NewJob
 from sec_agent.jobs.postgres import PostgresJobQueue
@@ -22,9 +23,11 @@ from sec_agent.jobs.postgres import PostgresJobQueue
 SCRIPT = Path(__file__).parent.parent / "chaos_slow_worker.py"
 
 
-def test_owner_pid_reads_the_pid_from_a_worker_owner() -> None:
-    assert owner_pid("host-1:4242:abcd1234") == 4242
+def test_owner_parts_are_read_from_a_worker_owner() -> None:
+    assert owner_pid("host-1:4242:chaos-0") == 4242
+    assert owner_tag("host-1:4242:chaos-0") == "chaos-0"
     assert owner_pid("crashed-worker") is None
+    assert owner_tag("crashed-worker") is None
     assert owner_pid(None) is None
 
 
@@ -40,9 +43,9 @@ def test_killed_worker_job_is_taken_over_and_every_job_finishes(db_url: str) -> 
     tests_dir = str(SCRIPT.parent)
     env = {**os.environ, "DATABASE_URL": db_url, "PYTHONPATH": tests_dir}
 
-    def start() -> subprocess.Popen[bytes]:
+    def start(tag: str) -> subprocess.Popen[bytes]:
         return subprocess.Popen(
-            [sys.executable, str(SCRIPT)],
+            [sys.executable, str(SCRIPT), tag],
             env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -99,7 +102,7 @@ class _Sleeper:
 def test_no_worker_taking_a_job_is_an_error_and_stops_the_workers() -> None:
     started: list[_Sleeper] = []
 
-    def start() -> _Sleeper:
+    def start(tag: str) -> _Sleeper:
         started.append(_Sleeper())
         return started[-1]
 

@@ -409,6 +409,26 @@ Code: `sec_agent.simusers`, and `sec-agent api cohorts` in `sec_agent.api`. Ever
 - **Dashboard.** `sec-agent api cohorts --from D --to D` prints `cohort_counts` as two columns, real and simulated, never summed; the users row reads `accounts` and a note says the simulated column is test traffic.
 - **Not here.** Concurrent sessions (the driver plays them one at a time; load is s-20's), a web page for the dashboard, and G-num answer checks in the rating criteria.
 
+### Load and chaos (built in s-20)
+
+Code: `sec_agent.chaos`, `infra/load/`. Runs on Docker on the owner's machine, never on the free hosts. Every model in it is simulated and every request comes from a simulated account, so its numbers are labelled simulated and say nothing about answer quality.
+
+```
+k6 (200 VU, sim:load-NNN) ──► nginx (round robin, skip a dead replica 10 s) ──► api-1 │ api-2 │ api-3
+                                                                                  │ LLM_PROVIDERS, in order
+                                                                                  ▼
+                                                     llm-a ──► llm-b   (sec-agent chaos fake-llm, PUT /admin/mode)
+worker-1 container: sec-agent chaos kill-worker ──► 3 x sec-agent worker on one raw cache ──► kill one mid-job
+```
+
+- **Simulated model.** `sec-agent chaos fake-llm` answers like an OpenAI-compatible provider: a turn's first call asks `get_fact` for one fact, so the load reaches the tools and Postgres; a call holding a tool result gets a fixed reply with no number in it. `PUT /admin/mode` switches it to 429 with `Retry-After`; `GET /admin/state` counts calls served and refused.
+- **Replica kill.** k6 asks a first question and a follow-up on the same thread, so a conversation continues on whichever replica nginx picks. A turn fails unless its stream ends with an `answer` event. nginx retries a request on the next replica only when the connection was refused or timed out; a POST already sent is never replayed, so turns in flight on the killed replica count as failed, and the follow-up of their conversation still runs.
+- **Provider 429.** With llm-a limited, the router opens llm-a's breaker for `Retry-After` and fails over to llm-b; with both limited no model answers and turns end `degraded` with the deterministic cards. The same sequence runs in-process in the tests over the real router.
+- **Worker kill.** `sec-agent chaos kill-worker` starts N `sec-agent worker --owner-tag chaos-i` processes on a queued ingest, waits until one of them holds a job (the lease owner `host:pid:tag` names it), and kills that process and the pid its owner names (a Windows venv launcher runs the interpreter as a child, so the two differ). It waits until no job is queued or running and reports the killed job's final status and attempts and the seconds from the kill to an empty queue. `sec-agent chaos integrity` then counts, for the snapshot: jobs by outcome, done jobs that took more than one attempt, fact rows beyond the first for a version key (counted with a GROUP BY, not taken from the unique constraint), and companies with fewer rows than their ingest wrote.
+- **SEC traffic.** The token bucket is per process, so the chaos re-ingest reads the raw cache that a single worker filled first, at most 10 requests per second; the three workers send nothing to SEC.
+- **Records.** `sec-agent chaos load-rows` turns k6's summary export into `LOAD.*` rows (turn error rate and resume error rate with Wilson intervals, degraded share of completed turns, turn p50 and p95), cohort `simulated`; `kill-worker --record` writes `CHAOS.*` rows (duplicate facts, jobs redone, jobs unfinished, recovery seconds), cohort `none`. `infra/load/chaos.sh` runs the whole sequence and leaves the rows in `infra/load/results/`.
+- **Not here.** A global LLM semaphore and the answer cache (see Web app and API), load against the free hosts, and any quality measure under load.
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |

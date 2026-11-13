@@ -1,7 +1,7 @@
 """After an ingest with a crashed worker: no fact twice, every company whole, every job closed."""
 
 import time
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 import psycopg
@@ -22,7 +22,7 @@ def _fetch(url: str, refresh: bool) -> bytes:
 
 
 @contextmanager
-def _ingested(facts_db_url: str, *, crash_first: bool) -> Iterator[None]:
+def _ingested(facts_db_url: str, *, crash_first: bool) -> Generator[None]:
     handler = make_handler(_fetch, lambda: PostgresFactStore.connect(facts_db_url))
     config = WorkerConfig(owner="survivor", lease_seconds=5.0, heartbeat_seconds=1.0)
     with PostgresJobQueue.connect(facts_db_url) as queue:
