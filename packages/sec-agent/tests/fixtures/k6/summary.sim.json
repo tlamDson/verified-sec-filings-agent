@@ -1,0 +1,16 @@
+{
+  "root_group": { "name": "", "path": "", "id": "d41d8cd98f00b204e9800998ecf8427e", "groups": {}, "checks": {} },
+  "options": { "summaryTrendStats": ["avg", "min", "med", "max", "p(90)", "p(95)"], "summaryTimeUnit": "", "noColor": false },
+  "state": { "isStdOutTTY": false, "isStdErrTTY": false, "testRunDurationMs": 300000 },
+  "metrics": {
+    "http_req_failed": { "passes": 3, "fails": 397, "thresholds": { "rate<0.05": false }, "value": 0.0075 },
+    "vus_max": { "value": 200, "min": 200, "max": 200 },
+    "turn_failed": { "passes": 4, "fails": 396, "thresholds": { "rate<0.05": false }, "value": 0.01 },
+    "resume_failed": { "passes": 1, "fails": 199, "value": 0.005 },
+    "interrupted_resume_failed": { "passes": 0, "fails": 3, "value": 0 },
+    "turn_ms": { "avg": 812.5, "min": 101, "med": 640, "max": 9001, "p(90)": 1500, "p(95)": 2100.25 },
+    "turn_answered": { "count": 350, "rate": 1.1666 },
+    "turn_degraded": { "count": 46, "rate": 0.1533 },
+    "iterations": { "count": 200, "rate": 0.6666 }
+  }
+}

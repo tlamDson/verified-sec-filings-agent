@@ -1,0 +1,127 @@
+# Load and chaos stack (s-20). Its own project and database: it never touches the dev stack.
+#   docker compose -f infra/load/compose.yaml --env-file .env up -d --build
+# Then see infra/load/README.md, or run infra/load/chaos.sh for the whole sequence.
+# Every model here is simulated (`sec-agent chaos fake-llm`): no provider is called, no key
+# is set, nothing can bill. All traffic comes from simulated accounts (sim:...).
+name: sec-agent-load
+
+x-app: &app
+  image: sec-agent-load:local
+  build:
+    context: ../..
+    dockerfile: infra/load/Dockerfile
+  restart: "no"
+
+x-api: &api
+  <<: *app
+  depends_on:
+    postgres:
+      condition: service_healthy
+    llm-a:
+      condition: service_started
+    llm-b:
+      condition: service_started
+  environment:
+    # libpq takes the password from PGPASSWORD, so no URL holds it.
+    DATABASE_URL: host=postgres port=5432 user=sec dbname=sec
+    PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}
+    API_AUTH_SECRET: ${API_AUTH_SECRET:?set API_AUTH_SECRET in .env (see .env.example)}
+    API_DAILY_QUESTIONS: "100000"
+    LLM_PROVIDERS: >-
+      [{"name": "llm-a", "base_url": "http://llm-a:8081/v1", "model": "fake-llm-sim", "timeout_seconds": 30},
+      {"name": "llm-b", "base_url": "http://llm-b:8081/v1", "model": "fake-llm-sim", "timeout_seconds": 30}]
+  command:
+    - sh
+    - -c
+    - >-
+      sec-agent agent init && sec-agent api init &&
+      exec sec-agent api serve --facts-version ${FACTS_VERSION:-v1} --lexical --host 0.0.0.0 --port 8000
+
+x-worker: &worker
+  <<: *app
+  profiles: ["ingest"]
+  depends_on:
+    postgres:
+      condition: service_healthy
+  environment:
+    # libpq takes the password from PGPASSWORD, so no URL holds it.
+    DATABASE_URL: host=postgres port=5432 user=sec dbname=sec
+    PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}
+    SEC_USER_AGENT: ${SEC_USER_AGENT:?set SEC_USER_AGENT in .env (see .env.example)}
+    SEC_RAW_CACHE_DIR: /rawcache
+  volumes:
+    - rawcache:/rawcache
+
+services:
+  postgres:
+    image: paradedb/paradedb:0.26.3-pg17
+    environment:
+      POSTGRES_USER: sec
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}
+      POSTGRES_DB: sec
+    ports:
+      - "127.0.0.1:${LOAD_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sec -d sec"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  llm-a:
+    <<: *app
+    command: ["sec-agent", "chaos", "fake-llm", "--host", "0.0.0.0", "--port", "8081"]
+    ports:
+      - "127.0.0.1:8181:8081"
+
+  llm-b:
+    <<: *app
+    command: ["sec-agent", "chaos", "fake-llm", "--host", "0.0.0.0", "--port", "8081"]
+    ports:
+      - "127.0.0.1:8182:8081"
+
+  api-1: *api
+  api-2: *api
+  api-3: *api
+
+  lb:
+    image: nginx:1.27.5-alpine
+    depends_on: [api-1, api-2, api-3]
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  worker-1:
+    <<: *worker
+    hostname: worker-1
+    command: ["sec-agent", "worker", "--lease", "10", "--heartbeat", "3", "--poll", "0.5"]
+
+  worker-2:
+    <<: *worker
+    hostname: worker-2
+    command: ["sec-agent", "worker", "--lease", "10", "--heartbeat", "3", "--poll", "0.5"]
+
+  worker-3:
+    <<: *worker
+    hostname: worker-3
+    command: ["sec-agent", "worker", "--lease", "10", "--heartbeat", "3", "--poll", "0.5"]
+
+  k6:
+    image: grafana/k6:1.0.0
+    profiles: ["load"]
+    depends_on: [lb]
+    environment:
+      API_AUTH_SECRET: ${API_AUTH_SECRET:?set API_AUTH_SECRET in .env (see .env.example)}
+      BASE_URL: http://lb:8080
+      PEAK_VUS: ${PEAK_VUS:-200}
+    volumes:
+      - ./chat.js:/scripts/chat.js:ro
+      - ./results:/results
+    command: ["run", "--summary-export", "/results/summary.json", "/scripts/chat.js"]
+
+volumes:
+  pgdata:
+  rawcache:

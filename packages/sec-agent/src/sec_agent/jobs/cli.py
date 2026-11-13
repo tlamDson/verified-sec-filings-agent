@@ -34,7 +34,19 @@ def add_commands(subparsers: "Subparsers") -> None:
     worker.add_argument("--lease", type=float, default=60.0, help="lease seconds (60)")
     worker.add_argument("--heartbeat", type=float, default=20.0, help="heartbeat seconds (20)")
     worker.add_argument("--poll", type=float, default=2.0, help="idle poll seconds (2)")
+    worker.add_argument(
+        "--owner-tag",
+        default=None,
+        type=_owner_tag,
+        help="last part of the lease owner host:pid:tag (default: random)",
+    )
     worker.set_defaults(run=_worker)
+
+
+def _owner_tag(text: str) -> str:
+    if not text or len(text) > 40 or not all(c.isalnum() or c in "-_" for c in text):
+        raise argparse.ArgumentTypeError("use 1 to 40 letters, digits, - or _")
+    return text
 
 
 def add_database_url_option(parser: argparse.ArgumentParser) -> None:
@@ -80,7 +92,7 @@ def _worker(args: argparse.Namespace) -> int:
         return 2
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     config = WorkerConfig(
-        owner=f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}",
+        owner=f"{socket.gethostname()}:{os.getpid()}:{args.owner_tag or uuid.uuid4().hex[:8]}",
         lease_seconds=args.lease,
         heartbeat_seconds=args.heartbeat,
         poll_seconds=args.poll,

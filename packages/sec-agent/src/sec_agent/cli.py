@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from sec_agent import __version__
 from sec_agent.agent import cli as agent_cli
 from sec_agent.api import cli as api_cli
+from sec_agent.chaos import cli as chaos_cli
 from sec_agent.eval import cli as eval_cli
 from sec_agent.filings import cli as filings_cli
 from sec_agent.golden import cli as golden_cli
@@ -41,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_cli.add_commands(subparsers)
     traces_cli.add_commands(subparsers)
     sim_cli.add_commands(subparsers)
+    chaos_cli.add_commands(subparsers)
     return parser
 
 
