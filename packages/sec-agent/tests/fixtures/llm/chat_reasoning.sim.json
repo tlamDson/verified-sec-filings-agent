@@ -1,0 +1,28 @@
+{
+  "id": "chatcmpl-sim-0003",
+  "object": "chat.completion",
+  "created": 1794528002,
+  "model": "sim-model-b",
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "tool_calls",
+      "message": {
+        "role": "assistant",
+        "content": "",
+        "reasoning_content": "SIMULATED hidden reasoning that must not reach the conversation.",
+        "tool_calls": [
+          {
+            "type": "function",
+            "function": { "name": "compute_ratio", "arguments": "{}" }
+          },
+          {
+            "id": "",
+            "type": "function",
+            "function": { "name": "get_fact", "arguments": "{}" }
+          }
+        ]
+      }
+    }
+  ]
+}

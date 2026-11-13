@@ -1,0 +1,17 @@
+{
+  "id": "chatcmpl-sim-0001",
+  "object": "chat.completion",
+  "created": 1794528000,
+  "model": "sim-model-a",
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "stop",
+      "message": {
+        "role": "assistant",
+        "content": "SIMULATED reply: the figure is in the tool result above."
+      }
+    }
+  ],
+  "usage": { "prompt_tokens": 120, "completion_tokens": 14, "total_tokens": 134 }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "chatcmpl-sim-0002",
+  "object": "chat.completion",
+  "created": 1794528001,
+  "model": "sim-model-a",
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "tool_calls",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_sim_1",
+            "type": "function",
+            "function": {
+              "name": "get_fact",
+              "arguments": "{\"company\": \"AAPL\", \"concept\": \"revenue\", \"fiscal_year\": 2024}"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "usage": { "prompt_tokens": 900, "completion_tokens": 31, "total_tokens": 931 }
+}
