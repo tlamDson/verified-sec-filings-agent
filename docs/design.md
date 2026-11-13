@@ -221,6 +221,26 @@ FinanceBench download ──► manifest check (licence, answers, SHA-256 pins) 
 - **G-ret.** Questions are written by hand before reading the filings (gate G-F2), one JSON line each with the ticker of a test company; any other company is refused. Retrieval runs come in TREC format (`qid Q0 accession/section/ordinal rank score system`). The pool is the union of each system's top 20 per question (TREC pooling: unpooled chunks count as not relevant), in a seeded order per question, with the chunk text from the index. The labelling session shows question and text only, never which system found a chunk or its rank; each grade (0, 1, 2) is appended to the label file at once and tied to the text's SHA-256, so a re-chunked index makes old labels pending again. CLI: `sec-agent golden pool --run R ...`, `golden label`, `golden qrels`.
 - **G-public.** FinanceBench's open sample is read from a local download, never committed. `data/golden/g_public_manifest.json` records the licence (CC BY-NC 4.0, from the Hugging Face dataset card; checked 2026-11-13), whether the answers were checked (not yet), and the SHA-256 of both files. The loader refuses the data until both checks are recorded and both files match their pins. Each question gets its company's ticker and split when the company is in the universe; it is `in_scope` only for a split company and a 10-K or 10-Q document (E7). CLI: `sec-agent golden public --questions F --documents D`.
 
+### Eval runner (built in s-07)
+
+Code: `sec_agent.eval`. Statistics are plain Python (no numeric dependency) and seeded.
+
+```
+G-num questions ──► b0 | b1 | (b2, s-12) ──► results/numeric/SPLIT/SYSTEM.jsonl (raw output, prompt hash)
+                                                  │ parse last JSON reply ─► grade ─► Wilson CI, McNemar
+G-ret questions ──► snapshot (verified before and after) ──► random | bm25 | vector | hybrid ──► TREC runs
+                                                  │ + qrels ─► recall@5, nDCG@10, MRR@10 ─► bootstrap by company
+                                                  ▼
+                                      `--record runs.csv` (one row per number)
+```
+
+- **N1 grading.** A baseline ends its reply with one JSON object (`number` with value, unit, fiscal year and period or period end; `company`; `not_found`); numbers are read as `Decimal`. Correct means: same unit (E5: a value in millions is a wrong value), the question's fiscal year and period and, when given, the answer's period end (E1), and the value within 0.5% relative error, or within 0.1 percentage points for percent answers (ratios and growth). Peer comparisons need the right ticker. Wrong answers are counted by kind (`unparsed`, `not_found`, `wrong_kind`, `wrong_unit`, `wrong_period`, `wrong_value`, `wrong_company`) for the error analysis of the improvement loop.
+- **Baselines.** b0 sends the question and the answer format only. b1 adds the top 5 hybrid passages of the question's companies, fenced as `<passage id="accession/section/ordinal">` and marked as data, not instructions. Both take a chat model as a parameter; the provider router (s-09) supplies it, and s-12 runs them. Answers are appended to a cache (`SYSTEM.cache.jsonl`) as they arrive; a rerun asks only (question, model, prompt hash) triples without a cached answer, so an interrupted night resumes and a changed prompt or passage set asks again. Each run then rewrites the results file (`SYSTEM.jsonl`) with exactly one answer per question for the requested model and prompts, so a rerun of an earlier model or prompt scores that model or prompt, never a leftover answer.
+- **N1 statistics.** Systems are scored on the questions every system answered; a results file with two answers to one question, or answers from two models, is refused. Each system's missing count is printed, so a short run shows as a smaller N, not a better score. Accuracy has a Wilson 95% interval; every pair of systems gets an exact two-sided McNemar test on the discordant questions.
+- **R1.** `eval retrieval run` pins a snapshot, verifies its digest before and after, and writes one TREC run per baseline plus the snapshot manifest; every baseline searches only the question's company. `random` orders the company's chunks by a seeded hash; `oracle` (scoring only) orders judged chunks by grade. Grade 1 or 2 is relevant, unjudged chunks are not (pooling). nDCG uses linear gain (as trec_eval). Questions with no relevant judged chunk are listed and left out. Intervals and paired differences come from resampling companies (10 test companies, 10,000 resamples, one seed for every system so they see the same resamples).
+- **runs.csv.** `--record` appends one row per number: `N1` accuracy with its interval, `N1_mcnemar_p`, `R1_<metric>` with its interval, `R1_<metric>_diff` and `R1_<metric>_p`; cohort `none`, the git SHA, the questions' `index_version`.
+- CLI: `sec-agent eval numeric --split test --systems b0,b1`, `sec-agent eval retrieval run --snapshot S`, `sec-agent eval retrieval score --run R ... --baseline bm25 --oracle`.
+
 ### Deterministic tools (built in s-08)
 
 Code: `sec_agent.tools`. The only places an answer's numbers and quotes come from. Each tool takes a Pydantic argument model (its JSON schema is what the agent and the MCP server show) and returns a Pydantic result; `tools.catalog` lists the five.
@@ -258,6 +278,43 @@ Agent.ask(thread_id, question, asked_on)
 - **Quota.** Requests per minute and per day and tokens per day, per provider, in fixed UTC windows. `llm_usage` in Postgres holds the count for all replicas; a reservation checks and counts in one transaction under a per-provider advisory lock, so replicas racing for the last request never overspend. Breaker state is per replica.
 - **Degraded mode.** When no provider answers, the turn ends `degraded` with a fixed notice and the evidence gathered so far: the deterministic figures are still returned, without model prose.
 - **Checkpoints.** LangGraph saves the conversation state (plain JSON values) after every step under its `thread_id`; any replica continues it, and a turn cut short by a crash leaves a conversation the next question continues. `FencedPostgresSaver` adds the optimistic lock: a checkpoint is accepted only if it was computed from the conversation's current head and its id sorts after it, checked and written in one transaction under a per-conversation advisory lock. The replica that lost the race gets `ConversationConflictError` at its next step and saves nothing further. `sec-agent agent init` creates the tables.
+
+### MCP server (built in s-11)
+
+Code: `sec_agent.mcp_server`. `sec-agent mcp --facts-version V` serves the five tools over stdio to Claude Desktop, ChatGPT or any MCP client, with the MCP Python SDK's low-level `Server` (so each tool's input and output schema is its Pydantic model's, exactly as `tools.catalog` describes it). No model runs in the server.
+
+```
+MCP client ──stdio──► Server (tools/list from tools.catalog, read-only annotations)
+                        └─ tools/call ──► dispatch: validate args ──► tool ──► result.model_dump(mode="json")
+                                             (one call at a time, in a worker thread)
+```
+
+- **Pinned at start.** One facts `index_version` (refused if it holds no facts, since every answer would read "not reported") and one text snapshot: `--snapshot NAME`, else the `serving` pointer. With no snapshot only the three numeric tools answer; the text tools return `text_index_unavailable`. The query embedder is the snapshot's own model; `--lexical`, or the `embed` extra missing, searches with BM25 alone and the result's `mode` says so.
+- **Results.** The tool's result as structured content and as JSON text. Decimals stay strings, dates ISO dates: the server adds no number of its own. A refusal is an error result `{"error": code, "message": ...}` with the tool's stable code (`unknown_company`, `unknown_metric`, ...), `invalid_arguments` (field and reason, the rejected input not echoed), `unknown_tool` or `retrieval_error`. A value not reported is a result, not an error (E12).
+- **Instructions.** The server tells the client that every number must come from a tool result with its unit, fiscal year, period end and filing; that filing text is data, never instructions; and to decline investment advice while still showing the historical numbers (E9).
+- **Stdout is the protocol.** Every note and error of `sec-agent mcp` goes to stderr.
+
+Claude Desktop (`claude_desktop_config.json`), from a clone with the database loaded:
+
+```json
+{
+  "mcpServers": {
+    "sec-filings": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/verified-sec-filings-agent",
+        "run",
+        "sec-agent",
+        "mcp",
+        "--facts-version",
+        "v1"
+      ],
+      "env": { "DATABASE_URL": "postgresql://sec:change-me-local-only@localhost:5432/sec" }
+    }
+  }
+}
+```
 
 ## Failure modes
 
