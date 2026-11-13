@@ -19,6 +19,8 @@ CHAOS_VERSION="${CHAOS_VERSION:-chaos1}"
 SHA="$(git -C "$ROOT" rev-parse HEAD)"
 RESULTS="$ROOT/infra/load/results"
 mkdir -p "$RESULTS"
+# Written from containers by uid 1000 (workers) and k6's own user: open the bind mount.
+chmod 0777 "$RESULTS"
 
 # The test split of the golden company universe.
 CIKS="${CIKS:-$(python -c "import json,sys; d=json.load(open(sys.argv[1])); print(' '.join(str(c['cik']) for c in d['companies'] if c['split']=='test' and not c['excluded']))" "$ROOT/data/golden/company_split.json")}"

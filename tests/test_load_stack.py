@@ -140,3 +140,28 @@ def test_image_copies_only_the_python_package(repo_root: Path) -> None:
     assert "FROM python:3.12" in dockerfile
     assert "COPY . ." not in dockerfile  # node_modules and data stay out of the image
     assert "uv sync --locked --no-dev" in dockerfile
+
+
+def test_raw_cache_mount_point_belongs_to_the_runtime_user(repo_root: Path) -> None:
+    """A new named volume takes the ownership of the image directory it is mounted on; a
+    directory missing from the image is created owned by root, and uid 1000 cannot write."""
+    dockerfile = _text(repo_root, "Dockerfile")
+    user_at = dockerfile.index("USER 1000")
+    setup = dockerfile[:user_at]
+    assert re.search(r"mkdir -p [^&]*/rawcache", setup)
+    assert re.search(r"chown 1000:1000 [^&]*/rawcache", setup)
+    cache_dirs = {_env(_services(repo_root)[name])["SEC_RAW_CACHE_DIR"] for name in WORKERS}
+    assert cache_dirs == {"/rawcache"}
+
+
+def test_results_dir_is_writable_from_the_containers(repo_root: Path) -> None:
+    assert 'chmod 0777 "$RESULTS"' in _text(repo_root, "chaos.sh")
+
+
+def test_no_database_url_holds_a_password(repo_root: Path) -> None:
+    for name, service in _services(repo_root).items():
+        url = _env(service).get("DATABASE_URL", "")
+        assert "POSTGRES_PASSWORD" not in url, name
+        assert "@" not in url, name
+        if url:
+            assert _env(service)["PGPASSWORD"].startswith("${POSTGRES_PASSWORD:?"), name

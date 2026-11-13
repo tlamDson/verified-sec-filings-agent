@@ -22,7 +22,9 @@ x-api: &api
     llm-b:
       condition: service_started
   environment:
-    DATABASE_URL: postgresql://sec:${POSTGRES_PASSWORD}@postgres:5432/sec
+    # libpq takes the password from PGPASSWORD, so no URL holds it.
+    DATABASE_URL: host=postgres port=5432 user=sec dbname=sec
+    PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}
     API_AUTH_SECRET: ${API_AUTH_SECRET:?set API_AUTH_SECRET in .env (see .env.example)}
     API_DAILY_QUESTIONS: "100000"
     LLM_PROVIDERS: >-
@@ -42,7 +44,9 @@ x-worker: &worker
     postgres:
       condition: service_healthy
   environment:
-    DATABASE_URL: postgresql://sec:${POSTGRES_PASSWORD}@postgres:5432/sec
+    # libpq takes the password from PGPASSWORD, so no URL holds it.
+    DATABASE_URL: host=postgres port=5432 user=sec dbname=sec
+    PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}
     SEC_USER_AGENT: ${SEC_USER_AGENT:?set SEC_USER_AGENT in .env (see .env.example)}
     SEC_RAW_CACHE_DIR: /rawcache
   volumes:
