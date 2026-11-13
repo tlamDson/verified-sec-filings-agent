@@ -40,6 +40,6 @@ def test_worker_without_registered_handlers_refuses_to_start(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", "host=/nonexistent dbname=none")
-    monkeypatch.setattr("sec_agent.jobs.cli.registered_handlers", dict)
+    monkeypatch.setattr("sec_agent.jobs.cli.registered_handlers", lambda _url: {})
     assert main(["worker", "--drain"]) == 2
     assert "no job handlers" in capsys.readouterr().err

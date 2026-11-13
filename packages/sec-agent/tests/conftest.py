@@ -53,3 +53,18 @@ def db_url(pg_uri: str) -> str:
         conn.execute("TRUNCATE jobs RESTART IDENTITY")
         conn.execute("DROP TABLE IF EXISTS test_effects")
     return pg_uri
+
+
+@pytest.fixture
+def facts_db_url(pg_uri: str) -> str:
+    """The test database with the jobs and facts schemas applied and every table empty."""
+    import psycopg
+
+    from sec_agent.jobs.schema import apply_schema as apply_jobs_schema
+    from sec_agent.xbrl.schema import apply_schema as apply_facts_schema
+
+    with psycopg.connect(pg_uri, autocommit=True) as conn:
+        apply_jobs_schema(conn)
+        apply_facts_schema(conn)
+        conn.execute("TRUNCATE jobs, facts, xbrl_ingests RESTART IDENTITY")
+    return pg_uri

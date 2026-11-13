@@ -42,7 +42,9 @@ pythonVersion = "3.12"
 typeCheckingMode = "strict"
 venvPath = "."
 venv = ".venv"
+extraPaths = ["packages/sec-agent/tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "packages/sec-agent/tests"]
+pythonpath = ["packages/sec-agent/tests"]
 addopts = ["--import-mode=importlib", "--strict-markers"]
