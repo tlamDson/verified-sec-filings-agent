@@ -20,3 +20,10 @@ data/traces/
 coverage/
 out/
 next-env.d.ts
+
+# Terraform (the provider lock file .terraform.lock.hcl is committed)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
