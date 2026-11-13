@@ -70,6 +70,22 @@ def test_tokens_per_question_sum_every_provider_call_of_the_turn() -> None:
     ]
 
 
+def test_a_reported_total_above_input_plus_output_is_the_total() -> None:
+    """A provider may bill tokens it shows in neither count (hidden reasoning): its own
+    total wins when it is the higher one, and a lower or missing one is not trusted."""
+    trace = Trace(1)
+    turn = trace.span("turn", 0, 100)
+    step = trace.span("llm_call", 0, 90, parent=turn)
+    counts: dict[str, Any] = {"gen_ai.usage.input_tokens": 100, "gen_ai.usage.output_tokens": 10}
+    reported: dict[str, Any] = {"llm.token_count.total": 150}
+    lower: dict[str, Any] = {"llm.token_count.total": 60}
+    trace.span("chat", 0, 30, parent=step, **counts, **reported)
+    trace.span("chat", 30, 30, parent=step, **counts, **lower)
+    trace.span("chat", 60, 30, parent=step, **counts)
+    by_kind = {t.kind: t.mean for t in trace_report(trace.records).tokens}
+    assert by_kind == {"input": 300.0, "output": 30.0, "total": 150.0 + 110.0 + 110.0}
+
+
 def test_a_turn_without_a_model_answer_counts_zero_tokens() -> None:
     """A degraded turn used no tokens; it still is a question asked."""
     spans = [
