@@ -91,7 +91,7 @@ def test_429_without_a_usable_retry_after_has_no_wait() -> None:
     assert caught.value.retry_after is None
 
 
-@pytest.mark.parametrize("code", [500, 502, 503, 504])
+@pytest.mark.parametrize("code", [408, 500, 502, 503, 504])
 def test_server_errors_are_unavailable(code: int) -> None:
     with pytest.raises(ProviderUnavailableError, match=str(code)):
         _provider(_status(code)).complete(REQUEST)
