@@ -131,7 +131,8 @@ ADVICE_STATEMENT: Rules = (
 
 DECLINE = re.compile(
     r"\b(?:cannot|can['’]?t|can\s+not|won['’]t|will\s+not|(?:am|['’]m)\s+(?:not\s+able|unable)\s+"  # noqa: RUF001
-    r"to|unable\s+to|not\s+able\s+to|not\s+in\s+a\s+position\s+to|(?:must\s+)?decline\s+to)\s+"
+    r"to|unable\s+to|not\s+able\s+to|not\s+in\s+a\s+position\s+to|(?:must\s+)?decline\s+to|"
+    r"(?:can|could|will|would)\s+neither)\s+"
     r"(?:\w+\s+){0,2}?(?:provide|give|offer|make|share|recommend|advise|predict|forecast|tell|"
     r"say|determine|comment|speculate|assess|judge)\b"
     r"|\b(?:do\s+not|don['’]t)\s+(?:\w+\s+)?(?:provide|give|offer|make|predict|forecast|"  # noqa: RUF001
@@ -170,12 +171,45 @@ _CHOICE = re.compile(
 """A choice named in a question ("whether to buy, sell or hold"): never advice."""
 _PIECE = re.compile(r"(,|\s(?:and|or|nor)\s)", re.IGNORECASE)
 _DECLINED_THING = re.compile(
-    r"^\W*(?:(?:such\s+as|including|like|any|specific|personali[sz]ed|individual|investment|"
-    r"financial|stock)\s+)*(?:price\s+targets?|forecasts?|predictions?|projections?|"
+    r"^\W*(?:(?:such\s+as|including|like|any|you|an?|the|your|its|their|buy|sell|hold|specific|personali[sz]ed|"
+    r"\d+[-\s](?:months?|years?|weeks?|days?|quarters?)|(?:near|long|short)[-\s]term|"
+    r"individual|investment|financial|stock)\s+)*(?:price\s+targets?|forecasts?|predictions?|projections?|"
     r"recommendations?|ratings?|opinions?|advice|guidance|prices)\b",
     re.IGNORECASE,
 )
 """A piece of a decline's object that names what is declined ("price targets")."""
+_DECLINE_LEAD = re.compile(
+    r"^\W*(?:(?:i\s+)?(?:can['’]?t|cannot|won['’]t|will\s+not|do\s+not|don['’]t)\s+)?"  # noqa: RUF001
+    r"(?:(?:provide|give|offer|make|share|predict|forecast)\s+)(?:you\s+)?",
+    re.IGNORECASE,
+)
+"""A further verb of the same decline ("or give a price target"): the thing it names is
+read like the first one."""
+_COMPLEMENT = re.compile(
+    rf"^(?:to|on|for|about|regarding|of|as\s+to)\b\s*(?:{_TRADE}\b)?", re.IGNORECASE
+)
+"""What follows a declined thing as its own complement ("recommendations to buy AAPL now",
+"advice on NVDA"): it names the thing declined. Its leading trade verb ("to buy") is the
+thing's content; an order after the complement's object ("on NVDA buy it now") is read."""
+_ORDER = re.compile(
+    r"(?<!\bto\s)\b(?:buy|sell|short|dump|accumulate|purchase|hold)\s+(?:it|them|this|that|now|"
+    r"today|shares|(?:the|its|this|that|those|these)\s+(?:stock|shares)|(?-i:[A-Z]{2,5}))\b",
+    re.IGNORECASE,
+)
+"""A trade order inside a complement that its "to" does not govern ("just buy it")."""
+_DATE = re.compile(
+    r"(?<!\bof\s)(?<!\bat\s)\b(?:fy\s*)?(?:19|20)\d{2}\b|\bq[1-4]\b|\b\d+[-\s]"
+    r"(?:months?|years?|weeks?|days?|quarters?)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|"
+    r"nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?\b",
+    re.IGNORECASE,
+)
+"""A date or period in a declined thing ("for 2025", "12-month"): not a figure given."""
+_FIGURE = re.compile(
+    r"[$€£¥]\s*\d|\d[\d,.]*\s*(?:%|percent\b|dollars?\b|usd\b|eur\b|(?:per|a)\s+share\b)"
+    r"|\b(?:of|at|to|near|around|above|below|toward|towards)\s+\d",
+    re.IGNORECASE,
+)
+"""A money amount or a level ("of $2025", "near 2025 dollars"): a figure given, never a date."""
 _QUESTION = re.compile(r"\b(?:whether|if|what|which|when|how)\b", re.IGNORECASE)
 
 
@@ -215,8 +249,28 @@ def _after_decline(tail: str) -> str | None:
         if in_question and joint == "or":
             continue
         in_question = _QUESTION.search(piece) is not None
-        if in_question or not piece.strip() or _DECLINED_THING.match(piece):
+        if in_question or not piece.strip() or _names_declined_thing(piece):
             continue
         if (name := _clause_rule(piece)) is not None:
             return name
+        if _ORDER.search(piece):
+            return "trade_order"
     return None
+
+
+def _names_declined_thing(piece: str) -> bool:
+    """The piece only names what the decline refuses ("a price target", "give price
+    targets", "recommendations to buy AAPL now"). A number in it ("a price target of $300")
+    is a figure given, and anything after the named thing that is not its own complement
+    ("a price target you should buy NVDA") is read as advice."""
+    named = _DECLINE_LEAD.sub("", piece)
+    thing = _DECLINED_THING.match(named)
+    if thing is None or _FIGURE.search(piece) or re.search(r"\d", _DATE.sub(" ", piece)):
+        return False
+    rest = named[thing.end() :].strip()
+    if not rest:
+        return True
+    if (complement := _COMPLEMENT.match(rest)) is not None:
+        own = rest[complement.end() :]
+        return first_match(own, ADVICE_STATEMENT) is None and _ORDER.search(own) is None
+    return _clause_rule(rest) is None
