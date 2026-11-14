@@ -37,7 +37,7 @@ INVENTED = (
 )
 
 
-def apple_question(qid: str = "gnum-aapl-revenue-2024") -> NumQuestion:
+def apple_question(qid: str = "gnum-0000000000000001") -> NumQuestion:
     return NumQuestion.model_validate(
         {
             "id": qid,
@@ -104,8 +104,8 @@ def test_an_invented_value_never_reaches_the_grader(facts_ctx: FactsContext) -> 
 def test_each_question_is_its_own_conversation(facts_ctx: FactsContext) -> None:
     provider = ScriptedProvider("a", [says("SIMULATED one."), says("SIMULATED two.")])
     model = AgentChatModel(agent_of(facts_ctx, provider), name="agent:sim", asked_on=ASKED_ON)
-    model.complete(B2().prompt(apple_question("q-1")))
-    model.complete(B2().prompt(apple_question("q-2")))
+    model.complete(B2().prompt(apple_question("gnum-000000000000000a")))
+    model.complete(B2().prompt(apple_question("gnum-000000000000000b")))
     second = provider.requests[1]
     assert [m["role"] for m in second.messages] == ["system", "user"], "no earlier turn"
 
@@ -113,7 +113,9 @@ def test_each_question_is_its_own_conversation(facts_ctx: FactsContext) -> None:
 def test_the_agent_model_refuses_a_prompt_that_is_not_one_user_turn(
     facts_ctx: FactsContext,
 ) -> None:
-    model = AgentChatModel(agent_of(facts_ctx), name="agent:sim", asked_on=ASKED_ON)
+    model = AgentChatModel(
+        agent_of(facts_ctx, ScriptedProvider("a")), name="agent:sim", asked_on=ASKED_ON
+    )
     with pytest.raises(ValueError, match="one user message"):
         model.complete(B0().prompt(apple_question()))
 
@@ -125,9 +127,11 @@ def test_no_provider_stops_the_night_and_keeps_what_was_answered(
     provider = ScriptedProvider("a", [calls(REVENUE), says(TRACED), down, down, down])
     model = AgentChatModel(agent_of(facts_ctx, provider), name="agent:sim", asked_on=ASKED_ON)
     results = tmp_path / "b2.jsonl"
-    questions = [apple_question("q-1"), apple_question("q-2")]
+    questions = [apple_question("gnum-000000000000000a"), apple_question("gnum-000000000000000b")]
     with pytest.raises(AgentUnavailableError):
         run_numeric(questions, B2(), model, results=results, now=lambda: NOW)
     cached = read_jsonl(cache_path(results), AnswerRecord)
-    assert [(r.qid, r.system, r.model) for r in cached] == [("q-1", "b2", "agent:sim")]
+    assert [(r.qid, r.system, r.model) for r in cached] == [
+        ("gnum-000000000000000a", "b2", "agent:sim")
+    ]
     assert "degraded" not in cached[0].output

@@ -121,7 +121,7 @@ def test_a_refusal_is_a_failed_call_with_its_code(facts_ctx: FactsContext) -> No
         tools=(ToolCheck(match={"error.code": "unknown_company"}, ok=False),),
         says=(r"not .{0,40}(cover|scope|50)",),
     )
-    text = "SIMULATED: That company is not among the 50 companies covered."
+    text = "SIMULATED: That company is not among the companies covered."
     assert kinds(out_of_scope, transcript(text, (refused,))) == []
     assert kinds(out_of_scope, transcript("SIMULATED: no idea.", (refused,))) == ["says"]
 
