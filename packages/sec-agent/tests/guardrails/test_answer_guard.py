@@ -142,6 +142,7 @@ def test_historical_hold_words_are_not_advice() -> None:
         "Held-to-maturity securities were $1.2 billion.",
         "Holding company expenses were $0.4 billion.",
         "Hold-back amounts were $2.0 million.",
+        "Hold harmless clauses apply to its suppliers.",
         "The company does not hold derivatives for trading purposes.",
     ):
         assert guard_answer(text, canary=None, advice_requested=False).verdict == "pass", text

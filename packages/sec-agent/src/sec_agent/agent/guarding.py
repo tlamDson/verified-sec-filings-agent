@@ -13,7 +13,7 @@ from sec_agent.guardrails.config import GuardrailConfig
 from sec_agent.guardrails.models import GuardReport
 from sec_agent.guardrails.quarantine import quarantine
 from sec_agent.guardrails.screen import screen_question
-from sec_agent.llm.messages import ToolCall
+from sec_agent.llm.messages import Message
 
 WITHHELD_QUESTION = "[question withheld: refused by the guardrails as an attack]"
 """What the conversation keeps of a refused question, so no later turn shows it the model."""
@@ -45,12 +45,16 @@ class TurnGuard:
         report = GuardReport(question=screen.kind, rule=screen.rule).model_dump()
         return Screened(report, refused=screen.kind == "attack")
 
-    def calls_leak(self, tool_calls: list[ToolCall]) -> bool:
+    def reply_leaks(self, message: Message) -> bool:
+        """The canary anywhere in a model reply: its text, or any tool call's name or
+        arguments. A reply may carry text and tool calls together, so both are read."""
         canary = self.canary
-        return canary is not None and any(
-            leaks(canary, f"{c['function']['name']} {c['function']['arguments']}")
-            for c in tool_calls
-        )
+        if canary is None:
+            return False
+        parts = [message.get("content") or ""]
+        for c in message.get("tool_calls") or []:
+            parts += [c["function"]["name"], c["function"]["arguments"]]
+        return any(leaks(canary, part) for part in parts)
 
     def draft_leaks(self, draft: str) -> bool:
         canary = self.canary

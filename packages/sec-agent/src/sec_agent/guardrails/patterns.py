@@ -158,7 +158,13 @@ ADVICE_STATEMENT: Rules = (
     _rule(
         "you_should_trade",
         r"\b(?:you|investors|one|we)\s+(?:should|must|ought\s+to|might\s+want\s+to|may\s+want\s+to)",
-        r"\s+(?:\w+\s+)?(?:buy|sell|hold|short|invest|purchase|accumulate|add|exit|trim|dump)\b",
+        r"\s+(?:\w+\s+)?(?:(?:buy|sell|hold|short|invest|add|exit|dump)(?:ing)?|purchas(?:e|ing)|",
+        r"accumulat(?:e|ing)|trim(?:ming)?|stay\s+invested|hang\s+on)\b",
+    ),
+    _rule(
+        "i_would_trade",
+        r"\b(?:i['’]d|i\s+would|i['’]ll|i\s+will)\s+(?:still\s+|just\s+|probably\s+)?",  # noqa: RUF001
+        r"(?:hold|buy|sell|short|dump|trim|accumulate|keep\s+holding|stay\s+invested)\b(?![-\w])",
     ),
     _rule(
         "i_recommend",
@@ -169,6 +175,8 @@ ADVICE_STATEMENT: Rules = (
     _rule(
         "rating",
         r"\b(?:strong\s+)?(?:buy|sell|hold)\s+(?:rating|recommendation)\b|\bstrong\s+(?:buy|sell)\b",
+        r"|\b(?:is|remains|stays|rated|rate\s+it)\s+(?:still\s+)?an?\s+(?:strong\s+)?",
+        r"(?:buy|sell|hold)\b(?![-\w])",
     ),
     _rule(
         "good_investment",
@@ -185,9 +193,11 @@ ADVICE_STATEMENT: Rules = (
     _rule("buy_now", r"\b(?:buy|sell)\s+(?:\w+\s+){0,2}(?:now|today|immediately)\b"),
     _rule(
         "trade_imperative",
-        r"^\W*(?:consider\s+(?:buying|selling|shorting|purchasing)|(?:(?:go\s+ahead\s+and|just|so|",
-        r"then)\s+)?(?:buy|sell|short|purchase|accumulate|dump))\b(?![-\w])",
-        r"(?!\s+(?:of|obligations?|commitments?|orders?|prices?|agreements?|side|volumes?)\b)",
+        r"^\W*(?:consider\s+(?:buying|selling|shorting|purchasing|holding)|(?:keep|continue)\s+",
+        r"holding|stay\s+invested|hang\s+on|(?:don['’]t|do\s+not)\s+(?:buy|sell|short|dump)|",  # noqa: RUF001
+        r"(?:(?:go\s+ahead\s+and|just|so|then)\s+)?(?:buy|sell|short|purchase|accumulate|dump|",
+        r"hold))\b(?![-\w])",
+        r"(?!\s+(?:of|obligations?|commitments?|orders?|prices?|agreements?|side|volumes?|harmless)\b)",
     ),
 )
 """A sentence of the answer gives advice or forecasts the stock (E9)."""

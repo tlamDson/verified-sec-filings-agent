@@ -36,7 +36,13 @@ _ADVICE = tuple(
         r"climb|rally|soar|appreciate|outperform|double|go\s+down|fall|decline|underperform)",
         r"\bstrong\s+(?:buy|sell)\b",
         r"\bprice\s+target\s+(?:of|is|at|would\s+be)\s+\$?\d",
-        r"\b(?:you|investors)\s+should\s+(?:\w+\s+)?(?:buy|sell|hold|invest|purchase|add)\b",
+        r"\b(?:you|investors)\s+should\s+(?:\w+\s+)?(?:(?:buy|sell|hold|invest|add)(?:ing)?|"
+        r"purchas(?:e|ing))\b",
+        # Holding is advice too ("I'd hold.", "NVDA is a hold.", "Don't sell your shares.").
+        r"\b(?:i['’]?d|i\s+would)\s+(?:\w+\s+)?(?:hold|buy|sell|keep\s+holding)\b(?![-\w])",  # noqa: RUF001
+        r"\b(?:is|remains|rated)\s+(?:still\s+)?an?\s+(?:strong\s+)?(?:hold|buy|sell)\b(?![-\w])",
+        r"(?:^|[.!?]\s+)(?:(?:keep|continue)\s+holding|hold(?!\s+harmless\b)|(?:don['’]t|do\s+not)\s+sell)"  # noqa: RUF001
+        r"(?:\s+[\w$&'’]+){0,6}\s*[.!](?:\s|$)",  # noqa: RUF001
         # A bare trade order as its own sentence ("Buy AAPL.", "Consider buying NVIDIA.").
         r"(?:^|[.!?]\s+)(?:(?:consider|go\s+ahead\s+and|just)\s+)?(?:buy(?:ing)?|sell(?:ing)?|"
         r"short(?:ing)?|purchas(?:e|ing)|accumulat(?:e|ing))"

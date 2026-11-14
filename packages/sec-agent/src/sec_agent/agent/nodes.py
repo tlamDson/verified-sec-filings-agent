@@ -98,12 +98,12 @@ class TurnNodes:
             )
         )
         message = completion.message
+        if self._guard.reply_leaks(message):  # its text and its tool calls alike
+            return self._leak(state, calls)
         if completion.finish_reason == "length":  # cut off: it may end in half a number
             return _end(calls, "degraded", "truncated_reply", DEGRADED_TEXT)
         tool_calls = message.get("tool_calls")
         if tool_calls:
-            if self._guard.calls_leak(tool_calls):
-                return self._leak(state, calls)
             if last_call:
                 return _end(calls, "step_limit", "max_llm_calls", STEP_LIMIT_TEXT)
             asked: Message = {
