@@ -1,5 +1,9 @@
 """The `filing.sections` job: fetch a filing's primary document, index it, store it.
 
+A 10-K that incorporates items by reference to its annual report also has its filing index
+page and each HTML Exhibit 13 fetched (see `incorporation`); a missing index page or exhibit
+leaves the 10-K's own text in place.
+
 Idempotent: the store replaces the rows keyed by (index_version, accession), so a second
 delivery of the same job changes nothing.
 """
@@ -11,9 +15,13 @@ from pydantic import ValidationError
 
 from sec_agent.edgar.client import EdgarClient
 from sec_agent.edgar.errors import EdgarNotFoundError
+from sec_agent.filings.exhibits import annual_report_documents, filing_index_url
+from sec_agent.filings.html_text import html_blocks
+from sec_agent.filings.incorporation import incorporated_keys
 from sec_agent.filings.index_version import ChunkConfig, index_version
-from sec_agent.filings.models import FilingJob
+from sec_agent.filings.models import ExhibitDocument, FilingJob, FilingRef
 from sec_agent.filings.pipeline import index_filing
+from sec_agent.filings.sections import find_sections
 from sec_agent.filings.store import ChunkStore, PostgresChunkStore
 from sec_agent.jobs.context import HandlerContext
 from sec_agent.jobs.errors import PermanentJobError
@@ -45,7 +53,7 @@ def make_filing_handler(
             html = fetch(filing.document_url)
         except EdgarNotFoundError as error:
             raise PermanentJobError(f"HTTP 404 for {filing.document_url}") from error
-        indexed = index_filing(html, filing, config)
+        indexed = index_filing(html, filing, config, _exhibits(fetch, filing, html))
         store.replace(indexed)
         log.info(
             "indexed %s %s: %d sections, %d chunks",
@@ -56,6 +64,28 @@ def make_filing_handler(
         )
 
     return handle
+
+
+def _exhibits(
+    fetch: Callable[[str], bytes], filing: FilingRef, html: bytes
+) -> list[ExhibitDocument]:
+    """The filing's Exhibit 13 documents, fetched only when the 10-K incorporates items."""
+    if not incorporated_keys(find_sections(html_blocks(html), filing.form), filing.form):
+        return []
+    try:
+        names = annual_report_documents(fetch(filing_index_url(filing)))
+    except EdgarNotFoundError:
+        log.warning("no filing index for %s; keeping its own text", filing.accession)
+        return []
+    folder = filing.document_url.rsplit("/", 1)[0]
+    exhibits: list[ExhibitDocument] = []
+    for name in names:
+        url = f"{folder}/{name}"
+        try:
+            exhibits.append(ExhibitDocument(url=url, html=fetch(url)))
+        except EdgarNotFoundError:
+            log.warning("exhibit %s of %s is missing; skipped", name, filing.accession)
+    return exhibits
 
 
 def filing_sections_handler(context: HandlerContext) -> Handler:

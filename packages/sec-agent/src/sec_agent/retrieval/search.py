@@ -54,11 +54,14 @@ _QUERY = """
 WITH {arms}, fused AS ({fuse})
 SELECT f.score, f.dense_rank, f.lexical_rank, f.distance, f.bm25,
        c.index_version, c.accession, c.section, c.ordinal, c.cik, c.form, c.filing_date,
-       c.report_date, c.char_start, c.char_end, c.text, fi.source_url
+       c.report_date, c.char_start, c.char_end, c.text,
+       coalesce(s.source_url, fi.source_url) AS source_url
 FROM fused f
 JOIN chunks c ON c.index_version = %(version)s AND c.accession = f.accession
              AND c.section = f.section AND c.ordinal = f.ordinal
 JOIN indexed_filings fi ON fi.index_version = c.index_version AND fi.accession = c.accession
+JOIN filing_sections s ON s.index_version = c.index_version AND s.accession = c.accession
+                      AND s.section = c.section
 ORDER BY f.score DESC,
          least(coalesce(f.dense_rank, {no_rank}), coalesce(f.lexical_rank, {no_rank})),
          f.accession COLLATE "C", f.section COLLATE "C", f.ordinal

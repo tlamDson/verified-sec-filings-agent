@@ -180,13 +180,13 @@ def test_extending_keeps_every_previous_item_and_adds_the_new_runs_top_k(
     previous = [_item(e) for e in build_pool(questions, _hits(), depth=2, seed=7)]
     new_hit = parse_run(f"q-002 Q0 {ACC}/mdna/9 1 3.0 hybrid\n")
     fresh = build_pool(questions, [*_hits(), *new_hit], depth=2, seed=7)
-    in_index = {e.chunk for e in fresh} | {i.chunk for i in previous}
+    in_index = [e.chunk for e in fresh] + [i.chunk for i in previous]
     pool, dropped = extend_pool(previous, fresh, questions, seed=7, in_index=in_index)
     assert dropped == []
     assert {(e.qid, e.chunk.docid) for e in pool} == {(i.qid, i.docid) for i in previous} | {
         ("q-002", f"{ACC}/mdna/9")
     }
-    assert len(pool) == len({(e.qid, e.chunk) for e in pool})  # each chunk once per question
+    assert len(pool) == len({(e.qid, e.chunk.docid) for e in pool})  # each chunk once per question
     # Same seeded order as a fresh pool: questions in file order, chunks by seeded key.
     assert [e.qid for e in pool] == sorted(e.qid for e in pool)
     again, _ = extend_pool(previous, fresh, questions, seed=7, in_index=in_index)
@@ -198,11 +198,11 @@ def test_a_previous_item_the_new_runs_missed_keeps_its_systems_and_rank(
 ) -> None:
     previous = [_item(e) for e in build_pool(questions, _hits(), depth=3, seed=7)]
     fresh = build_pool(questions, _hits(), depth=1, seed=7)
-    in_index = {i.chunk for i in previous}
+    in_index = [i.chunk for i in previous]
     pool, _ = extend_pool(previous, fresh, questions, seed=7, in_index=in_index)
-    by_key = {(e.qid, e.chunk): e for e in pool}
+    by_key = {(e.qid, e.chunk.docid): e for e in pool}
     for item in previous:
-        kept = by_key[(item.qid, item.chunk)]
+        kept = by_key[(item.qid, item.docid)]
         if all((f.qid, f.chunk) != (item.qid, item.chunk) for f in fresh):
             assert (kept.systems, kept.best_rank) == (item.systems, item.best_rank)
 
@@ -213,9 +213,9 @@ def test_previous_items_no_longer_in_the_index_are_dropped_and_reported(
     previous = [_item(e) for e in build_pool(questions, _hits(), depth=3, seed=7)]
     fresh = build_pool(questions, _hits(), depth=1, seed=7)
     gone = next(i for i in previous if all(f.chunk != i.chunk for f in fresh))
-    in_index = {i.chunk for i in previous} - {gone.chunk}
+    in_index = [i.chunk for i in previous if i.chunk != gone.chunk]
     pool, dropped = extend_pool(previous, fresh, questions, seed=7, in_index=in_index)
-    assert gone.chunk not in {e.chunk for e in pool}
+    assert gone.docid not in {e.chunk.docid for e in pool}
     assert [(d.qid, d.chunk) for d in dropped] == [
         (i.qid, i.chunk) for i in previous if i.chunk == gone.chunk
     ]
@@ -228,4 +228,4 @@ def test_extending_refuses_a_previous_pool_with_unknown_questions(
         update={"qid": "q-404"}
     )
     with pytest.raises(ValueError, match="q-404"):
-        extend_pool([stray], [], questions, seed=7, in_index={stray.chunk})
+        extend_pool([stray], [], questions, seed=7, in_index=[stray.chunk])

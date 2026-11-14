@@ -6,7 +6,7 @@ high; questions keep the order of the questions file.
 """
 
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Container, Mapping, Sequence
 
 from sec_agent.golden.gret.models import (
     ChunkRef,
@@ -35,18 +35,66 @@ def build_pool(
     for (qid, _), system_hits in ranked.items():
         for hit in sorted(system_hits, key=lambda h: (h.rank, h.chunk.docid))[:depth]:
             found[qid].setdefault(hit.chunk, []).append(hit)
+    entries = [
+        PoolEntry(
+            qid=qid,
+            chunk=chunk,
+            systems=tuple(sorted({h.system for h in chunk_hits})),
+            best_rank=min(h.rank for h in chunk_hits),
+        )
+        for qid, chunks in found.items()
+        for chunk, chunk_hits in chunks.items()
+    ]
+    return _ordered(questions, entries, seed)
+
+
+def extend_pool(
+    previous: Sequence[PoolItem],
+    fresh: Sequence[PoolEntry],
+    questions: Sequence[RetQuestion],
+    *,
+    seed: int,
+    in_index: Container[ChunkRef],
+) -> tuple[list[PoolEntry], list[PoolEntry]]:
+    """Grow a pool with the top k of new runs (on a new index version, or new systems).
+
+    Every previously pooled chunk stays while the new index still has it, so its label
+    carries over when its text is unchanged (labels are tied to the text's hash) and it is
+    pending again when the text changed. Return (pool, previous entries dropped because the
+    index no longer has their chunk). A chunk pooled again keeps the new runs' systems and
+    rank; one the new runs missed keeps its old ones. Order is that of `build_pool`.
+    """
+    known = {q.id for q in questions}
+    unknown = sorted({i.qid for i in previous} - known)
+    if unknown:
+        raise ValueError(f"previous pool has questions not in the questions file: {unknown}")
+    merged = {(e.qid, e.chunk): e for e in fresh}
+    dropped: list[PoolEntry] = []
+    for item in previous:
+        key = (item.qid, item.chunk)
+        if key in merged:
+            continue
+        entry = PoolEntry(
+            qid=item.qid, chunk=item.chunk, systems=item.systems, best_rank=item.best_rank
+        )
+        if item.chunk in in_index:
+            merged[key] = entry
+        else:
+            dropped.append(entry)
+    return _ordered(questions, list(merged.values()), seed), dropped
+
+
+def _ordered(
+    questions: Sequence[RetQuestion], entries: Sequence[PoolEntry], seed: int
+) -> list[PoolEntry]:
+    """Questions in file order; within one, a seeded order that hides system and rank."""
+    by_question: defaultdict[str, list[PoolEntry]] = defaultdict(list)
+    for entry in entries:
+        by_question[entry.qid].append(entry)
     pool: list[PoolEntry] = []
     for q in questions:
-        entries = [
-            PoolEntry(
-                qid=q.id,
-                chunk=chunk,
-                systems=tuple(sorted({h.system for h in chunk_hits})),
-                best_rank=min(h.rank for h in chunk_hits),
-            )
-            for chunk, chunk_hits in found[q.id].items()
-        ]
-        pool += sorted(entries, key=lambda e: seeded_key(seed, "pool", e.qid, e.chunk.docid))
+        chunks = by_question[q.id]
+        pool += sorted(chunks, key=lambda e: seeded_key(seed, "pool", e.qid, e.chunk.docid))
     return pool
 
 

@@ -52,6 +52,18 @@ class Section(BaseModel):
     heading: str  # the heading as the filing writes it
     text: str
     token_count: int = Field(ge=0)
+    source_url: str | None = None
+    """The document the text came from, when it is not the filing's primary document
+    (an Exhibit 13 annual report incorporated by reference)."""
+
+
+class ExhibitDocument(BaseModel):
+    """One HTML exhibit of a filing, fetched for the text a 10-K incorporates by reference."""
+
+    model_config = _FROZEN
+
+    url: str
+    html: bytes
 
 
 class Chunk(BaseModel):

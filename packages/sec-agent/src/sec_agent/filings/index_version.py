@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from sec_agent.filings.tokens import TOKENIZER_NAME
 
-PARSER_VERSION = 1
+PARSER_VERSION = 2
 
 
 class ChunkConfig(BaseModel):

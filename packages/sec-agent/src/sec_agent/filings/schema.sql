@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS filing_sections (
         REFERENCES indexed_filings (index_version, accession) ON DELETE CASCADE
 );
 
+-- The document a section's text came from: the primary document, or an Exhibit 13 annual
+-- report the 10-K incorporates by reference. NULL on rows written before parser 2; readers
+-- fall back to indexed_filings.source_url.
+ALTER TABLE filing_sections ADD COLUMN IF NOT EXISTS source_url text;
+
 -- Filter columns (cik, form, dates, section) live on the chunk row itself, so the vector
 -- and BM25 indexes added later can filter without a join.
 CREATE TABLE IF NOT EXISTS chunks (

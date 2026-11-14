@@ -155,7 +155,7 @@ def _ibr_documents(read_fixture: Callable[[str], bytes], filing: FilingRef) -> d
         filing.document_url: read_fixture("sim-10k-ibr.htm"),
         filing_index_url(filing): read_fixture("sim-filing-index.htm"),
         f"{folder}/simb-ex13.htm": read_fixture("sim-ex13.htm"),
-        f"{folder}/simb-ex13_2.htm": b"<html><body><p>Glossary of simulated terms.</p></body></html>",
+        f"{folder}/simb-ex13_2.htm": b"<html><body><p>Glossary of simulated terms.</p></body>",
     }
 
 

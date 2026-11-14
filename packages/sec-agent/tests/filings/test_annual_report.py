@@ -40,7 +40,7 @@ def test_financial_review_is_mdna_and_risk_factors_end_where_the_next_part_start
 
 def test_mdna_heading_and_market_risk_end_at_the_auditor_report() -> None:
     blocks = [
-        "Management’s Discussion and Analysis of Financial Condition and Results of Operations",
+        "Management's Discussion and Analysis of Financial Condition and Results of Operations",
         FILLER,
         "Quantitative and Qualitative Disclosures About Market Risk",
         "The company is exposed to simulated interest rate risk on simulated borrowings.",
