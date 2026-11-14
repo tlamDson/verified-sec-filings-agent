@@ -1,14 +1,18 @@
 """The committed A1 scenarios: 50, on the test companies only, every category covered."""
 
+import json
 from collections import Counter
 from pathlib import Path
 
-from sec_agent.eval.agent.scenarios import CATEGORIES, read_scenarios
+from sec_agent.eval.agent.scenarios import CATEGORIES, Transcript, read_scenarios
+from sec_agent.eval.agent.tracing import scopes
+from sec_agent.golden.jsonl import read_jsonl
 from sec_agent.golden.split import read_split
 from sec_agent.tools.metrics import CONCEPT_NAMES
 from sec_agent.tools.ratio_defs import GROWTH, RATIOS
 
 SCENARIOS = Path("data") / "golden" / "agent_scenarios.jsonl"
+TRANSCRIPTS = Path("results") / "agent" / "test"
 
 
 def test_fifty_scenarios_with_unique_ids_cover_every_category(repo_root: Path) -> None:
@@ -86,3 +90,23 @@ def test_the_fiscal_years_a_risk_diff_asks_for_are_checked(repo_root: Path) -> N
     by_id = {s.id: s for s in read_scenarios(repo_root / SCENARIOS)}
     match = by_id["a1-035"].tools[0].match
     assert (match["current.fiscal_year"], match["previous.fiscal_year"]) == (2024, 2023)
+
+
+def test_every_recorded_oracle_run_of_a_checks_call_meets_the_check(repo_root: Path) -> None:
+    """A check the pinned facts cannot meet fails every system alike. a1-021 once asked
+    PM's fiscal 2023 effective tax rate: facts v1 has no pretax income, so the oracle said
+    `not_reported` while the check required `computed`. Every committed oracle run of a
+    check's own call (the same arguments) must be a result the check matches."""
+    by_id = {s.id: s for s in read_scenarios(repo_root / SCENARIOS)}
+    judged = 0
+    for path in sorted((repo_root / TRANSCRIPTS).glob("*.jsonl")):
+        if path.name.endswith(".cache.jsonl"):
+            continue
+        for t in read_jsonl(path, Transcript):
+            for e in t.oracle:
+                check = by_id[t.scenario_id].tools[int(e.call_id.removeprefix("oracle-"))]
+                if check.call is None or json.loads(e.arguments) != check.call:
+                    continue  # recorded for an earlier version of the check
+                judged += 1
+                assert scopes(check, e), f"{path.name} {t.scenario_id}: {e.result[:200]}"
+    assert judged > 0
