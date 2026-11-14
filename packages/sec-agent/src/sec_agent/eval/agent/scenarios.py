@@ -133,10 +133,11 @@ class Transcript(BaseModel):
 
 
 def scenario_sha256(scenario: Scenario, fingerprint: str) -> str:
-    """The cache key of a scenario for a system: its turns and checks, and the system's
-    fingerprint, so changing either asks again. The oracle's arguments (`ToolCheck.call`)
-    are left out: they change how an answer is scored, never what a system is asked."""
-    asked = scenario.model_dump_json(exclude={"tools": {"__all__": {"call"}}})
+    """The cache key of a scenario for a system: what the system is asked (the scenario's
+    id, split, companies and turns) and the system's fingerprint, so changing either asks
+    again. The checks are left out: they change how an answer is scored, never what a
+    system is asked, so a fixed check rescores the cached transcripts with no model call."""
+    asked = scenario.model_dump_json(include={"id", "split", "companies", "turns"})
     payload = asked + "\n" + fingerprint
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 

@@ -51,3 +51,18 @@ def test_every_figure_check_names_the_oracle_call_that_answers_it(repo_root: Pat
             tickers = [v for k, v in check.match.items() if k.endswith("ticker")]
             named = check.call.get("company", check.call.get("companies"))
             assert all(t == named or (isinstance(named, list) and t in named) for t in tickers)
+
+
+def test_every_growth_check_names_its_concept(repo_root: Path) -> None:
+    """A growth result names its concept only in its formula: without it, the growth of
+    net income would pass a revenue question."""
+    for s in read_scenarios(repo_root / SCENARIOS):
+        for check in s.tools:
+            if check.match.get("ratio") != "yoy_growth":
+                continue
+            assert check.call is not None, s.id
+            concept, year = check.call["concept"], check.match["fiscal_year"]
+            assert isinstance(year, int), s.id
+            assert check.match["formula"] == (
+                f"({concept}[{year}] - {concept}[{year - 1}]) / |{concept}[{year - 1}]| * 100"
+            ), s.id

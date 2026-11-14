@@ -181,3 +181,41 @@ def test_a_peer_check_is_met_only_by_its_own_companys_row(facts_ctx: FactsContex
 def test_wildcards_must_share_one_list() -> None:
     with pytest.raises(ValidationError, match="one list"):
         ToolCheck(match={"rows.*.company.ticker": "HD", "passages.*.company.ticker": "HD"})
+
+
+def test_a_growth_check_rejects_the_growth_of_another_concept(facts_ctx: FactsContext) -> None:
+    """The result names its concept only in `formula`; the check must match it there."""
+
+    def growth(concept: str) -> Evidence:
+        return run_tool(
+            facts_ctx,
+            "compute_ratio",
+            company="AAPL",
+            ratio="yoy_growth",
+            concept=concept,
+            fiscal_year=2024,
+        )
+
+    revenue_growth = scenario(
+        category="growth",
+        tools=(
+            ToolCheck(
+                tool="compute_ratio",
+                match={
+                    "company.ticker": "AAPL",
+                    "ratio": "yoy_growth",
+                    "fiscal_year": 2024,
+                    "formula": "(revenue[2024] - revenue[2023]) / |revenue[2023]| * 100",
+                },
+                figure="value",
+            ),
+        ),
+    )
+    right, wrong = growth("revenue"), growth("net_income")
+    assert result_values(right.result, "formula") == [
+        "(revenue[2024] - revenue[2023]) / |revenue[2023]| * 100"
+    ]
+    text = "SIMULATED: It changed {:.1f}% in fiscal 2024."
+    shown = {e: text.format(float(result_values(e.result, "value")[0])) for e in (right, wrong)}
+    assert kinds(revenue_growth, transcript(shown[right], (right,))) == []
+    assert kinds(revenue_growth, transcript(shown[wrong], (wrong,))) == ["tool"]

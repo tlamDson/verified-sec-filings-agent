@@ -228,3 +228,13 @@ def test_a1_report_refuses_two_answers_to_one_scenario(facts_ctx: FactsContext) 
     twice = records("agent", {"a1-001": True}, facts) * 2
     with pytest.raises(ValueError, match="two answers"):
         agent_report([VALUE], {"agent": twice})
+
+
+def test_the_cache_key_is_what_is_asked_not_how_it_is_scored() -> None:
+    from sec_agent.eval.agent.scenarios import scenario_sha256
+
+    rescored = VALUE.model_copy(update={"tools": (), "says": (r"revenue",), "notes": "fixed"})
+    assert scenario_sha256(rescored, "fp") == scenario_sha256(VALUE, "fp")
+    asked_otherwise = VALUE.model_copy(update={"turns": ("Apple revenue, fiscal 2024?",)})
+    assert scenario_sha256(asked_otherwise, "fp") != scenario_sha256(VALUE, "fp")
+    assert scenario_sha256(VALUE, "other") != scenario_sha256(VALUE, "fp")

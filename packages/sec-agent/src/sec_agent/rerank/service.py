@@ -69,6 +69,10 @@ class Reranker:
         return self._scorer.name
 
     @property
+    def config(self) -> RerankConfig:
+        return self._config
+
+    @property
     def depth(self) -> int:
         return self._config.depth
 

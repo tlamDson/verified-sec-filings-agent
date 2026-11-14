@@ -29,7 +29,7 @@ from sec_agent.llm.router import LLMRouter
 from sec_agent.mcp_server.cli import model_embedder, no_embedder
 from sec_agent.mcp_server.contexts import open_contexts
 from sec_agent.mcp_server.dispatch import ToolContexts
-from sec_agent.rerank.serving import add_reranker_option, reranker_from_args
+from sec_agent.rerank.serving import add_reranker_option, served_reranker
 from sec_agent.retrieval.snapshot import SERVING
 
 
@@ -73,7 +73,7 @@ def eval_stack(url: str, args: argparse.Namespace) -> Generator[EvalStack]:
     """Raises LLMConfigError, RerankerLoadError or ServeConfigError on a bad setup."""
     configs = providers_from_env(os.environ)
     providers = build_providers(configs, os.environ)
-    reranker = reranker_from_args(args)
+    reranker, reranker_identity = served_reranker(args)
     with ExitStack() as stack:
         contexts = stack.enter_context(
             open_contexts(
@@ -93,7 +93,7 @@ def eval_stack(url: str, args: argparse.Namespace) -> Generator[EvalStack]:
             "facts": args.facts_version,
             "space": "none" if text is None else text.space.name,
             "query_embedder": "none" if text is None or text.embedder is None else "model",
-            "reranker": "none" if reranker is None else str(args.reranker or "env"),
+            "reranker": reranker_identity,
             "rerank_timeout": str(args.rerank_timeout),
         }
         yield EvalStack(
