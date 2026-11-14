@@ -25,9 +25,9 @@ WORDS = ["revenue", "rose", "fell", "oil", "price", "risk", "supplier", "the", "
 
 
 def _tiny_base(directory: Path) -> str:
-    vocab = directory / "vocab.txt"
-    vocab.write_text("\n".join(["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", *WORDS]), "utf-8")
-    tokenizer = transformers.BertTokenizerFast(vocab_file=str(vocab))
+    directory.mkdir(parents=True)
+    tokens = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", *WORDS]
+    tokenizer = transformers.BertTokenizerFast(vocab={t: i for i, t in enumerate(tokens)})
     config = transformers.BertConfig(
         vocab_size=len(WORDS) + 5,
         hidden_size=16,
@@ -45,8 +45,12 @@ def _tiny_base(directory: Path) -> str:
 
 
 def _pairs() -> list[TrainPair]:
-    up = TrainPair(qid="q1", ticker="AAA", query="did revenue rise", passage="revenue rose", label=1.0)
-    down = TrainPair(qid="q1", ticker="AAA", query="did revenue rise", passage="revenue fell", label=0.0)
+    up = TrainPair(
+        qid="q1", ticker="AAA", query="did revenue rise", passage="revenue rose", label=1.0
+    )
+    down = TrainPair(
+        qid="q1", ticker="AAA", query="did revenue rise", passage="revenue fell", label=0.0
+    )
     return [up, down] * 8
 
 
@@ -57,7 +61,9 @@ def test_zero_epochs_is_the_base_model(tmp_path: Path) -> None:
     base = _tiny_base(tmp_path / "base")
     a = fine_tune(base, _pairs(), TrainConfig(epochs=0, max_length=32), device="cpu")
     b = TorchCrossEncoder.load(base, max_length=32, device="cpu")
-    assert a.score("did revenue rise", ["revenue rose"]) == b.score("did revenue rise", ["revenue rose"])
+    assert a.score("did revenue rise", ["revenue rose"]) == b.score(
+        "did revenue rise", ["revenue rose"]
+    )
 
 
 def test_fine_tuning_learns_the_labels_and_is_seeded(tmp_path: Path) -> None:

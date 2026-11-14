@@ -9,6 +9,8 @@ import anyio
 from sec_agent.jobs.cli import add_database_url_option, database_url_or_error
 from sec_agent.mcp_server.contexts import EmbedderFactory, ServeConfigError, open_contexts
 from sec_agent.mcp_server.server import build_server, serve_stdio
+from sec_agent.rerank.loader import RerankerLoadError
+from sec_agent.rerank.serving import add_reranker_option, reranker_from_args
 from sec_agent.retrieval.embedder import Embedder
 from sec_agent.retrieval.errors import EmbedderUnavailableError
 from sec_agent.retrieval.models import EmbedderSpec
@@ -29,6 +31,7 @@ def add_commands(subparsers: "Subparsers") -> None:
     )
     mcp.add_argument("--lexical", action="store_true", help="search with BM25 only, no model")
     mcp.add_argument("--device", default=None, help="torch device for the query embedder")
+    add_reranker_option(mcp)
     mcp.set_defaults(run=_serve)
 
 
@@ -37,8 +40,17 @@ def _serve(args: argparse.Namespace) -> int:
         return 2
     factory = no_embedder if args.lexical else model_embedder(args.device)
     try:
+        reranker = reranker_from_args(args)
+    except RerankerLoadError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
+    try:
         with open_contexts(
-            url, facts_version=args.facts_version, snapshot=args.snapshot, embedder=factory
+            url,
+            facts_version=args.facts_version,
+            snapshot=args.snapshot,
+            embedder=factory,
+            reranker=reranker,
         ) as contexts:
             if contexts.text is None:
                 print(

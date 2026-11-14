@@ -8,6 +8,7 @@ dependencies = ["sec-agent"]
 [dependency-groups]
 dev = [
     "httpx2>=2.16",
+    "onnx>=1.17",
     "pgserver>=0.1.4",
     "pyright>=1.1.408",
     "pytest>=9.0",

@@ -11,10 +11,10 @@ from retrieval_fakes import HASH_SPEC, HashEmbedder
 
 from sec_agent.golden.universe import Company
 from sec_agent.llm.breaker import BreakerConfig
+from sec_agent.rerank.service import RerankConfig, Reranker
 from sec_agent.retrieval.build import build_index
 from sec_agent.retrieval.search import search
 from sec_agent.retrieval.space import make_space
-from sec_agent.rerank.service import RerankConfig, Reranker
 from sec_agent.tools.companies import CompanyDirectory
 from sec_agent.tools.context import TextContext
 from sec_agent.tools.risk_sections import PostgresRiskSections

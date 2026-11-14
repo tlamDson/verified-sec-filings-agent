@@ -9,6 +9,7 @@ import hashlib
 import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 import onnx
 from onnx import TensorProto, helper
@@ -37,7 +38,8 @@ def tiny_tokenizer() -> Tokenizer:
 def tiny_score(query: str, passage: str, max_length: int = 64) -> float:
     """What the tiny model gives a pair: sum of the ids, after truncating the passage."""
     encoding = tiny_tokenizer()
-    encoding.enable_truncation(max_length, strategy="only_second")
+    untyped: Any = encoding  # enable_truncation has untyped **kwargs
+    untyped.enable_truncation(max_length, strategy="only_second")
     return float(sum(encoding.encode(query, passage).ids))
 
 
@@ -61,7 +63,7 @@ def tiny_onnx_model(with_token_types: bool = True) -> onnx.ModelProto:
     graph = helper.make_graph(nodes, "tiny", inputs, [output], initializer=[axes])
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
     model.ir_version = 8
-    onnx.checker.check_model(model)
+    onnx.checker.check_model(model)  # pyright: ignore[reportUnknownMemberType]
     return model
 
 
@@ -69,7 +71,7 @@ def write_tiny_model(directory: Path, with_token_types: bool = True) -> tuple[Pa
     """model.onnx and tokenizer.json in `directory`."""
     directory.mkdir(parents=True, exist_ok=True)
     model_path, tokenizer_path = directory / "model.onnx", directory / "tokenizer.json"
-    onnx.save(tiny_onnx_model(with_token_types), str(model_path))
+    onnx.save(tiny_onnx_model(with_token_types), str(model_path))  # pyright: ignore[reportUnknownMemberType]
     tiny_tokenizer().save(str(tokenizer_path))
     return model_path, tokenizer_path
 
