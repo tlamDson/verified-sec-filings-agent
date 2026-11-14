@@ -98,3 +98,45 @@ DECLINES_WITH_LISTS = (
     "I can't give recommendations to buy AAPL now.",
     "I cannot provide price targets and forecasts or say whether the stock will rise.",
 )
+LABELS = (
+    "Recommendation",
+    "**Recommendation**",
+    "- **Verdict**",
+    "> Rating",
+    "## Bottom line",
+    "1. Final recommendation",
+    "Our verdict",
+    "| Recommendation",
+)
+SEPARATORS = (":", ": ", ":** ", " - ", " -- ", " — ", " → ", " -> ", " = ", " | ")
+CALLS = (
+    "Buy",
+    "**Buy**",
+    "buy",
+    "SELL",
+    "Hold",
+    "Strong Buy",
+    "Overweight",
+    "Underweight",
+    "Outperform",
+    "a buy",
+    "it's a buy",
+    "Buy (high conviction)",
+    "buy NVDA",
+    "Hold the stock",
+)
+FORMATTED_RECOMMENDATIONS = tuple(
+    f"{label}{separator}{call}" for label in LABELS for separator in SEPARATORS for call in CALLS
+)
+"""A recommendation behind a label, markdown or a separator ("**Recommendation:** Buy",
+"- Verdict: buy", "Bottom line - buy", "Recommendation -- Overweight")."""
+UNFORMATTED_FACTS = (
+    "The recommendation: sell-side analysts cover the stock.",
+    "Rating: A+ from the agency, unchanged.",
+    "Bottom line - revenue was $391.0 billion.",
+    "Verdict: the court held that the claim failed.",
+    "Recommendation: see the risk factors in Item 1A.",
+    "The earnings call: management said revenue grew.",
+    "Rating - outlook stable.",
+)
+"""Labels and separators with no call after them: facts that must be kept."""
