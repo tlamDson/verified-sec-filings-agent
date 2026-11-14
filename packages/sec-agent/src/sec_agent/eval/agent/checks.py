@@ -5,6 +5,8 @@ The shown text is traced again against the turn's evidence by the faithfulness c
 traced to the expected tool field, and "faithful" means no figure is shown untraced. A
 check of a tool the system does not offer is judged on its outcome (`tracing`): the
 oracle's figure stated from a cited passage, or, without a figure, the other checks alone.
+A check of a text tool (search, risk diff) is judged on its text outcome (`outcome`), for
+every system: a cited non-answer is not an answer.
 `oracle` fails a figure check whose oracle call is missing from the transcript.
 """
 
@@ -13,6 +15,7 @@ from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict
 
+from sec_agent.eval.agent.outcome import is_non_answer, needs_outcome, outcome_failure
 from sec_agent.eval.agent.scenarios import Scenario, ToolCheck, Transcript
 from sec_agent.eval.agent.tracing import (
     figure_starts,
@@ -24,7 +27,16 @@ from sec_agent.faithfulness.check import check_answer
 from sec_agent.faithfulness.models import FaithfulnessReport
 
 FailureKind = Literal[
-    "status", "tool", "figure", "oracle", "citation", "unfaithful", "says", "not_says"
+    "status",
+    "tool",
+    "figure",
+    "oracle",
+    "outcome",
+    "non_answer",
+    "citation",
+    "unfaithful",
+    "says",
+    "not_says",
 ]
 FAILURE_KINDS: tuple[FailureKind, ...] = get_args(FailureKind)
 _FROZEN = ConfigDict(frozen=True, extra="forbid")
@@ -54,6 +66,8 @@ def check_scenario(scenario: Scenario, transcript: Transcript) -> ScenarioResult
         failure = _tool_failure(check, transcript, report)
         if failure is not None:
             failures.append(Failure(kind=failure, detail=f"tools[{index}]"))
+    if any(needs_outcome(c) for c in scenario.tools) and is_non_answer(report):
+        failures.append(Failure(kind="non_answer", detail="says the sources lack the answer"))
     if scenario.cite and not _cites(report):
         failures.append(Failure(kind="citation", detail="no valid citation"))
     if not report.faithful:
@@ -70,6 +84,11 @@ def check_scenario(scenario: Scenario, transcript: Transcript) -> ScenarioResult
 def _tool_failure(
     check: ToolCheck, transcript: Transcript, report: FaithfulnessReport
 ) -> FailureKind | None:
+    if needs_outcome(check):
+        offered = offers(check, transcript.offered_tools)
+        return outcome_failure(
+            check, transcript.evidence, transcript.oracle, report, offered=offered
+        )
     if not offers(check, transcript.offered_tools):
         if check.figure is None:
             return None  # the scenario's other checks judge the outcome

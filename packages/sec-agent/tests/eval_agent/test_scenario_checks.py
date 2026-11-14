@@ -108,7 +108,8 @@ def test_a_citation_must_name_a_passage_of_the_turn() -> None:
     )
     assert kinds(text_scenario, transcript(cited, (passages,))) == []
     assert "citation" in kinds(text_scenario, transcript(unknown, (passages,)))
-    assert kinds(text_scenario, transcript("SIMULATED: no citation.", (passages,))) == ["citation"]
+    uncited = transcript("SIMULATED: no citation.", (passages,))
+    assert kinds(text_scenario, uncited) == ["outcome", "citation"]  # no cited outcome either
 
 
 def test_a_refusal_is_a_failed_call_with_its_code(facts_ctx: FactsContext) -> None:
