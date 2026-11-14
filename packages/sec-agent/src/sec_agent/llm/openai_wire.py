@@ -8,9 +8,12 @@ from typing import Any, cast
 
 from sec_agent.llm.errors import ProviderResponseError
 from sec_agent.llm.messages import ChatRequest, Completion, Message, ToolCall, Usage
+from sec_agent.llm.thinking import ThinkingSettings
 
 
-def request_body(model: str, request: ChatRequest) -> dict[str, Any]:
+def request_body(
+    model: str, request: ChatRequest, thinking: ThinkingSettings | None = None
+) -> dict[str, Any]:
     body: dict[str, Any] = {
         "model": model,
         "messages": list(request.messages),
@@ -21,6 +24,9 @@ def request_body(model: str, request: ChatRequest) -> dict[str, Any]:
         body["tool_choice"] = request.tool_choice
     if request.max_tokens is not None:
         body["max_tokens"] = request.max_tokens
+    enabled = None if thinking is None else thinking.for_role(request.role)
+    if enabled is not None:  # llama.cpp reads the chat template's switch from here
+        body["chat_template_kwargs"] = {"enable_thinking": enabled}
     return body
 
 
