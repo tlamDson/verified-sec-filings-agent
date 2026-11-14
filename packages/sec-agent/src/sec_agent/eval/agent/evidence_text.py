@@ -3,6 +3,7 @@
 from typing import Any, cast
 
 from sec_agent.agent.answer import Evidence
+from sec_agent.eval.agent.contradiction import contradicts_any
 from sec_agent.eval.agent.grounding import restates
 from sec_agent.eval.agent.scenarios import result_values
 from sec_agent.faithfulness.models import SentenceCheck
@@ -21,8 +22,10 @@ def cites_any(keys: set[str], accessions: set[str]) -> bool:
 
 
 def restates_cited(sentence: SentenceCheck, texts: dict[str, str]) -> bool:
-    """Whether the sentence restates a passage of `texts` (key -> text) that it cites."""
-    return restates(sentence.text, [texts[k] for k in cited(sentence) if k in texts])
+    """Whether the sentence restates a passage of `texts` (key -> text) that it cites, and
+    contradicts none of the cited passages."""
+    sources = [texts[k] for k in cited(sentence) if k in texts]
+    return restates(sentence.text, sources) and not contradicts_any(sentence.text, sources)
 
 
 def passage_texts(
