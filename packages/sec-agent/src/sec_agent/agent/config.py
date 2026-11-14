@@ -3,6 +3,7 @@
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt
 
 from sec_agent.faithfulness.config import FaithfulnessConfig
+from sec_agent.guardrails.config import GuardrailConfig
 
 
 class AgentConfig(BaseModel):
@@ -21,3 +22,6 @@ class AgentConfig(BaseModel):
     faithfulness: FaithfulnessConfig | None = Field(default_factory=FaithfulnessConfig)
     """How the answer is checked against the turn's evidence. None shows the model's
     answer unchecked: the agent-without-checker baseline of N2, never the product."""
+    guardrails: GuardrailConfig | None = Field(default_factory=GuardrailConfig)
+    """Question screen, passage quarantine, canary, advice filter. None runs none: the
+    no-guardrail baseline of S1, never the product."""

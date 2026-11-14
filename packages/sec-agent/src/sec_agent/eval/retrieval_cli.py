@@ -65,6 +65,11 @@ def add_commands(actions: "Subparsers") -> None:
     score.add_argument("--resamples", type=int, default=DEFAULT_RESAMPLES)
     score.add_argument("--seed", type=int, default=BOOTSTRAP_SEED, help="bootstrap seed")
     score.add_argument("--index-version", default="", help="for runs.csv rows")
+    score.add_argument(
+        "--comparisons-only",
+        action="store_true",
+        help="record only the paired differences (for a second baseline over the same runs)",
+    )
     add_record_options(score)
     score.set_defaults(run=_score)
 
@@ -135,6 +140,9 @@ def _rankers(
 
 
 def _score(args: argparse.Namespace) -> int:
+    if args.comparisons_only and args.baseline is None:
+        print("error: --comparisons-only needs --baseline", file=sys.stderr)
+        return 2
     try:
         questions = load_questions(args.questions, read_split(args.split_file))
         qrels = parse_qrels(Path(args.qrels).read_text("utf-8"))
@@ -157,10 +165,11 @@ def _score(args: argparse.Namespace) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 2
     _print(report)
+    recorded = report.model_copy(update={"systems": ()}) if args.comparisons_only else report
     return record_rows(
         args,
         lambda date, sha: retrieval_rows(
-            report, date=date, git_sha=sha, index_version=args.index_version
+            recorded, date=date, git_sha=sha, index_version=args.index_version
         ),
     )
 

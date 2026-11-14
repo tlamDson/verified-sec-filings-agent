@@ -1,0 +1,68 @@
+{
+  "system": "hybrid+rerank-ft",
+  "base_model": "cross-encoder/ms-marco-MiniLM-L6-v2",
+  "base_run": "results/retrieval/v1/hybrid.run",
+  "depth": 20,
+  "cv": "leave-one-company-out",
+  "training": {
+    "epochs": 2,
+    "learning_rate": 2e-5,
+    "batch_size": 16,
+    "warmup_fraction": 0.1,
+    "weight_decay": 0.01,
+    "max_length": 512,
+    "seed": 20261113
+  },
+  "folds": [
+    {
+      "held_out": "COP",
+      "train": ["CVX", "HD", "INTU", "LOW", "PANW", "PEP", "PM", "V", "WFC"],
+      "pairs": 3121
+    },
+    {
+      "held_out": "CVX",
+      "train": ["COP", "HD", "INTU", "LOW", "PANW", "PEP", "PM", "V", "WFC"],
+      "pairs": 3146
+    },
+    {
+      "held_out": "HD",
+      "train": ["COP", "CVX", "INTU", "LOW", "PANW", "PEP", "PM", "V", "WFC"],
+      "pairs": 3156
+    },
+    {
+      "held_out": "INTU",
+      "train": ["COP", "CVX", "HD", "LOW", "PANW", "PEP", "PM", "V", "WFC"],
+      "pairs": 3119
+    },
+    {
+      "held_out": "LOW",
+      "train": ["COP", "CVX", "HD", "INTU", "PANW", "PEP", "PM", "V", "WFC"],
+      "pairs": 3137
+    },
+    {
+      "held_out": "PANW",
+      "train": ["COP", "CVX", "HD", "INTU", "LOW", "PEP", "PM", "V", "WFC"],
+      "pairs": 3080
+    },
+    {
+      "held_out": "PEP",
+      "train": ["COP", "CVX", "HD", "INTU", "LOW", "PANW", "PM", "V", "WFC"],
+      "pairs": 3126
+    },
+    {
+      "held_out": "PM",
+      "train": ["COP", "CVX", "HD", "INTU", "LOW", "PANW", "PEP", "V", "WFC"],
+      "pairs": 3161
+    },
+    {
+      "held_out": "V",
+      "train": ["COP", "CVX", "HD", "INTU", "LOW", "PANW", "PEP", "PM", "WFC"],
+      "pairs": 3142
+    },
+    {
+      "held_out": "WFC",
+      "train": ["COP", "CVX", "HD", "INTU", "LOW", "PANW", "PEP", "PM", "V"],
+      "pairs": 3177
+    }
+  ]
+}

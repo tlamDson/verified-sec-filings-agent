@@ -1,0 +1,19 @@
+{
+  "name": "minilm-l6-zs",
+  "base_model": "cross-encoder/ms-marco-MiniLM-L6-v2",
+  "max_length": 512,
+  "trained_on": [],
+  "onnx_sha256": "8ad92542a285925911b54b12339d712b4363d0642f5c58a2dc63fa57428ee8a1",
+  "training": {
+    "epochs": 0,
+    "learning_rate": 0.00002,
+    "batch_size": 16,
+    "warmup_fraction": 0.1,
+    "weight_decay": 0.01,
+    "max_length": 512,
+    "seed": 20261113,
+    "pairs": 0
+  },
+  "parity_max_abs_diff": 8.106231689453125e-6,
+  "created_at": "2026-11-14T01:47:57.174194Z"
+}

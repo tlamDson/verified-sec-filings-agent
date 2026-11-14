@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from sec_agent.llm.errors import LLMConfigError
 from sec_agent.llm.openai_compat import OpenAICompatProvider
 from sec_agent.llm.provider import ProviderConfig
+from sec_agent.llm.thinking import ThinkingSettings
 
 PROVIDERS_ENV_VAR = "LLM_PROVIDERS"
 DEFAULT_PROVIDERS: tuple[ProviderConfig, ...] = (
@@ -47,6 +48,18 @@ def providers_from_env(environ: Mapping[str, str]) -> tuple[ProviderConfig, ...]
             raise LLMConfigError(f"{PROVIDERS_ENV_VAR} lists provider {provider.name!r} twice")
         seen.add(provider.name)
     return providers
+
+
+def model_label(configs: tuple[ProviderConfig, ...]) -> str:
+    """The providers as one label, e.g. "local:qwen". A thinking setting is part of it, so
+    an answer cached under another setting is asked again; no setting leaves the label as
+    it was, and the answers cached before the setting existed stay valid."""
+    return "+".join(f"{c.name}:{c.model}{_thinking_part(c.thinking)}" for c in configs)
+
+
+def _thinking_part(thinking: ThinkingSettings) -> str:
+    text = thinking.label()
+    return f"[thinking {text}]" if text else ""
 
 
 def build_providers(

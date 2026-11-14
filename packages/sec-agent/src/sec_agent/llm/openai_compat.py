@@ -7,7 +7,7 @@ Redirects are not followed, and error messages hold the status only, never the b
 """
 
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
 
 import httpx
 
@@ -54,7 +54,7 @@ class OpenAICompatProvider:
     def complete(self, request: ChatRequest) -> Completion:
         name = self._config.name
         try:
-            response = self._http.post(self._url, json=request_body(self._config.model, request))
+            response = self._http.post(self._url, json=self._body(request))
         except httpx.TimeoutException as error:
             wait = self._config.timeout_seconds
             raise ProviderUnavailableError(f"{name} timed out after {wait:g} s") from error
@@ -76,6 +76,9 @@ class OpenAICompatProvider:
         except ValueError as error:
             raise ProviderResponseError(f"{name} did not answer in JSON") from error
         return parse_completion(payload, model=self._config.model)
+
+    def _body(self, request: ChatRequest) -> dict[str, Any]:
+        return request_body(self._config.model, request, self._config.thinking)
 
     def close(self) -> None:
         self._http.close()
