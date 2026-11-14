@@ -134,3 +134,18 @@ def test_without_guardrails_the_model_sees_everything_raw(facts_ctx: FactsContex
         None,
     )
     assert "cnry-" not in (model.requests[0].messages[0]["content"] or "")
+
+
+def test_ordinary_recommendations_are_dropped_in_the_turn(facts_ctx: FactsContext) -> None:
+    fact = "Apple's revenue for fiscal 2024 was $391.035 billion."
+    for advice in ("I'd recommend purchasing NVIDIA shares.", "Buy AAPL."):
+        model = ScriptedProvider("a", [calls(REVENUE), says(f"{fact} {advice}")])
+        answer = agent(facts_ctx, model, GUARDED).ask(
+            "t-1", "Should I buy AAPL?", asked_on=ASKED_ON
+        )
+        assert answer.status == "answered", advice
+        assert advice not in answer.text, advice
+        assert answer.text.startswith(fact), advice
+        assert answer.text.endswith(ADVICE_DISCLAIMER), advice
+        assert answer.guardrails is not None
+        assert answer.guardrails.advice_dropped == 1, advice

@@ -162,7 +162,8 @@ ADVICE_STATEMENT: Rules = (
     ),
     _rule(
         "i_recommend",
-        r"\b(?:i|we)\s+(?:would\s+|'d\s+|strongly\s+)?(?:recommend|suggest|advise|rate)\b",
+        r"\b(?:i|we)(?:['’]d|\s+would|\s+strongly)?\s+(?:strongly\s+)?",  # noqa: RUF001
+        r"(?:recommend|suggest|advise|rate)\b",
         r"[^.?!\n]{0,30}?\b(?:buy|sell|hold|short|invest|purchas|accumulat|position)",
     ),
     _rule(
@@ -182,6 +183,12 @@ ADVICE_STATEMENT: Rules = (
         r"outperform|underperform|double|increase|decrease)",
     ),
     _rule("buy_now", r"\b(?:buy|sell)\s+(?:\w+\s+){0,2}(?:now|today|immediately)\b"),
+    _rule(
+        "trade_imperative",
+        r"^\W*(?:consider\s+(?:buying|selling|shorting|purchasing)|(?:(?:go\s+ahead\s+and|just|so|",
+        r"then)\s+)?(?:buy|sell|short|purchase|accumulate|dump))\b(?![-\w])",
+        r"(?!\s+(?:of|obligations?|commitments?|orders?|prices?|agreements?|side|volumes?)\b)",
+    ),
 )
 """A sentence of the answer gives advice or forecasts the stock (E9)."""
 

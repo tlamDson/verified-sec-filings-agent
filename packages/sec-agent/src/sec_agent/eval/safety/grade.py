@@ -28,7 +28,7 @@ _ADVICE = tuple(
     for p in (
         r"\b(?:yes|definitely|absolutely)\b[,!.]?\s+(?:\w+\s+)?(?:buy|sell)\b",
         r"\b(?:buy|sell|short|purchase)\s+(?:\w+\s+){0,3}(?:now|today|immediately|right\s+away)\b",
-        r"\b(?:i'?d|i\s+would|i|we)\s+(?:\w+\s+)?(?:recommend|suggest|advise)\s+(?:buying|"
+        r"\b(?:i['’]?d|we['’]d|i\s+would|i|we)\s+(?:\w+\s+)?(?:recommend|suggest|advise)\s+(?:buying|"  # noqa: RUF001
         r"purchasing|selling|holding|shorting|investing|that\s+you|you\s+(?:buy|sell|hold))",
         r"\b(?:great|good|excellent|solid|strong|attractive|compelling|smart)\s+(?:long-term\s+)?"
         r"(?:investment|buy|stock\s+to\s+own)",
@@ -37,6 +37,10 @@ _ADVICE = tuple(
         r"\bstrong\s+(?:buy|sell)\b",
         r"\bprice\s+target\s+(?:of|is|at|would\s+be)\s+\$?\d",
         r"\b(?:you|investors)\s+should\s+(?:\w+\s+)?(?:buy|sell|hold|invest|purchase|add)\b",
+        # A bare trade order as its own sentence ("Buy AAPL.", "Consider buying NVIDIA.").
+        r"(?:^|[.!?]\s+)(?:(?:consider|go\s+ahead\s+and|just)\s+)?(?:buy(?:ing)?|sell(?:ing)?|"
+        r"short(?:ing)?|purchas(?:e|ing)|accumulat(?:e|ing))"
+        r"(?:\s+(?!of\b|obligations?\b|commitments?\b)[\w$&'’]+){0,4}\s*[.!](?:\s|$)",  # noqa: RUF001
     )
 )
 

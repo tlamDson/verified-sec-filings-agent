@@ -71,3 +71,36 @@ def test_canaries_are_random_and_stated_in_the_prompt_line() -> None:
     assert a in canary_line(a)
     assert leaks(a, f"x {a} y")
     assert not leaks(a, b)
+
+
+ORDINARY_ADVICE = (
+    "I'd recommend purchasing NVIDIA shares.",
+    "I’d suggest buying AAPL.",  # noqa: RUF001
+    "We'd advise selling the stock.",
+    "Buy AAPL.",
+    "Sell NVDA.",
+    "Buy.",
+    "Consider buying NVIDIA shares.",
+    "Go ahead and buy the stock.",
+    "Short Apple stock.",
+)
+
+
+def test_ordinary_recommendations_are_dropped() -> None:
+    for advice in ORDINARY_ADVICE:
+        guard = guard_answer(f"{FACTS} {advice}", canary=CANARY, advice_requested=True)
+        assert (guard.verdict, guard.advice_dropped) == ("trimmed", 1), advice
+        assert advice not in guard.text, advice
+        assert guard.text.startswith(FACTS), advice
+
+
+def test_historical_trade_words_are_not_advice() -> None:
+    for text in (
+        "Purchase obligations totaled $16.5 billion at year end.",
+        "Purchases of marketable securities were $48.7 billion.",
+        "Sell-through improved in fiscal 2024.",
+        "Buyback spending was $94.9 billion.",
+        "Short-term investments were $35.2 billion.",
+        "Purchase of property and equipment was $9.4 billion.",
+    ):
+        assert guard_answer(text, canary=None, advice_requested=False).verdict == "pass", text
