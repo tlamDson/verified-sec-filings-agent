@@ -93,7 +93,7 @@ golden sets ──► runner ──► results/*.json ──► CI gate (determi
 | Deterministic tools   | `get_fact`, `compute_ratio`, `compare_peers`, `search_filings`, `diff_risk_factors`                       | s-08     |
 | Agent and LLM router  | LangGraph state graph, Postgres checkpoints, OpenAI-compatible router with failover and quota             | s-09     |
 | Faithfulness checker  | Extract every number from an answer; match it to a tool result or cited passage, unit and period included | s-10     |
-| Guardrails            | Question screen, quarantine of filing text, canary in the prompt, advice filter; S1 on G-red             | s-13     |
+| Guardrails            | Question screen, quarantine of filing text, canary in the prompt, advice filter; S1 on G-red              | s-13     |
 | Web and API           | FastAPI SSE + Next.js chat, citations panel, charts, feedback, Auth.js, quotas, degraded mode             | s-17     |
 | Observability         | OpenTelemetry GenAI spans → Phoenix                                                                       | s-18     |
 
