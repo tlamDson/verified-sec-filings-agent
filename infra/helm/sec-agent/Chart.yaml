@@ -1,0 +1,8 @@
+apiVersion: v2
+name: sec-agent
+description: >-
+  Optional local Kubernetes deployment (k3d) of the SEC filings agent: stateless API replicas
+  scaled by an HPA, one ingest worker, two simulated models and one Postgres.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

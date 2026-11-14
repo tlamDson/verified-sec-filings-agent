@@ -1,6 +1,7 @@
 """k3d cluster config and the scripts that bring the optional Kubernetes deployment (s-x1) up,
 load it to watch the HPA, and tear it down. All local: no registry push, no cloud, no model."""
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +46,7 @@ def test_up_script_imports_the_image_and_makes_the_secret_from_env(repo_root: Pa
     assert "docker build" in text
     assert "infra/load/Dockerfile" in text
     assert "k3d image import" in text
-    assert "kubectl create secret generic" in text
+    assert re.search(r"kubectl .*create secret generic", text)
     for key in ("PGPASSWORD", "API_AUTH_SECRET", "SEC_USER_AGENT"):
         assert key in text, key
     assert "infra/postgres/init" in text  # the init SQL becomes a ConfigMap
@@ -58,7 +59,7 @@ def test_hpa_script_loads_the_api_and_watches_replicas(repo_root: Path) -> None:
     text = _text(repo_root, "hpa-watch.sh")
     assert "set -euo pipefail" in text
     assert "/healthz" in text  # load that needs no token and calls no model
-    assert "kubectl get hpa" in text
+    assert re.search(r"kubectl .*get hpa", text)
     assert "simulated" in text
 
 

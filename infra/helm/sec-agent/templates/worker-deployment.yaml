@@ -1,0 +1,74 @@
+{{- if gt (int .Values.worker.replicas) 1 }}
+{{- fail "worker.replicas must be 0 or 1: the EDGAR token bucket is per process, so two workers would exceed 10 requests per second to SEC" }}
+{{- end }}
+# One ingest worker on the Postgres queue. A job it holds keeps a lease with heartbeats; if
+# the pod dies, the lease runs out and the job goes back to the queue (upserts by key, so a
+# redo writes no duplicate). The raw cache is a volume, so a restart refetches nothing.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-worker
+  labels:
+    {{- include "sec-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  strategy:
+    type: Recreate # never two workers at once, even during a rollout
+  selector:
+    matchLabels:
+      {{- include "sec-agent.selector" (dict "root" . "component" "worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "sec-agent.labels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+      terminationGracePeriodSeconds: {{ add (int .Values.worker.lease) 10 }}
+      initContainers:
+        {{- include "sec-agent.waitForPostgres" . | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "sec-agent.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - >-
+              sec-agent jobs init && sec-agent xbrl init &&
+              exec sec-agent worker --lease {{ .Values.worker.lease }} --heartbeat {{ .Values.worker.heartbeat }} --poll {{ .Values.worker.poll }}
+          env:
+            {{- include "sec-agent.dbEnv" . | nindent 12 }}
+            - name: SEC_USER_AGENT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sec-agent.secret" . }}
+                  key: SEC_USER_AGENT
+            - name: SEC_RAW_CACHE_DIR
+              value: /rawcache
+          volumeMounts:
+            - name: rawcache
+              mountPath: /rawcache
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+      volumes:
+        - name: rawcache
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-rawcache
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-rawcache
+  labels:
+    {{- include "sec-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.worker.rawCacheSize }}

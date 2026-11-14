@@ -1,0 +1,78 @@
+{{- if .Values.api.enabled }}
+# Stateless API replicas: conversation state is checkpointed in Postgres, so any replica can
+# continue any thread. The HPA owns the replica count when autoscaling is on.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-api
+  labels:
+    {{- include "sec-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.api.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "sec-agent.selector" (dict "root" . "component" "api") | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "sec-agent.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "sec-agent.selector" (dict "root" . "component" "api") | nindent 14 }}
+      initContainers:
+        {{- include "sec-agent.waitForPostgres" . | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "sec-agent.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - exec sec-agent api serve --facts-version {{ .Values.factsVersion | quote }} --lexical --host 0.0.0.0 --port {{ .Values.api.port }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.port }}
+          env:
+            {{- include "sec-agent.dbEnv" . | nindent 12 }}
+            - name: API_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sec-agent.secret" . }}
+                  key: API_AUTH_SECRET
+            - name: API_DAILY_QUESTIONS
+              value: {{ .Values.api.dailyQuestions | quote }}
+            - name: LLM_PROVIDERS
+              value: {{ .Values.llm.providers | toJson | quote }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+{{- end }}

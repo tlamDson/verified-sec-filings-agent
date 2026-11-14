@@ -109,9 +109,10 @@ def test_default_models_are_simulated_and_cost_nothing(repo_root: Path) -> None:
     assert "kind: Service" in text
 
 
-def test_workers_share_the_queue_and_keep_a_lease(repo_root: Path) -> None:
+def test_one_worker_keeps_the_sec_rate_limit_and_a_lease(repo_root: Path) -> None:
     values = _yaml(repo_root, "values.yaml")
-    assert values["worker"]["replicas"] >= 2
+    # The EDGAR token bucket is per process: a second worker would double the SEC rate.
+    assert values["worker"]["replicas"] == 1
     text = _template(repo_root, "worker-deployment.yaml")
     assert "sec-agent" in text
     assert "worker" in text
@@ -119,6 +120,9 @@ def test_workers_share_the_queue_and_keep_a_lease(repo_root: Path) -> None:
     assert "--heartbeat" in text
     assert "SEC_USER_AGENT" in text
     assert "terminationGracePeriodSeconds" in text
+    assert "if gt (int .Values.worker.replicas) 1" in text
+    assert "fail " in text
+    assert "type: Recreate" in text
 
 
 def test_postgres_is_paradedb_pg17_with_the_repo_init_sql(repo_root: Path) -> None:
