@@ -1,0 +1,30 @@
+{
+  "name": "minilm-l6-ft-gret10",
+  "base_model": "cross-encoder/ms-marco-MiniLM-L6-v2",
+  "max_length": 512,
+  "trained_on": [
+    "COP",
+    "CVX",
+    "HD",
+    "INTU",
+    "LOW",
+    "PANW",
+    "PEP",
+    "PM",
+    "V",
+    "WFC"
+  ],
+  "onnx_sha256": "0fb440a28b525042e17dab7b1ed2011b0a54909440e5b3121832ff9578e9d8f6",
+  "training": {
+    "epochs": 2,
+    "learning_rate": 0.00002,
+    "batch_size": 16,
+    "warmup_fraction": 0.1,
+    "weight_decay": 0.01,
+    "max_length": 512,
+    "seed": 20261113,
+    "pairs": 3485
+  },
+  "parity_max_abs_diff": 6.198883056640625e-6,
+  "created_at": "2026-11-14T02:02:32.888267Z"
+}

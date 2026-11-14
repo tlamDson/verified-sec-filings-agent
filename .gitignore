@@ -27,3 +27,6 @@ next-env.d.ts
 *.tfstate.*
 *.tfvars
 crash.log
+
+# Reranker models (exported ONNX, fold checkpoints): large, rebuilt by `sec-agent rerank`
+models/

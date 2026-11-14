@@ -185,7 +185,9 @@ def test_eval_retrieval_score_can_record_only_the_comparisons(
     assert {r.system for r in rows} == {"hybrid_vs_bm25"}
 
 
-def test_comparisons_only_needs_a_baseline(retrieval_files: dict[str, Path], tmp_path: Path) -> None:
+def test_comparisons_only_needs_a_baseline(
+    retrieval_files: dict[str, Path], tmp_path: Path
+) -> None:
     extra = ["--record", str(tmp_path / "runs.csv"), "--comparisons-only"]
     assert main(_score(retrieval_files, *extra)) == 2
 
