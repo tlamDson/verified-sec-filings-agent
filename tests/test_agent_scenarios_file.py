@@ -66,3 +66,23 @@ def test_every_growth_check_names_its_concept(repo_root: Path) -> None:
             assert check.match["formula"] == (
                 f"({concept}[{year}] - {concept}[{year - 1}]) / |{concept}[{year - 1}]| * 100"
             ), s.id
+
+
+def test_every_risk_diff_check_names_the_oracle_call_that_answers_it(repo_root: Path) -> None:
+    """RAG has no diff tool: the oracle's diff names the two filings it must cite."""
+    for s in read_scenarios(repo_root / SCENARIOS):
+        for check in s.tools:
+            if check.tool != "diff_risk_factors":
+                continue
+            assert check.call is not None, s.id
+            assert check.call["company"] == check.match["company.ticker"], s.id
+            for side, year in (("current", "fiscal_year"), ("previous", "compare_to")):
+                if f"{side}.fiscal_year" in check.match:
+                    assert check.call[year] == check.match[f"{side}.fiscal_year"], s.id
+
+
+def test_the_fiscal_years_a_risk_diff_asks_for_are_checked(repo_root: Path) -> None:
+    """a1-035 names fiscal 2023 and 2024: a diff of other years is not its answer."""
+    by_id = {s.id: s for s in read_scenarios(repo_root / SCENARIOS)}
+    match = by_id["a1-035"].tools[0].match
+    assert (match["current.fiscal_year"], match["previous.fiscal_year"]) == (2024, 2023)
