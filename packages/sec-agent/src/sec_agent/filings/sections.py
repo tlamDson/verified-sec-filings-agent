@@ -51,14 +51,14 @@ _CROSS_REFERENCE = re.compile(
     re.IGNORECASE,
 )
 # What may follow a title: punctuation and a table-of-contents page number.
-_TITLE_TAIL = re.compile(r"[\s.:;,]*(?:(?:page\s+)?\d{1,3})?[\s.]*", re.IGNORECASE)
+TITLE_TAIL = re.compile(r"[\s.:;,]*(?:(?:page\s+)?\d{1,3})?[\s.]*", re.IGNORECASE)
 
-_MDNA = (
+MDNA_TITLE = (
     r"management.{0,2}s\s+discussion\s+and\s+analysis"
     r"(?:\s+of\s+(?:the\s+)?(?:financial\s+condition|results\s+of\s+operations)"
     r"(?:,?\s+and\s+(?:financial\s+condition|results\s+of\s+operations))?)?"
 )
-_MARKET_RISK = (
+MARKET_RISK_TITLE = (
     r"quantitative\s+and\s+qualitative\s+disclosures?\s+(?:about|of|on|regarding)\s+market\s+risks?"
 )
 
@@ -79,11 +79,11 @@ SECTION_SPECS: dict[str, tuple[SectionSpec, ...]] = {
     "10-K": (
         _spec("business", "1", "Item 1", r"business(?:\s+and\s+properties)?"),
         _spec("risk_factors", "1A", "Item 1A", r"risk\s+factors"),
-        _spec("mdna", "7", "Item 7", _MDNA),
-        _spec("market_risk", "7A", "Item 7A", _MARKET_RISK),
+        _spec("mdna", "7", "Item 7", MDNA_TITLE),
+        _spec("market_risk", "7A", "Item 7A", MARKET_RISK_TITLE),
     ),
     "10-Q": (
-        _spec("mdna", "2", "Part I, Item 2", _MDNA),
+        _spec("mdna", "2", "Part I, Item 2", MDNA_TITLE),
         _spec("risk_factors", "1A", "Part II, Item 1A", r"risk\s+factors"),
     ),
 }
@@ -170,4 +170,4 @@ def _section_at(
 
 def _is_title(spec: SectionSpec, text: str) -> bool:
     match = spec.title.match(text)
-    return match is not None and _TITLE_TAIL.fullmatch(text, match.end()) is not None
+    return match is not None and TITLE_TAIL.fullmatch(text, match.end()) is not None

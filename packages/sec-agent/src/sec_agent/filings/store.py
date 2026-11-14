@@ -24,8 +24,8 @@ VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
 """
 _INSERT_SECTION = b"""
 INSERT INTO filing_sections (index_version, accession, section, item, heading, text,
-                             token_count)
-VALUES (%s, %s, %s, %s, %s, %s, %s)
+                             token_count, source_url)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
 """
 _INSERT_CHUNK = b"""
 INSERT INTO chunks (index_version, accession, section, ordinal, cik, form, filing_date,
@@ -84,7 +84,16 @@ class PostgresChunkStore:
             cur.executemany(
                 _INSERT_SECTION,
                 [
-                    (version, filing.accession, s.key, s.item, s.heading, s.text, s.token_count)
+                    (
+                        version,
+                        filing.accession,
+                        s.key,
+                        s.item,
+                        s.heading,
+                        s.text,
+                        s.token_count,
+                        s.source_url or filing.document_url,
+                    )
                     for s in indexed.sections
                 ],
             )

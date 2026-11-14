@@ -135,3 +135,47 @@ def test_pool_fails_when_a_chunk_is_not_in_the_index(
     assert main(_pool(url, "chunks-other", split_file, tmp_path / "p.jsonl", "bm25")) == 2
     assert "missing" in capsys.readouterr().err
     assert not (tmp_path / "p.jsonl").exists()
+
+
+def test_pool_extend_keeps_labelled_items_and_adds_new_ones_as_pending(
+    indexed_db: tuple[str, str],
+    split_file: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    url, version = indexed_db
+    pool_file, labels_file = tmp_path / "pool.jsonl", tmp_path / "labels.jsonl"
+    assert main(_pool(url, version, split_file, pool_file, "bm25")) == 0
+    first = read_jsonl(pool_file, PoolItem)
+    label = ["golden", "label", "--pool", str(pool_file), "--labels", str(labels_file)]
+    label += ["--questions", str(GOLDEN_FIXTURES / "g_ret_questions.sim.jsonl")]
+    label += ["--split-file", str(split_file)]
+    monkeypatch.setattr("sys.stdin", io.StringIO("2\n0\nq\n"))
+    assert main(label) == 0
+    capsys.readouterr()
+
+    extend = _pool(url, version, split_file, pool_file, "bm25", "vector", "hybrid")
+    assert main([*extend, "--extend", str(pool_file)]) == 0
+    out = capsys.readouterr().out
+    extended = read_jsonl(pool_file, PoolItem)
+    assert len(extended) == 9
+    assert {i.docid for i in first} <= {i.docid for i in extended}
+    assert f"kept {len(first)} previously pooled chunks, added {9 - len(first)} new" in out
+    assert f"dropped 0 no longer in {version}" in out
+
+    qrels = ["golden", "qrels", "--pool", str(pool_file), "--labels", str(labels_file)]
+    assert main([*qrels, "--out", str(tmp_path / "q")]) == 0
+    assert "2 labelled, 7 pending" in capsys.readouterr().out
+
+
+def test_pool_extend_needs_an_existing_pool_file(
+    indexed_db: tuple[str, str],
+    split_file: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    url, version = indexed_db
+    args = _pool(url, version, split_file, tmp_path / "p.jsonl", "bm25")
+    assert main([*args, "--extend", str(tmp_path / "missing.jsonl")]) == 2
+    assert "missing.jsonl" in capsys.readouterr().err

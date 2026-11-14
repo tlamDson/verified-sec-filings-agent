@@ -7,7 +7,7 @@ import psycopg
 import pytest
 
 from sec_agent.filings.index_version import ChunkConfig
-from sec_agent.filings.models import FilingRef, IndexedFiling
+from sec_agent.filings.models import ExhibitDocument, FilingRef, IndexedFiling
 from sec_agent.filings.pipeline import index_filing
 from sec_agent.filings.store import PostgresChunkStore, apply_schema
 
@@ -103,3 +103,37 @@ def test_two_index_versions_live_side_by_side(
     store.replace(other)
     assert _count(chunk_db, "indexed_filings") == 2
     assert _count(chunk_db, "chunks") == len(indexed.chunks) + len(other.chunks)
+
+
+def test_each_section_records_the_document_its_text_came_from(
+    store: PostgresChunkStore,
+    chunk_db: str,
+    read_fixture: Callable[[str], bytes],
+    filing_10k: FilingRef,
+) -> None:
+    url = filing_10k.document_url.rsplit("/", 1)[0] + "/simb-ex13.htm"
+    exhibit = ExhibitDocument(url=url, html=read_fixture("sim-ex13.htm"))
+    store.replace(
+        index_filing(read_fixture("sim-10k-ibr.htm"), filing_10k, ChunkConfig(), (exhibit,))
+    )
+    with psycopg.connect(chunk_db) as conn:
+        rows = conn.execute(
+            "SELECT section, source_url FROM filing_sections ORDER BY section"
+        ).fetchall()
+    assert rows == [
+        ("business", filing_10k.document_url),
+        ("market_risk", filing_10k.document_url),
+        ("mdna", url),
+        ("risk_factors", url),
+    ]
+
+
+def test_apply_schema_adds_the_section_source_column_to_an_older_table(chunk_db: str) -> None:
+    with psycopg.connect(chunk_db, autocommit=True) as conn:
+        conn.execute("ALTER TABLE filing_sections DROP COLUMN source_url")
+        apply_schema(conn)
+        row = conn.execute(
+            "SELECT count(*) FROM information_schema.columns"
+            " WHERE table_name = 'filing_sections' AND column_name = 'source_url'"
+        ).fetchone()
+    assert row == (1,)
