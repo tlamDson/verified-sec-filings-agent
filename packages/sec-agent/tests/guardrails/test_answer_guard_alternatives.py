@@ -79,3 +79,36 @@ def test_advice_trailing_the_declined_object_is_read(sentence: str) -> None:
 @pytest.mark.parametrize("sentence", OBJECTS_THAT_STAY_DECLINES)
 def test_an_object_with_its_own_complement_is_still_a_decline(sentence: str) -> None:
     assert advice_rule(sentence) is None, sentence
+
+
+DATED_DECLINES = (
+    "I can't give a price target for 2025",
+    "I can't give a 12-month price target",
+    "I can't give a price target for fiscal 2026 or Q3",
+    "I can't give a forecast for December 31, 2025",
+    "I can't give advice on NVDA for FY2025",
+)
+
+
+@pytest.mark.parametrize("decline", DATED_DECLINES)
+def test_a_dated_decline_keeps_the_alternative(decline: str) -> None:
+    assert advice_rule(f"{decline}.") is None, decline
+    text = f"{decline}, but {ALTERNATIVE}."
+    guard = guard_answer(text, canary=None, advice_requested=True)
+    assert guard.advice_dropped == 0, text
+    assert ALTERNATIVE in guard.text, text
+
+
+TRAILING_ORDERS = (
+    "I can't give advice on NVDA buy it now.",
+    "I can't give advice on NVDA just buy it.",
+    "I can't give a recommendation about AAPL so buy AAPL today.",
+    "I can't give advice for this stock sell it.",
+    "I can't give a price target for 2025 you should buy NVDA.",
+    "I can't give a price target for 2025, my price target is $300.",
+)
+
+
+@pytest.mark.parametrize("sentence", TRAILING_ORDERS)
+def test_an_order_trailing_a_complement_is_read(sentence: str) -> None:
+    assert advice_rule(sentence) is not None, sentence
