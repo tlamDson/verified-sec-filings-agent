@@ -76,3 +76,23 @@ MORE_DECLINES = (
     "I can't say whether NVIDIA (NVDA) will outperform the market.",
     "This data is for informational purposes only and does not constitute investment advice.",
 )
+AFTER_DECLINE = (
+    "I can't give investment advice and you should buy NVDA.",
+    "I cannot provide advice, and NVDA will outperform the market.",
+    "I cannot provide investment advice or forecasts and I'd buy NVDA.",
+    "I cannot predict prices and the stock will double next year.",
+    "I can't offer investment advice, or I'd say buy NVDA.",
+    "I cannot recommend stocks and you should consider buying NVDA.",
+    "I can't give advice on whether to buy, and you should buy NVDA.",
+    "I can't give advice. That said, buy NVDA.",
+    "I can't say whether to buy NVDA or not, and honestly NVDA looks undervalued.",
+    "I won't give personalized advice and NVDA is a buy.",
+)
+"""Advice in the same sentence after a decline, joined by "and", "or" or a comma."""
+DECLINES_WITH_LISTS = (
+    "I cannot provide investment advice, including recommendations to buy or sell shares.",
+    "I cannot provide investment advice or recommendations on whether to buy, sell or hold "
+    "NVIDIA stock.",
+    "I can't give recommendations to buy AAPL now.",
+    "I cannot provide price targets and forecasts or say whether the stock will rise.",
+)

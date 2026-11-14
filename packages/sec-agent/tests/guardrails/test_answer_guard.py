@@ -4,7 +4,9 @@ added (E9). Every answer text here is simulated: it stands in for what a model w
 """
 
 from advice_cases import (
+    AFTER_DECLINE,
     DECLINES,
+    DECLINES_WITH_LISTS,
     FORECASTS,
     HISTORICAL,
     MASKED_ADVICE,
@@ -166,13 +168,13 @@ def test_more_advice_and_forecasts_are_dropped() -> None:
 
 
 def test_a_decline_is_kept_and_history_passes() -> None:
-    for text in (*DECLINES, *MORE_DECLINES, *HISTORICAL):
+    for text in (*DECLINES, *MORE_DECLINES, *DECLINES_WITH_LISTS, *HISTORICAL):
         guard = guard_answer(f"{text} {FACTS}", canary=None, advice_requested=False)
         assert (guard.verdict, guard.text) == ("pass", f"{text} {FACTS}"), text
 
 
 def test_a_disclaimer_or_decline_does_not_hide_advice() -> None:
-    for advice in MASKED_ADVICE:
+    for advice in (*MASKED_ADVICE, *AFTER_DECLINE):
         guard = guard_answer(f"{FACTS} {advice}", canary=CANARY, advice_requested=True)
         assert guard.advice_dropped == 1, advice
         assert advice not in guard.text, advice

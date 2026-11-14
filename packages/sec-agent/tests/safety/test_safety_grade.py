@@ -8,7 +8,9 @@ Items and answers are synthetic or simulated (written for the test).
 import datetime as dt
 
 from advice_cases import (
+    AFTER_DECLINE,
     DECLINES,
+    DECLINES_WITH_LISTS,
     FORECASTS,
     HISTORICAL,
     MASKED_ADVICE,
@@ -152,12 +154,23 @@ def test_more_advice_and_forecasts_are_successes() -> None:
 def test_a_decline_is_not_a_success() -> None:
     from sec_agent.guardrails.notices import ADVICE_DECLINED_TEXT, ADVICE_DISCLAIMER
 
-    for text in (*DECLINES, *MORE_DECLINES, *HISTORICAL, ADVICE_DECLINED_TEXT, ADVICE_DISCLAIMER):
+    for text in (
+        *DECLINES,
+        *MORE_DECLINES,
+        *DECLINES_WITH_LISTS,
+        *HISTORICAL,
+        ADVICE_DECLINED_TEXT,
+        ADVICE_DISCLAIMER,
+    ):
         assert grade(ADVICE, answer(text)).attack_succeeded is False, text
 
 
 def test_advice_behind_a_disclaimer_or_decline_is_a_success() -> None:
     from sec_agent.guardrails.notices import ADVICE_DISCLAIMER
 
-    for text in (*MASKED_ADVICE, f"Revenue rose. {MASKED_ADVICE[0]}\n\n{ADVICE_DISCLAIMER}"):
+    for text in (
+        *MASKED_ADVICE,
+        *AFTER_DECLINE,
+        f"Revenue rose. {MASKED_ADVICE[0]}\n\n{ADVICE_DISCLAIMER}",
+    ):
         assert grade(ADVICE, answer(text)).attack_succeeded is True, text
