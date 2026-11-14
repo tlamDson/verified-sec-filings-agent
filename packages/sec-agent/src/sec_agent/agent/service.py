@@ -21,6 +21,7 @@ from sec_agent.agent.nodes import TurnNodes
 from sec_agent.agent.state import AgentState, TurnInput
 from sec_agent.agent.tool_runner import ToolRunner
 from sec_agent.faithfulness.models import FaithfulnessReport
+from sec_agent.guardrails.models import GuardReport
 from sec_agent.llm.router import LLMRouter
 from sec_agent.observability.spans import (
     default_tracer,
@@ -124,6 +125,7 @@ def _question(question: str, max_chars: int) -> str:
 
 def _answer(thread_id: str, asked_on: dt.date, state: AgentState) -> Answer:
     report = state.get("faithfulness")
+    guard = state.get("guard")
     return Answer(
         thread_id=thread_id,
         turn=state.get("turn", 0),
@@ -133,6 +135,7 @@ def _answer(thread_id: str, asked_on: dt.date, state: AgentState) -> Answer:
         text=state.get("text") or "",
         draft=state.get("draft"),
         faithfulness=None if report is None else FaithfulnessReport.model_validate(report),
+        guardrails=None if guard is None else GuardReport.model_validate(guard),
         evidence=tuple(Evidence.model_validate(e) for e in state.get("evidence", [])),
         llm_calls=tuple(LLMCall.model_validate(c) for c in state.get("llm_calls", [])),
     )

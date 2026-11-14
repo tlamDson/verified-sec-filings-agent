@@ -33,3 +33,5 @@ class AgentState(TypedDict, total=False):
     """The model's answer before the faithfulness check."""
     faithfulness: dict[str, Any] | None
     """The `FaithfulnessReport` of `draft`."""
+    guard: dict[str, Any] | None
+    """The `GuardReport` of the current turn; None when the guardrails are off."""

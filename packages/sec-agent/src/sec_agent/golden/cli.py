@@ -1,4 +1,5 @@
-"""`sec-agent golden split|gnum|public` (and `pool|label|qrels` from `golden.gret.cli`)."""
+"""`sec-agent golden split|gnum|public` (`pool|label|qrels` from `golden.gret.cli`, `gred`
+from `golden.gred.cli`)."""
 
 import argparse
 import sys
@@ -8,6 +9,7 @@ from typing import TYPE_CHECKING, cast
 from sec_agent.golden.gnum.candidates import GNumCompany
 from sec_agent.golden.gnum.generate import GNUM_SEED, SPLITS, GNumConfig, GNumResult, generate
 from sec_agent.golden.gnum.source import PostgresFactSource
+from sec_agent.golden.gred import cli as gred_cli
 from sec_agent.golden.gret import cli as gret_cli
 from sec_agent.golden.jsonl import write_jsonl
 from sec_agent.golden.public.financebench import DOCUMENTS_FILE, QUESTIONS_FILE, load_g_public
@@ -63,6 +65,7 @@ def add_commands(subparsers: "Subparsers") -> None:
     public.set_defaults(run=_public)
 
     gret_cli.add_commands(actions, add_split_file_option)
+    gred_cli.add_commands(actions)
 
 
 def _split(args: argparse.Namespace) -> int:

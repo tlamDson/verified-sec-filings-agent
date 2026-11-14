@@ -27,6 +27,9 @@ from sec_agent.llm.quota_postgres import PostgresQuotaStore
 from sec_agent.llm.router import LLMRouter
 from sec_agent.mcp_server.cli import model_embedder, no_embedder
 from sec_agent.mcp_server.contexts import ServeConfigError, open_contexts
+from sec_agent.rerank.loader import RerankerLoadError
+from sec_agent.rerank.service import Reranker
+from sec_agent.rerank.serving import add_reranker_option, reranker_from_args
 from sec_agent.retrieval.snapshot import SERVING
 
 if TYPE_CHECKING:
@@ -59,6 +62,7 @@ def add_commands(subparsers: "Subparsers") -> None:
     )
     serve.add_argument("--lexical", action="store_true", help="search with BM25 only, no model")
     serve.add_argument("--device", default=None, help="torch device for the query embedder")
+    add_reranker_option(serve)
     serve.add_argument("--host", default="127.0.0.1", help="address to listen on (127.0.0.1)")
     serve.add_argument("--port", type=int, default=8000, help="port to listen on (8000)")
     serve.set_defaults(run=_serve)
@@ -94,11 +98,12 @@ def _serve(args: argparse.Namespace) -> int:
     try:
         config = config_from_env(os.environ)
         providers = build_providers(providers_from_env(os.environ), os.environ)
-    except (ApiConfigError, LLMConfigError) as error:
+        reranker = reranker_from_args(args)
+    except (ApiConfigError, LLMConfigError, RerankerLoadError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
     try:
-        _run(args, url, config, providers)
+        _run(args, url, config, providers, reranker)
     except ServeConfigError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
@@ -110,13 +115,18 @@ def _run(
     url: str,
     config: ApiConfig,
     providers: tuple[OpenAICompatProvider, ...],
+    reranker: Reranker | None,
 ) -> None:
     """One replica: its own connections, pinned to one facts version and text snapshot."""
     embedder = no_embedder if args.lexical else model_embedder(args.device)
     with ExitStack() as stack:
         contexts = stack.enter_context(
             open_contexts(
-                url, facts_version=args.facts_version, snapshot=args.snapshot, embedder=embedder
+                url,
+                facts_version=args.facts_version,
+                snapshot=args.snapshot,
+                embedder=embedder,
+                reranker=reranker,
             )
         )
         if contexts.text is None:

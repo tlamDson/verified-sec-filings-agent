@@ -5,6 +5,7 @@ from typing import Any
 
 import psycopg
 
+from sec_agent.rerank.service import Reranker
 from sec_agent.retrieval.embedder import Embedder
 from sec_agent.retrieval.models import EmbeddingSpace
 from sec_agent.tools.companies import CompanyDirectory
@@ -25,7 +26,8 @@ class FactsContext:
 class TextContext:
     """For `search_filings` and `diff_risk_factors`: one embedding space (so one chunk
     `index_version` and one model). `facts_version` labels 10-Ks with fiscal years (E1).
-    Without an embedder, search runs on BM25 alone and says so."""
+    Without an embedder, search runs on BM25 alone and says so. With a reranker, search
+    reorders its top candidates, or keeps their order when the reranker fails."""
 
     companies: CompanyDirectory
     conn: psycopg.Connection[Any]
@@ -33,3 +35,4 @@ class TextContext:
     sections: RiskSectionSource
     facts_version: str
     embedder: Embedder | None = None
+    reranker: Reranker | None = None

@@ -1,16 +1,21 @@
-"""`sec-agent eval numeric` (and `eval retrieval run|score` from `eval.retrieval_cli`)."""
+"""`sec-agent eval numeric`, plus `eval answer` (`eval.answer_cli`), `eval agent run|score`
+(`eval.agent_cli`), `eval retrieval run|score` (`eval.retrieval_cli`), `eval safety
+run|score` (`eval.safety.cli`), `eval judge` (`eval.judge_cli`), and `eval gate` and `eval
+mutations` (`eval.gate`)."""
 
 import argparse
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, get_args
 
-from sec_agent.eval import retrieval_cli
+from sec_agent.eval import agent_cli, answer_cli, judge_cli, retrieval_cli
+from sec_agent.eval.gate import gate_cli, mutations_cli
 from sec_agent.eval.numeric.grade import ErrorKind
 from sec_agent.eval.numeric.report import NumericReport, SystemAccuracy, numeric_report
 from sec_agent.eval.numeric.runner import AnswerRecord
 from sec_agent.eval.output import add_record_options, record_rows, table
 from sec_agent.eval.records import numeric_rows
+from sec_agent.eval.safety import cli as safety_cli
 from sec_agent.golden.gnum.models import NumQuestion
 from sec_agent.golden.jsonl import read_jsonl
 
@@ -39,7 +44,13 @@ def add_commands(subparsers: "Subparsers") -> None:
     add_record_options(numeric)
     numeric.set_defaults(run=_numeric)
 
+    answer_cli.add_commands(actions)
+    agent_cli.add_commands(actions)
     retrieval_cli.add_commands(actions)
+    safety_cli.add_commands(actions)
+    judge_cli.add_commands(actions)
+    gate_cli.add_commands(actions)
+    mutations_cli.add_commands(actions)
 
 
 def _numeric(args: argparse.Namespace) -> int:

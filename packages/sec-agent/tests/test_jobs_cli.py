@@ -43,3 +43,10 @@ def test_worker_without_registered_handlers_refuses_to_start(
     monkeypatch.setattr("sec_agent.jobs.cli.registered_handlers", dict)
     assert main(["worker", "--drain"]) == 2
     assert "no job handlers" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("tag", ["", "has space", "a:b", "x" * 41])
+def test_worker_owner_tag_is_checked(tag: str, capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main(["worker", "--owner-tag", tag])
+    assert "owner-tag" in capsys.readouterr().err
