@@ -38,6 +38,11 @@ FAMILIES: dict[str, tuple[str, str]] = {
         "Labels come from LLM raters, not human annotators; items they marked unsure are "
         "excluded. See `notes` in `runs.csv`.",
     ),
+    "G1": (
+        "Eval gate (G1)",
+        "Planted mutations of the eval inputs that the CI gate must block, run over the "
+        "committed results.",
+    ),
     "LOAD": (
         "Load (simulated)",
         "Simulated accounts against a simulated model: nothing here measures answer quality.",

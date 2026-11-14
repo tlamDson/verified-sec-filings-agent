@@ -107,6 +107,14 @@ Labels come from LLM raters, not human annotators; items they marked unsure are 
 | `J1_tpr`   | codex  | test  |  38 |  83.3% | 55.2% to 95.3%  |
 | `J1_tnr`   | codex  | test  |  38 | 100.0% | 87.1% to 100.0% |
 
+#### Eval gate (G1)
+
+Planted mutations of the eval inputs that the CI gate must block, run over the committed results.
+
+| Metric | System    | Split |   n |  Value | 95% interval |
+| ------ | --------- | ----- | --: | -----: | ------------ |
+| `G1`   | eval-gate | none  |  10 | 100.0% |              |
+
 #### Not measured yet
 
 No row exists for: LOAD (Load (simulated)), CHAOS (Chaos), U1 (Users). Nothing is claimed for them.
