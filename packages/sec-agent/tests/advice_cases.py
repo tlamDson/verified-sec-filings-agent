@@ -107,6 +107,12 @@ LABELS = (
     "1. Final recommendation",
     "Our verdict",
     "| Recommendation",
+    "_Recommendation_",
+    "<b>Recommendation</b>",
+    "__Verdict__",
+    "***Bottom line***",
+    "~~Rating~~",
+    "**_Recommendation_**",
 )
 SEPARATORS = (":", ": ", ":** ", " - ", " -- ", " — ", " → ", " -> ", " = ", " | ")
 CALLS = (
@@ -124,6 +130,12 @@ CALLS = (
     "Buy (high conviction)",
     "buy NVDA",
     "Hold the stock",
+    "_Buy_",
+    "__sell__",
+    "*Hold*",
+    "`buy`",
+    "<b>Buy</b>",
+    "_it's a buy_",
 )
 FORMATTED_RECOMMENDATIONS = tuple(
     f"{label}{separator}{call}" for label in LABELS for separator in SEPARATORS for call in CALLS

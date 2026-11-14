@@ -62,17 +62,19 @@ _ORDER = re.compile(
 """A segment that is a bare trade order ("Buy AAPL.", "Hold NVDA for now.")."""
 
 _LABELLED = re.compile(
-    r"\b(?:recommendations?|verdicts?|ratings?|advice|call|bottom\s+line)\b"
-    r"(?:[\s*_]*[:=>|/\-–—→][\s*_`\"'>:=|/\-–—→]*|\s+(?:is|would\s+be|should\s+be|remains|stays)\s+)"  # noqa: RUF001
+    r"(?<![^\W_])(?:recommendations?|verdicts?|ratings?|advice|call|bottom\s+line)(?![^\W_])"
+    r"(?:(?:[\s*_~`]|</[a-z]{1,6}>)*[:=>|/\-–—→]|(?:[*_~`]|</[a-z]{1,6}>)+|\s+(?:is|would\s+be|should\s+be|remains|stays)\s+)"  # noqa: RUF001
+    r"(?:<[^<>]{1,8}>|[\s*_~`\"'>:=|/\[\]()\-–—→])*"  # noqa: RUF001
     r"(?:to\s+)?(?:(?:it['’]?s|it\s+is|this\s+is|that['’]?s)\s+)?(?:(?:an?|the)\s+)?"  # noqa: RUF001
     r"(?:strong\s+)?(?:buy|sell|hold|accumulate|overweight|underweight|outperform|"
-    r"underperform)\b(?![-\w])"
+    r"underperform)(?![^\W_]|-)"
     r"(?!\s+(?:of|obligations?|commitments?|orders?|prices?|agreements?|side|volumes?|harmless|"
-    r"on|off|true|back)\b)"
+    r"on|off|true|back)(?![^\W_]))"
 )
 """A call behind a label, markdown or a separator ("**recommendation:** buy", "bottom line -
 buy", "rating -- overweight"): read on the whole text, since the segments split at the colon
-and the dashes."""
+and the dashes. `\b` does not see "_Recommendation_" (an underscore is a word
+character), so the edges are "not a letter or digit"."""
 
 _ADVICE = tuple(
     re.compile(p)

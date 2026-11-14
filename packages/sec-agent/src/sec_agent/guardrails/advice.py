@@ -30,18 +30,23 @@ _MOVE = (
 )
 _STOCK = r"(?<![-\w])(?:stock|shares?|share\s+price|stock\s+price)\b(?!-)"
 
-_LABEL = r"\b(?:recommendations?|verdicts?|ratings?|advice|call|bottom\s+line)\*{0,2}"
-_LABEL_MARK = r"(?:\s*[:|=~>/\-–—→]|\s+(?:is|would\s+be|should\s+be|remains|stays)\s+)"  # noqa: RUF001
-"""What joins a label to its call: a colon, a dash, an arrow, "=", "|" (a table cell), or
-"is". A bare space does not ("advice to buy" in a decline is not a call)."""
+_LABEL = r"(?<![^\W_])(?:recommendations?|verdicts?|ratings?|advice|call|bottom\s+line)(?![^\W_])"
+"""A label. "_" is markdown here, not a letter: `\b` would not see "_Recommendation_"."""
+_LABEL_MARK = (
+    r"(?:(?:[*_~`]|</[a-z]{1,6}>){0,6}\s*[:|=>/\-–—→]|(?:[*_~`]|</[a-z]{1,6}>){1,6}|"  # noqa: RUF001
+    r"\s+(?:is|would\s+be|should\s+be|remains|stays)\s+)"
+)
+"""What joins a label to its call: closing markdown ("**", "_", "~~"), a colon, a dash, an
+arrow, "=", "|" (a table cell), or "is". A bare space does not ("advice to buy" in a decline
+is not a call)."""
 _CALL_FILL = (
-    r"[\s*_`\"'|>~#:/=\-–—→]*(?:to\s+)?(?:(?:it['’]?s|it\s+is|this\s+is|that['’]?s)\s+)?"  # noqa: RUF001
-    r"(?:(?:an?|the)\s+)?(?:strong\s+)?"
+    r"(?:<[^<>]{1,8}>|[\s*_`\"'|>~#:/=\[\]()\-–—→])*(?:to\s+)?"  # noqa: RUF001
+    r"(?:(?:it['’]?s|it\s+is|this\s+is|that['’]?s)\s+)?(?:(?:an?|the)\s+)?(?:strong\s+)?"  # noqa: RUF001
 )
 _CALL = (
-    r"(?:buy|sell|hold|accumulate|overweight|underweight|outperform|underperform)\b(?![-\w])"
+    r"(?:buy|sell|hold|accumulate|overweight|underweight|outperform|underperform)(?![^\W_]|-)"
     r"(?!\s+(?:of|obligations?|commitments?|orders?|prices?|agreements?|side|volumes?|harmless|"
-    r"on|off|true|back)\b)"
+    r"on|off|true|back)(?![^\W_]))"
 )
 """A call after a label: "**Recommendation:** Buy", "- Verdict: buy", "Bottom line - buy",
 "Rating -- Overweight", "Recommendation | it's a buy"."""
