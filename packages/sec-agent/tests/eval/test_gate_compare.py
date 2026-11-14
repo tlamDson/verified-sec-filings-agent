@@ -41,7 +41,8 @@ def test_new_inputs_drop_beyond_threshold_is_regression() -> None:
     base = _snap(_metric("N1:b2", 0.75, max_drop=0.02))
     findings = compare(base, _snap(_metric("N1:b2", 0.72, max_drop=0.02), digest="d2"))
     assert [f.kind for f in findings] == ["regression"]
-    assert "0.750" in findings[0].message and "0.720" in findings[0].message
+    assert "0.750" in findings[0].message
+    assert "0.720" in findings[0].message
 
 
 def test_new_inputs_rise_passes() -> None:
@@ -66,3 +67,10 @@ def test_metric_gone_is_missing() -> None:
     base = _snap(_metric("N1:b2", 0.75), _metric("A1:agent", 0.78))
     findings = compare(base, _snap(_metric("N1:b2", 0.75)))
     assert [(f.metric, f.kind) for f in findings] == [("A1:agent", "missing")]
+
+
+def test_drift_only_metric_moves_freely_on_new_inputs() -> None:
+    name = "A1_fail_status:agent"
+    base = _snap(_metric(name, 0.1, higher_is_better=False, drift_only=True))
+    assert compare(base, _snap(_metric(name, 0.5, drift_only=True), digest="d2")) == []
+    assert [f.kind for f in compare(base, _snap(_metric(name, 0.0, drift_only=True)))] == ["drift"]

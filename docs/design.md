@@ -340,6 +340,24 @@ sentences ──► pass (shown as written) │ trimmed (failed sentences droppe
 - **Decision.** A sentence passes when all its mentions traced and its citations are valid; a sentence with none is not checked and never dropped. All pass: the draft is shown. Otherwise the failed sentences are dropped and a note says so; the answer is blocked instead when more than `max_dropped_share` of the checked sentences failed (default half), when nothing would be left, or with `on_failure="block"`. A blocked turn ends with status `blocked`, reason `untraced_figures`, a fixed notice, and the evidence, like degraded mode.
 - **In the turn.** `Answer.text` is what the user was shown, `Answer.draft` what the model wrote, `Answer.faithfulness` the report: every mention, its status and the result field it traced to (`fact.value`, `rows[1].rank`, `passages[0].text`). The conversation history keeps the shown text, so a later turn never sees a dropped figure. `AgentConfig(faithfulness=None)` turns the check off: the "agent without checker" baseline of N2. `FaithfulnessReport.faithful` is N2 for one answer.
 
+### Eval gate and G1 (built in s-16)
+
+Code: `sec_agent.eval.gate`. The CI gate is the deterministic part of the eval: every committed result is scored again by the code of the pull request, with no model, database or network, and compared with `results/gate/baseline.json`. CI runs it in `Python checks` after the tests (`uv run sec-agent eval gate`, about 3 s), then its mutations (`uv run sec-agent eval mutations`, about 15 s).
+
+```
+committed results ──► N1 grader │ A1 checks + s-10 checker │ R1 metrics │ S1 regrade │ J1 kappa ──► metrics + input digests
+                                                                                         │ compare with baseline.json
+                                              same inputs: any change is drift │ new inputs: drop > max_drop is a regression
+```
+
+- **Families.** N1 (b0, b1, b2 on the 300 test questions), A1 (rag, agent on 50 scenarios), R1 (recall@5, nDCG@10, MRR@10 of bm25, vector, hybrid and both reranked runs), S1 (each rate of `none` and `guarded`), J1 (kappa, TPR, TNR of the codex judge). Each family's inputs (golden file and results files) are hashed with line endings normalised.
+- **Same inputs.** When a family's input digest equals the baseline's, only the code changed, so every number must come out exactly as before, in either direction: a grader that turns lenient is as wrong as one that turns strict. A deliberate grader change runs `sec-agent eval gate --update` and commits the new baseline in the same pull request, so the change shows in the diff.
+- **New inputs** (a night run committed new results): a number may get worse by at most its `max_drop` (N1 0.02, A1 0.04, R1 0.01, S1 0.02, J1 0.05; S1 indirect success and false refusal count upward), and must cover at least as many items (a short run never passes as a better one). These thresholds are design choices, not measured.
+- **Breakdowns.** N1 errors by kind and A1 failed checks by kind (zero kinds included) are watched for drift only: a check that stops failing anything (A1 `status`, `tool`) can leave the pass rate unchanged when the same scenarios fail other checks.
+- **N1 probes.** Trap replies built by code from the first 5 test questions of each type (exact, rounded within tolerance, 2% off, other fiscal period of the same year, other unit, no period, a draft JSON followed by the final one, right and wrong peer ticker), each with the grade it must get. They are not model output and never reported as accuracy; they cover rules no recorded answer exercises (no recorded reply has the right year and the wrong fiscal period).
+- **G1 mutations.** `eval.gate.mutations` lists 10 one-line regressions as exact source replacements (E1 fiscal period ignored, value tolerance tenfold, any peer ticker, first JSON reply graded, A1 status unchecked, A1 tool call unchecked, checker rounding unbounded, recall@5 on the top 10, S1 marker unchecked, raw agreement as kappa). Each is applied to a copy of the package put first on `PYTHONPATH`, the gate runs in a fresh interpreter, and a mutation counts as blocked only when the gate exits 1 (a finding), not on a crash. A snippet that no longer occurs exactly once is reported `stale`, never run. Without the gate none is blocked (the plan's 0/10 baseline, by definition); `--record` writes the `G1` row.
+- **Limits.** The gate sees only what committed results exercise: a mutation in the agent, tools or retrieval that changes model behaviour shows only after a night run regenerates results. Unit tests still run in the same CI job.
+
 ### Guardrails (built in s-13)
 
 Code: `sec_agent.guardrails` (the checks), `sec_agent.agent.guarding` (where a turn runs them), `sec_agent.golden.gred` (G-red) and `sec_agent.eval.safety` (S1). Every check is code; no model is asked. `AgentConfig(guardrails=None)` turns them all off: the S1 baseline, never the product.

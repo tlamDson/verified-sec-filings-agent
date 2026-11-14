@@ -39,8 +39,10 @@ def test_all_blocked_exits_zero_and_records_g1(
 def test_a_missed_mutation_fails(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    outcomes: list[Outcome] = ["blocked"] * 8 + ["missed", "stale"]
+    blocked: list[Outcome] = ["blocked"] * 8
+    outcomes: list[Outcome] = [*blocked, "missed", "stale"]
     monkeypatch.setattr(mutations_cli, "run_mutations", _fake(outcomes))
     assert main(["eval", "mutations"]) == 1
     out = capsys.readouterr().out
-    assert "blocked 8/10" in out and "m8 missed" in out and "m9 stale" in out
+    for shown in ("blocked 8/10", "m8 missed", "m9 stale"):
+        assert shown in out

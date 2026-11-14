@@ -8,21 +8,22 @@ from sec_agent.cli import main
 from sec_agent.eval.gate.baseline import read_baseline
 from sec_agent.eval.gate.compare import compare
 from sec_agent.eval.gate.measure import FAMILIES, measure
+from sec_agent.eval.gate.models import GateSnapshot
 
 REPO = Path(__file__).resolve().parents[4]
 BASELINE = REPO / "results" / "gate" / "baseline.json"
 
 
 @pytest.fixture(scope="module")
-def measured():  # noqa: ANN201
+def measured() -> GateSnapshot:
     return measure(REPO)
 
 
-def test_committed_results_match_the_committed_baseline(measured) -> None:  # noqa: ANN001
+def test_committed_results_match_the_committed_baseline(measured: GateSnapshot) -> None:
     assert compare(read_baseline(BASELINE), measured) == []
 
 
-def test_baseline_covers_every_family(measured) -> None:  # noqa: ANN001
+def test_baseline_covers_every_family(measured: GateSnapshot) -> None:
     families = {m.family for m in read_baseline(BASELINE).metrics}
     assert families == set(FAMILIES) == set(measured.inputs) == {"N1", "A1", "R1", "S1", "J1"}
 
@@ -58,3 +59,9 @@ def test_gate_cli_refuses_a_missing_baseline(
 ) -> None:
     monkeypatch.chdir(REPO)
     assert main(["eval", "gate", "--baseline", str(tmp_path / "none.json")]) == 2
+
+
+def test_failure_kinds_are_watched_for_drift(measured: GateSnapshot) -> None:
+    by_name = {m.name: m for m in measured.metrics}
+    assert by_name["A1_fail_status:agent"].drift_only
+    assert by_name["N1_err_wrong_period:b0"].value > 0
