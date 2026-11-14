@@ -18,4 +18,4 @@ options:
     wait: true
   kubeconfig:
     updateDefaultKubeconfig: true
-    switchCurrentContext: true
+    switchCurrentContext: false # the scripts pass --context

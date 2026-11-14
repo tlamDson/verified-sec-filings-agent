@@ -8,6 +8,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=infra/k3d/context.sh
+. "$ROOT/infra/k3d/context.sh"
+require_context
 NS="${NAMESPACE:-sec-agent}"
 RELEASE="${RELEASE:-sec-agent}"
 SECRET="$RELEASE-secrets"
@@ -19,10 +22,10 @@ echo "== API up?"
 curl -fsS http://127.0.0.1:8090/healthz >/dev/null
 
 echo "== k6 pod, $PEAK_VUS simulated users"
-kubectl -n "$NS" create configmap sec-agent-k6 --from-file="$ROOT/infra/load/chat.js" \
-  --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n "$NS" delete pod sec-agent-k6 --ignore-not-found
-kubectl -n "$NS" apply -f - <<EOF
+kube -n "$NS" create configmap sec-agent-k6 --from-file="$ROOT/infra/load/chat.js" \
+  --dry-run=client -o yaml | kube apply -f -
+kube -n "$NS" delete pod sec-agent-k6 --ignore-not-found
+kube -n "$NS" apply -f - <<EOF
 apiVersion: v1
 kind: Pod
 metadata:
@@ -57,11 +60,11 @@ EOF
 echo "== HPA every 15 s until k6 ends (log: $RESULTS/hpa.log)"
 : >"$RESULTS/hpa.log"
 while true; do
-  phase="$(kubectl -n "$NS" get pod sec-agent-k6 -o jsonpath='{.status.phase}')"
-  { date -u +%FT%TZ; kubectl -n "$NS" get hpa "$RELEASE-api" --no-headers; } | paste -sd' ' | tee -a "$RESULTS/hpa.log"
+  phase="$(kube -n "$NS" get pod sec-agent-k6 -o jsonpath='{.status.phase}')"
+  { date -u +%FT%TZ; kube -n "$NS" get hpa "$RELEASE-api" --no-headers; } | paste -sd' ' | tee -a "$RESULTS/hpa.log"
   case "$phase" in Succeeded | Failed) break ;; esac
   sleep 15
 done
-kubectl -n "$NS" logs sec-agent-k6 | tail -n 40
+kube -n "$NS" logs sec-agent-k6 | tail -n 40
 echo "k6 pod: $phase"
 [ "$phase" = Succeeded ]
