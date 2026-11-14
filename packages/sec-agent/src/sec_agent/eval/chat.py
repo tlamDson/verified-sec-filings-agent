@@ -19,9 +19,11 @@ class RouterChatModel:
     def __init__(
         self, router: LLMRouter, *, name: str, max_tokens: int = DEFAULT_MAX_TOKENS
     ) -> None:
-        """`name` identifies the model in answer records and cache keys, e.g. "local:qwen"."""
+        """`name` identifies the providers, e.g. "local:qwen". Records and cache keys carry
+        "NAME@max_tokens=N": an answer made under another output limit (hidden reasoning
+        counts toward it, so it changes what comes back) is asked again, never reused."""
         self._router = router
-        self._name = name
+        self._name = f"{name}@max_tokens={max_tokens}"
         self._max_tokens = max_tokens
 
     @property

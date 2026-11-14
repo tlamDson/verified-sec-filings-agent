@@ -3,13 +3,16 @@
 Every transcript is appended to `SYSTEM.cache.jsonl` as it arrives; a rerun plays only the
 scenarios whose (id, model, scenario and prompt hash) has no cached transcript. The results
 file `SYSTEM.jsonl` is then rewritten with exactly one transcript per scenario, for this
-run's model and prompt, so what is scored is always what was asked for.
+run's model and prompt, so what is scored is always what was asked for. Each transcript of
+the results file also names the tools the system offered and, given an oracle, the
+expected calls' results.
 """
 
 import datetime as dt
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from sec_agent.agent.answer import Evidence
 from sec_agent.eval.agent.scenarios import Scenario, Transcript, scenario_sha256
 from sec_agent.eval.agent.systems import ScenarioSystem
 from sec_agent.eval.numeric.runner import RunSummary, cache_path
@@ -22,7 +25,10 @@ def run_scenarios(
     *,
     results: Path,
     now: Callable[[], dt.datetime],
+    oracle: Callable[[Scenario], tuple[Evidence, ...]] | None = None,
 ) -> RunSummary:
+    """`oracle`: the scorer's own run of the checks' calls (`systems.oracle_calls`), kept in
+    every transcript of the results file, cached or new; it costs no model call."""
     cache = cache_path(results)
     existing = read_jsonl(cache, Transcript)
     others = sorted({t.system for t in existing} - {system.name})
@@ -49,10 +55,14 @@ def run_scenarios(
                 evidence=turn.evidence,
                 asked_on=system.asked_on,
                 answered_at=now(),
+                offered_tools=system.offered_tools,
             )
             append_jsonl(cache, transcript)
             done[key] = transcript
             asked += 1
-        current.append(transcript)
+        update: dict[str, object] = {"offered_tools": system.offered_tools}
+        if oracle is not None:
+            update["oracle"] = oracle(scenario)
+        current.append(transcript.model_copy(update=update))
     write_jsonl(results, current)
     return RunSummary(asked=asked, cached=cached)

@@ -38,3 +38,16 @@ def test_concepts_and_ratios_are_ones_the_tools_know(repo_root: Path) -> None:
             for path in ("concept", "ratio", "metric"):
                 if path in check.match:
                     assert check.match[path] in known, s.id
+
+
+def test_every_figure_check_names_the_oracle_call_that_answers_it(repo_root: Path) -> None:
+    """A system without the tool (RAG) is judged against this call's figure."""
+    for s in read_scenarios(repo_root / SCENARIOS):
+        for check in s.tools:
+            if check.figure is None:
+                continue
+            assert check.call is not None, s.id
+            assert check.call["fiscal_year"] == check.match["fiscal_year"], s.id
+            tickers = [v for k, v in check.match.items() if k.endswith("ticker")]
+            named = check.call.get("company", check.call.get("companies"))
+            assert all(t == named or (isinstance(named, list) and t in named) for t in tickers)

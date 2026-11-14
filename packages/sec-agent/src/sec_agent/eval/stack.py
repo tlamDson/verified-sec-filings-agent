@@ -44,6 +44,8 @@ class EvalStack:
     asked_on: dt.date
     fingerprint: str
     """`eval.fingerprint.agent_fingerprint` of `agent`: part of every cached answer's key."""
+    pins: dict[str, str]
+    """What the tools are pinned to: facts version, text space, query embedder, reranker."""
 
 
 def add_stack_options(parser: argparse.ArgumentParser) -> None:
@@ -101,5 +103,6 @@ def eval_stack(url: str, args: argparse.Namespace) -> Generator[EvalStack]:
             tools=tools,
             agent=Agent(router=router, tools=tools, checkpointer=InMemorySaver(), config=config),
             asked_on=asked_on,
+            pins=pins,
             fingerprint=agent_fingerprint(asked_on=asked_on, config=config, tools=tools, pins=pins),
         )

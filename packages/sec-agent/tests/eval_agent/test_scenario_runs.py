@@ -30,6 +30,7 @@ ASKED_ON = dt.date(2026, 11, 13)
 NOW = dt.datetime(2026, 11, 13, 3, 0, tzinfo=dt.UTC)
 REVENUE = call("get_fact", "c1", company="AAPL", concept="revenue", fiscal_year=2024)
 TRACED = "SIMULATED: Apple's revenue for fiscal 2024 was $391.0 billion."
+RAG_CONFIG = {"passages": 5, "facts": "v1", "space": "sim", "max_tokens": 1024}
 VALUE = Scenario.model_validate(
     {
         "id": "a1-001",
@@ -149,7 +150,7 @@ def test_no_provider_stops_the_run(facts_ctx: FactsContext, tmp_path: Path) -> N
 def test_rag_answers_from_one_search_of_the_scenarios_companies(tmp_path: Path) -> None:
     search = FakeSearch()
     chat = ScriptedChat(f"SIMULATED: Apple relies on Asian suppliers [{passage_citation(0)}].")
-    system = RagScenarios(search, chat, asked_on=ASKED_ON)
+    system = RagScenarios(search, chat, asked_on=ASKED_ON, config=RAG_CONFIG)
     results = tmp_path / "rag.jsonl"
     run_scenarios([TEXT], system, results=results, now=lambda: NOW)
     assert search.asked == [("What supply chain risks does Apple name?", ("AAPL",))]
@@ -167,7 +168,7 @@ def test_rag_answers_from_one_search_of_the_scenarios_companies(tmp_path: Path) 
 def test_rag_carries_earlier_turns_into_the_last_question(tmp_path: Path) -> None:
     search = FakeSearch()
     chat = ScriptedChat("SIMULATED first.", "SIMULATED second.")
-    system = RagScenarios(search, chat, asked_on=ASKED_ON)
+    system = RagScenarios(search, chat, asked_on=ASKED_ON, config=RAG_CONFIG)
     run_scenarios([FOLLOW_UP], system, results=tmp_path / "rag.jsonl", now=lambda: NOW)
     assert [q for q, _ in search.asked] == ["Tell me about Apple.", "And its fiscal 2024 revenue?"]
     assert "SIMULATED first." in chat.prompts[1][1].content

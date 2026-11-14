@@ -2,26 +2,31 @@
 
 The shown text is traced again against the turn's evidence by the faithfulness checker
 (s-10), the same code for the agent and the RAG baseline: "right figure" means a figure
-traced to the expected tool field, and "faithful" means no figure is shown untraced.
+traced to the expected tool field, and "faithful" means no figure is shown untraced. A
+check of a tool the system does not offer is judged on its outcome (`tracing`): the
+oracle's figure stated from a cited passage, or, without a figure, the other checks alone.
+`oracle` fails a figure check whose oracle call is missing from the transcript.
 """
 
 import re
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict
 
-from sec_agent.agent.answer import Evidence
-from sec_agent.eval.agent.scenarios import (
-    Scenario,
-    ToolCheck,
-    Transcript,
-    matching_elements,
-    result_values,
+from sec_agent.eval.agent.scenarios import Scenario, ToolCheck, Transcript
+from sec_agent.eval.agent.tracing import (
+    figure_starts,
+    matching_calls,
+    offers,
+    oracle_figure_cited,
 )
 from sec_agent.faithfulness.check import check_answer
 from sec_agent.faithfulness.models import FaithfulnessReport
 
-FailureKind = Literal["status", "tool", "figure", "citation", "unfaithful", "says", "not_says"]
+FailureKind = Literal[
+    "status", "tool", "figure", "oracle", "citation", "unfaithful", "says", "not_says"
+]
+FAILURE_KINDS: tuple[FailureKind, ...] = get_args(FailureKind)
 _FROZEN = ConfigDict(frozen=True, extra="forbid")
 
 
@@ -46,11 +51,9 @@ def check_scenario(scenario: Scenario, transcript: Transcript) -> ScenarioResult
     if transcript.status not in scenario.status:
         failures.append(Failure(kind="status", detail=transcript.status))
     for index, check in enumerate(scenario.tools):
-        calls = {e.call_id: scopes for e in transcript.evidence if (scopes := _scopes(check, e))}
-        if not calls:
-            failures.append(Failure(kind="tool", detail=f"tools[{index}]"))
-        elif check.figure is not None and not _figure_traced(check.figure, calls, report):
-            failures.append(Failure(kind="figure", detail=f"tools[{index}]: {check.figure}"))
+        failure = _tool_failure(check, transcript, report)
+        if failure is not None:
+            failures.append(Failure(kind=failure, detail=f"tools[{index}]"))
     if scenario.cite and not _cites(report):
         failures.append(Failure(kind="citation", detail="no valid citation"))
     if not report.faithful:
@@ -64,42 +67,23 @@ def check_scenario(scenario: Scenario, transcript: Transcript) -> ScenarioResult
     return ScenarioResult(scenario_id=scenario.id, passed=not failures, failures=tuple(failures))
 
 
-def _scopes(check: ToolCheck, evidence: Evidence) -> set[str]:
-    """Where in this call's result a figure of the check may trace: {""} anywhere, or the
-    list elements ("rows[1]") whose values match every `*` path; empty when the call does
-    not match. A peer check on HD is thus met by HD's row, never by another company's."""
-    if check.tool is not None and evidence.name != check.tool:
-        return set()
-    if evidence.ok != check.ok:
-        return set()
-    scopes = {""}
-    for path, expected in check.match.items():
-        if "*" in path:
-            rows = matching_elements(evidence.result, path, expected)
-            scopes = rows if scopes == {""} else scopes & rows
-        elif expected not in result_values(evidence.result, path):
-            return set()
-        if not scopes:
-            return set()
-    return scopes
+def _tool_failure(
+    check: ToolCheck, transcript: Transcript, report: FaithfulnessReport
+) -> FailureKind | None:
+    if not offers(check, transcript.offered_tools):
+        if check.figure is None:
+            return None  # the scenario's other checks judge the outcome
+        cited = oracle_figure_cited(
+            check, transcript.text, transcript.oracle, report, transcript.asked_on
+        )
+        return "oracle" if cited is None else (None if cited else "figure")
+    calls = matching_calls(check, transcript.evidence)
+    if not calls:
+        return "tool"
+    if check.figure is not None and not figure_starts(check.figure, calls, report):
+        return "figure"
+    return None
 
 
 def _cites(report: FaithfulnessReport) -> bool:
     return any(c.status == "valid" for s in report.sentences for c in s.citations)
-
-
-def _figure_traced(figure: str, calls: dict[str, set[str]], report: FaithfulnessReport) -> bool:
-    pattern = re.compile(figure)
-    return any(
-        m.status == "traced"
-        and m.source is not None
-        and m.source.call_id in calls
-        and pattern.fullmatch(m.source.field) is not None
-        and _within(m.source.field, calls[m.source.call_id])
-        for s in report.sentences
-        for m in s.mentions
-    )
-
-
-def _within(field: str, scopes: set[str]) -> bool:
-    return "" in scopes or any(field.startswith(f"{scope}.") for scope in scopes)

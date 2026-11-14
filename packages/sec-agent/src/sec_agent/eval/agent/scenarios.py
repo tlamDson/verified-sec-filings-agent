@@ -54,6 +54,10 @@ class ToolCheck(BaseModel):
     match: dict[str, Scalar] = Field(default_factory=dict[str, Scalar])
     figure: str | None = None
     ok: bool = True
+    call: dict[str, Scalar | list[str]] | None = None
+    """The arguments of the call that answers the check. The scorer runs it itself (the
+    oracle) to judge a system that does not offer `tool`, such as the RAG baseline: that
+    system passes when it states the oracle's figure from a passage it cites."""
 
     @field_validator("match")
     @classmethod
@@ -121,12 +125,19 @@ class Transcript(BaseModel):
     evidence: tuple[Evidence, ...]
     asked_on: dt.date
     answered_at: dt.datetime
+    offered_tools: tuple[str, ...] | None = None
+    """The tools the system could call; None: every tool of the catalog."""
+    oracle: tuple[Evidence, ...] = ()
+    """The checks' own calls (`ToolCheck.call`) as the scorer ran them, never shown to the
+    system: the expected figures for a system without the tool."""
 
 
 def scenario_sha256(scenario: Scenario, fingerprint: str) -> str:
     """The cache key of a scenario for a system: its turns and checks, and the system's
-    prompt fingerprint, so changing either asks again."""
-    payload = scenario.model_dump_json() + "\n" + fingerprint
+    fingerprint, so changing either asks again. The oracle's arguments (`ToolCheck.call`)
+    are left out: they change how an answer is scored, never what a system is asked."""
+    asked = scenario.model_dump_json(exclude={"tools": {"__all__": {"call"}}})
+    payload = asked + "\n" + fingerprint
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

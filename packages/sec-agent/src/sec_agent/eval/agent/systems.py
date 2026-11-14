@@ -14,7 +14,7 @@ import datetime as dt
 import hashlib
 import json
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Protocol, cast
 
 from sec_agent.agent.answer import Evidence, Status
@@ -58,7 +58,13 @@ class ScenarioSystem(Protocol):
 
     @property
     def fingerprint(self) -> str:
-        """Changes when the system's prompt does, so cached answers are asked again."""
+        """Changes with anything the answer depends on (prompt, tools, retrieval and
+        generation settings, pinned index), so cached answers are asked again."""
+        ...
+
+    @property
+    def offered_tools(self) -> tuple[str, ...] | None:
+        """The tools the system can call; None: every tool of the catalog."""
         ...
 
     def play(self, scenario: Scenario) -> Turn: ...
@@ -67,7 +73,15 @@ class ScenarioSystem(Protocol):
 class AgentScenarios:
     name = "agent"
 
-    def __init__(self, agent: Agent, *, model: str, asked_on: dt.date, fingerprint: str) -> None:
+    def __init__(
+        self,
+        agent: Agent,
+        *,
+        model: str,
+        asked_on: dt.date,
+        fingerprint: str,
+        offered_tools: tuple[str, ...] | None = None,
+    ) -> None:
         """`fingerprint`: `eval.fingerprint.agent_fingerprint` of this agent, so a cached
         transcript is reused only by the same prompt, tools, limits and pinned index."""
         if not fingerprint:
@@ -76,6 +90,7 @@ class AgentScenarios:
         self.model = model
         self.asked_on = asked_on
         self.fingerprint = fingerprint
+        self.offered_tools = offered_tools
 
     def play(self, scenario: Scenario) -> Turn:
         thread = f"a1-{scenario.id}-{uuid.uuid4().hex}"
@@ -91,10 +106,18 @@ class AgentScenarios:
 class RagScenarios:
     name = "rag"
 
-    def __init__(self, search: Search, chat: ChatModel, *, asked_on: dt.date) -> None:
+    offered_tools: tuple[str, ...] = ("search_filings",)
+
+    def __init__(
+        self, search: Search, chat: ChatModel, *, asked_on: dt.date, config: Mapping[str, object]
+    ) -> None:
+        """`config`: every retrieval and generation setting the answers depend on beyond
+        the chat model's name (passages per search, facts version, text space, query
+        embedder, reranker, output limit). It is part of the cache key."""
         self._search = search
         self._chat = chat
         self.asked_on = asked_on
+        self._config = json.dumps(dict(config), sort_keys=True, default=str)
 
     @property
     def model(self) -> str:
@@ -102,7 +125,7 @@ class RagScenarios:
 
     @property
     def fingerprint(self) -> str:
-        return _sha256(self._system())
+        return _sha256(f"{self._system()}\n{self._config}")
 
     def play(self, scenario: Scenario) -> Turn:
         history: list[tuple[str, str]] = []
@@ -138,6 +161,31 @@ def tool_search(runner: ToolRunner, k: int = DEFAULT_RAG_PASSAGES) -> Search:
         )
 
     return search
+
+
+def oracle_calls(runner: ToolRunner) -> Callable[[Scenario], tuple[Evidence, ...]]:
+    """The scorer's own run of every check's `call`: the expected figures (`Transcript.oracle`)
+    against which an answer without that tool is judged. Never shown to a system."""
+
+    def oracle(scenario: Scenario) -> tuple[Evidence, ...]:
+        calls: list[Evidence] = []
+        for index, check in enumerate(scenario.tools):
+            if check.call is None or check.tool is None:
+                continue
+            arguments = json.dumps(check.call)
+            output = runner.run(check.tool, arguments)
+            calls.append(
+                Evidence(
+                    call_id=f"oracle-{index}",
+                    name=check.tool,
+                    arguments=arguments,
+                    result=output.content,
+                    ok=output.ok,
+                )
+            )
+        return tuple(calls)
+
+    return oracle
 
 
 def _user(question: str, evidence: Evidence, history: list[tuple[str, str]]) -> str:

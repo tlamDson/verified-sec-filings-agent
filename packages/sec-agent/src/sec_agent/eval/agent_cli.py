@@ -11,12 +11,18 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from sec_agent.eval.agent.checks import FailureKind
+from sec_agent.eval.agent.checks import FAILURE_KINDS
 from sec_agent.eval.agent.report import AgentReport, agent_report
 from sec_agent.eval.agent.rows import agent_rows
 from sec_agent.eval.agent.runner import run_scenarios
 from sec_agent.eval.agent.scenarios import Transcript, read_scenarios
-from sec_agent.eval.agent.systems import AgentScenarios, RagScenarios, tool_search
+from sec_agent.eval.agent.systems import (
+    DEFAULT_RAG_PASSAGES,
+    AgentScenarios,
+    RagScenarios,
+    oracle_calls,
+    tool_search,
+)
 from sec_agent.eval.chat import RouterChatModel
 from sec_agent.eval.numeric.agent_model import AgentUnavailableError
 from sec_agent.eval.output import add_record_options, record_rows, table
@@ -32,15 +38,7 @@ if TYPE_CHECKING:
 
 DEFAULT_SCENARIOS = Path("data/golden/agent_scenarios.jsonl")
 DEFAULT_RESULTS = Path("results/agent")
-_FAILURES: tuple[FailureKind, ...] = (
-    "status",
-    "tool",
-    "figure",
-    "citation",
-    "unfaithful",
-    "says",
-    "not_says",
-)
+_FAILURES = FAILURE_KINDS
 
 
 def add_commands(actions: "Subparsers") -> None:
@@ -49,6 +47,9 @@ def add_commands(actions: "Subparsers") -> None:
 
     run = commands.add_parser("run", help="play the scenarios with the agent or RAG only")
     run.add_argument("--system", choices=("agent", "rag"), required=True)
+    run.add_argument(
+        "--passages", type=int, default=DEFAULT_RAG_PASSAGES, help="RAG: passages per search"
+    )
     _common(run)
     add_stack_options(run)
     run.set_defaults(run=_run)
@@ -79,18 +80,24 @@ def _run(args: argparse.Namespace) -> int:
     results.parent.mkdir(parents=True, exist_ok=True)
     try:
         with eval_stack(url, args) as stack:
+            oracle = oracle_calls(stack.tools)
+            k: int = args.passages
             if args.system == "agent":
                 system = AgentScenarios(
                     stack.agent,
                     model=f"agent:{stack.model}",
                     asked_on=stack.asked_on,
                     fingerprint=stack.fingerprint,
+                    offered_tools=stack.tools.names,
                 )
-                summary = run_scenarios(scenarios, system, results=results, now=_now)
+                summary = run_scenarios(scenarios, system, results=results, now=_now, oracle=oracle)
             else:
                 chat = RouterChatModel(stack.router, name=stack.model, max_tokens=args.max_tokens)
-                rag = RagScenarios(tool_search(stack.tools), chat, asked_on=stack.asked_on)
-                summary = run_scenarios(scenarios, rag, results=results, now=_now)
+                config = {**stack.pins, "passages": k, "max_tokens": args.max_tokens}
+                rag = RagScenarios(
+                    tool_search(stack.tools, k), chat, asked_on=stack.asked_on, config=config
+                )
+                summary = run_scenarios(scenarios, rag, results=results, now=_now, oracle=oracle)
     except (LLMConfigError, RerankerLoadError, ServeConfigError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2

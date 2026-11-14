@@ -14,7 +14,7 @@ PROMPT = [Message(role="system", content="rules"), Message(role="user", content=
 def test_the_reply_text_comes_back_and_the_request_is_deterministic() -> None:
     provider = ScriptedProvider("local", [says('SIMULATED {"answer": "not_found"}')])
     model = RouterChatModel(router_of(provider), name="local:qwen", max_tokens=512)
-    assert model.name == "local:qwen"
+    assert model.name == "local:qwen@max_tokens=512", "the output limit is part of the cache key"
     assert model.complete(PROMPT) == 'SIMULATED {"answer": "not_found"}'
     [request] = provider.requests
     assert [dict(m) for m in request.messages] == [
