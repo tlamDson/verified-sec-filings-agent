@@ -110,3 +110,12 @@ def test_every_recorded_oracle_run_of_a_checks_call_meets_the_check(repo_root: P
                 judged += 1
                 assert scopes(check, e), f"{path.name} {t.scenario_id}: {e.result[:200]}"
     assert judged > 0
+
+
+def test_every_risk_diff_oracle_asks_for_every_change(repo_root: Path) -> None:
+    """RAG's claimed changes are matched to the oracle's paragraphs: it must hold them all."""
+    for s in read_scenarios(repo_root / SCENARIOS):
+        for check in s.tools:
+            if check.tool == "diff_risk_factors":
+                assert check.call is not None, s.id
+                assert check.call["max_changes"] == 200, s.id

@@ -218,3 +218,54 @@ def test_the_restated_text_must_be_of_the_cited_passage() -> None:
     """Passage 1 is about supplier concentration; restating passage 0 while citing 1 fails."""
     text = f"SIMULATED: SIM Widgets depends on a single casing supplier [{passage_citation(1)}]."
     assert kinds(TEXT, transcript(text, (PASSAGES,))) == ["outcome"]
+
+
+SUPPLIER = "depending on a single supplier for widget casings"
+
+
+def test_an_unchanged_claim_does_not_meet_an_added_risk_factor() -> None:
+    """The restated paragraph is the added one; claiming it stayed the same is wrong."""
+    for text in (
+        f"SIMULATED: SIM Widgets' risk factor on {SUPPLIER} was unchanged [{SIM_ACCESSION}].",
+        f"SIMULATED: SIM Widgets has not changed its risk on {SUPPLIER} [{SIM_ACCESSION}].",
+        f"SIMULATED: Its risk on {SUPPLIER} remained the same [{SIM_ACCESSION}].",
+    ):
+        assert kinds(RISK, transcript(text, (DIFF_CALL,))) == ["outcome"], text
+
+
+def test_the_claimed_kind_must_be_the_kind_of_the_restated_change() -> None:
+    text = f"SIMULATED: SIM Widgets removed its risk factor on {SUPPLIER} [{SIM_ACCESSION}]."
+    assert kinds(RISK, transcript(text, (DIFF_CALL,))) == ["outcome"]
+
+
+def test_rag_must_restate_a_paragraph_the_oracle_reports_as_added() -> None:
+    """RAG restates its cited passage, but the oracle's diff added another paragraph."""
+    tariffs = risk_diff_evidence(
+        "SIMULATED: Tariffs on imported steel could raise our production costs sharply.",
+        call_id="oracle-0",
+    )
+    text = (
+        f"SIMULATED: SIM Widgets added a risk factor on {SUPPLIER} [{passage_citation(0)}], "
+        f"which its earlier 10-K did not name [{SIM_PREVIOUS_ACCESSION}/risk_factors/1]."
+    )
+    rag = transcript(text, (BOTH_FILINGS,), offered=RAG_TOOLS, oracle=(tariffs,))
+    assert kinds(RISK, rag) == ["outcome"]
+    unchanged = text.replace("added a risk factor on", "kept its risk factor, unchanged, on")
+    rag = transcript(unchanged, (BOTH_FILINGS,), offered=RAG_TOOLS, oracle=ORACLE)
+    assert kinds(RISK, rag) == ["outcome"]
+
+
+def no_change(evidence: Evidence) -> Evidence:
+    result: dict[str, Any] = json.loads(evidence.result)
+    result.update(added=0, unchanged=3, changes=[], changes_total=0)
+    return evidence.model_copy(update={"result": json.dumps(result)})
+
+
+def test_when_the_diff_reports_no_change_only_a_no_change_answer_passes() -> None:
+    same = (
+        "SIMULATED: SIM Widgets' risk factors were unchanged from its earlier 10-K "
+        f"[{SIM_ACCESSION}]."
+    )
+    assert kinds(RISK, transcript(same, (no_change(DIFF_CALL),))) == []
+    added = f"SIMULATED: SIM Widgets added a risk factor on {SUPPLIER} [{SIM_ACCESSION}]."
+    assert kinds(RISK, transcript(added, (no_change(DIFF_CALL),))) == ["outcome"]

@@ -21,6 +21,7 @@ from sec_agent.eval.agent.systems import (
     AgentScenarios,
     RagScenarios,
     oracle_calls,
+    oracle_runner,
     tool_search,
 )
 from sec_agent.eval.chat import RouterChatModel
@@ -80,7 +81,7 @@ def _run(args: argparse.Namespace) -> int:
     results.parent.mkdir(parents=True, exist_ok=True)
     try:
         with eval_stack(url, args) as stack:
-            oracle = oracle_calls(stack.tools)
+            oracle = oracle_calls(oracle_runner(stack.contexts.facts, stack.contexts.text))
             k: int = args.passages
             if args.system == "agent":
                 system = AgentScenarios(

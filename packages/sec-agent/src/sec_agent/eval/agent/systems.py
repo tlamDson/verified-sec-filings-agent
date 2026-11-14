@@ -23,6 +23,7 @@ from sec_agent.agent.tool_runner import ToolRunner
 from sec_agent.eval.agent.scenarios import Scenario
 from sec_agent.eval.numeric.agent_model import AgentUnavailableError
 from sec_agent.eval.numeric.baselines import ChatModel, Message
+from sec_agent.tools.context import FactsContext, TextContext
 
 Search = Callable[[str, tuple[str, ...]], Evidence]
 """(query, tickers) -> one search_filings call and its result."""
@@ -161,6 +162,16 @@ def tool_search(runner: ToolRunner, k: int = DEFAULT_RAG_PASSAGES) -> Search:
         )
 
     return search
+
+
+ORACLE_MAX_RESULT_CHARS = 2_000_000
+"""The oracle is never shown to a model, so one agent step's limit does not bind it: a risk
+diff with every change (`max_changes` 200) fits, and RAG's claims are matched to all."""
+
+
+def oracle_runner(facts: FactsContext, text: TextContext | None) -> ToolRunner:
+    """The tools the oracle runs: the eval's own, with no step-sized result limit."""
+    return ToolRunner(facts, text, max_result_chars=ORACLE_MAX_RESULT_CHARS)
 
 
 def oracle_calls(runner: ToolRunner) -> Callable[[Scenario], tuple[Evidence, ...]]:

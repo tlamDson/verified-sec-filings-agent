@@ -12,11 +12,16 @@ import pytest
 from faithfulness_kit import passage_citation, search_evidence
 
 from sec_agent.agent.answer import Evidence
-from sec_agent.agent.tool_runner import ToolRunner
+from sec_agent.agent.tool_runner import DEFAULT_MAX_RESULT_CHARS, ToolRunner
 from sec_agent.eval.agent.checks import check_scenario
 from sec_agent.eval.agent.runner import run_scenarios
 from sec_agent.eval.agent.scenarios import Scenario, ToolCheck, Transcript
-from sec_agent.eval.agent.systems import RagScenarios, oracle_calls
+from sec_agent.eval.agent.systems import (
+    ORACLE_MAX_RESULT_CHARS,
+    RagScenarios,
+    oracle_calls,
+    oracle_runner,
+)
 from sec_agent.eval.numeric.baselines import Message
 from sec_agent.golden.jsonl import read_jsonl
 from sec_agent.tools.context import FactsContext
@@ -162,3 +167,13 @@ def test_changing_retrieval_or_generation_settings_asks_rag_again(tmp_path: Path
         rag = RagScenarios(search, chat, asked_on=ASKED_ON, config=config)
         run_scenarios([VALUE], rag, results=results, now=lambda: NOW)
     assert chat.asked == 3, "only the repeated settings were served from the cache"
+
+
+def test_the_oracle_reads_results_larger_than_one_agent_step(facts_ctx: FactsContext) -> None:
+    """The oracle is never shown to a model, so a full risk diff (every change) fits."""
+    assert ORACLE_MAX_RESULT_CHARS >= 50 * DEFAULT_MAX_RESULT_CHARS
+    small = ToolRunner(facts_ctx, max_result_chars=10)
+    big = oracle_runner(facts_ctx, None)
+    arguments = '{"company": "AAPL", "concept": "revenue", "fiscal_year": 2024}'
+    assert not small.run("get_fact", arguments).ok
+    assert big.run("get_fact", arguments).ok
