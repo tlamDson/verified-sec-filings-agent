@@ -1,7 +1,7 @@
 """Resume bullets: numbers are formatted runs.csv values, never typed by hand."""
 
 import pytest
-from report_kit import bullet_rows
+from report_kit import bullet_rows, run
 
 from sec_agent.report.bullets import MissingRunError, render_bullets
 
