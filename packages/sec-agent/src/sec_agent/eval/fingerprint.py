@@ -25,10 +25,20 @@ def agent_fingerprint(
         {
             "system_prompt": system_prompt(asked_on),
             "tools": tools.schemas(),
-            "config": config.model_dump(mode="json"),
+            "config": _stable_config(config),
             "pins": dict(sorted(pins.items())),
         },
         sort_keys=True,
         separators=(",", ":"),
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:FINGERPRINT_CHARS]
+
+
+def _stable_config(config: AgentConfig) -> dict[str, object]:
+    """The config as JSON, with the per-config random canary replaced by a fixed mark: whether a
+    canary is set changes answers, its random value does not, and it must not defeat the cache."""
+    dumped: dict[str, object] = config.model_dump(mode="json")
+    if config.guardrails is not None and config.guardrails.canary is not None:
+        guardrails = config.guardrails.model_dump(mode="json")
+        dumped["guardrails"] = {**guardrails, "canary": "<canary>"}
+    return dumped

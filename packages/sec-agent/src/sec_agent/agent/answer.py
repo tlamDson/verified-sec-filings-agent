@@ -12,11 +12,18 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from sec_agent.faithfulness.models import FaithfulnessReport
+from sec_agent.guardrails.models import GuardReport
 from sec_agent.llm.attempts import Attempt
 
 Status = Literal["answered", "step_limit", "degraded", "blocked"]
 Reason = Literal[
-    "max_llm_calls", "llm_unavailable", "empty_reply", "truncated_reply", "untraced_figures"
+    "max_llm_calls",
+    "llm_unavailable",
+    "empty_reply",
+    "truncated_reply",
+    "untraced_figures",
+    "prompt_attack",
+    "canary_leak",
 ]
 
 
@@ -63,5 +70,7 @@ class Answer(BaseModel):
     """The model's answer before the check; None when it wrote none."""
     faithfulness: FaithfulnessReport | None = None
     """The check of `draft`; None when there was no draft or checking is off."""
+    guardrails: GuardReport | None = None
+    """What the guardrails did; None when they are off."""
     evidence: tuple[Evidence, ...]
     llm_calls: tuple[LLMCall, ...]
