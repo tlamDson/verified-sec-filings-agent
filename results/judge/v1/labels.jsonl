@@ -1,0 +1,100 @@
+{"id": "gj-04765b2890ad", "label": "incorrect", "rater": "claude-sonnet-rater-4", "note": "Does not provide the requested fiscal 2023 revenue."}
+{"id": "gj-05d31d5c365c", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-06ef000a2994", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-078a11c92790", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-088cb7ddcecc", "label": "correct", "rater": "claude-sonnet-rater-4", "note": "Revenue of $56,141M for FY2023 matches the tool result."}
+{"id": "gj-08f9c193a389", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-092a86d6ec06", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-09972a6f0b26", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-0c7e2c25004e", "label": "incorrect", "rater": "claude-sonnet-rater-4", "note": "Answer withheld; no comparison given though tool data showed 19.743B vs 19.722B."}
+{"id": "gj-0de60d41fd8f", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-0f9673467b82", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-10ef4e8f7736", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-11b88d910e07", "label": "incorrect", "rater": "claude-sonnet-rater-2", "note": "Answer withheld; does not answer the question."}
+{"id": "gj-153bbe1cf9f9", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-1572befa189d", "label": "incorrect", "rater": "claude-sonnet-rater-4", "note": "Does not answer the gross margin question."}
+{"id": "gj-1682c11157fc", "label": "incorrect", "rater": "claude-sonnet-rater-3", "note": "Non-answer; net income not retrieved."}
+{"id": "gj-1c7c359da4ec", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-1c87575fa655", "label": "incorrect", "rater": "claude-sonnet-rater-1", "note": "Does not answer; no risk-factor comparison given."}
+{"id": "gj-1cf85af6afde", "label": "incorrect", "rater": "claude-sonnet-rater-2", "note": "Uses Q3 10-Q 12/36-week figures as fiscal 2023, wrong period."}
+{"id": "gj-233cd50e6a7a", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-25262d422882", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-28ef9d5fb0d3", "label": "incorrect", "rater": "claude-sonnet-rater-2", "note": "Only Visa given; the Wells Fargo half of the comparison is not answered."}
+{"id": "gj-2c620f1ccfe2", "label": "incorrect", "rater": "claude-sonnet-rater-4", "note": "Does not answer; gives no revenue change."}
+{"id": "gj-2d8d24882c45", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-2e81d2d01a45", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-2ea093d22c25", "label": "incorrect", "rater": "claude-sonnet-rater-1", "note": "Answer withheld; gives no description of consent-order risks."}
+{"id": "gj-3024a9d692a8", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-3121564e1fd6", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-3174e3a2866d", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-3c4142ad9d8c", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-3ca20c44eec4", "label": "incorrect", "rater": "claude-sonnet-rater-3", "note": "Non-answer; revenue figures not retrieved."}
+{"id": "gj-43dc40e08bf6", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-4485d9bebd17", "label": "incorrect", "rater": "claude-sonnet-rater-3", "note": "Non-answer; never ran the risk-factor diff tool."}
+{"id": "gj-45b8b5b3abd2", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-481e24f6c459", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-4d96ef074de0", "label": "incorrect", "rater": "claude-sonnet-rater-4", "note": "Does not give full-year 2023 net income."}
+{"id": "gj-4ef537abfa20", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-53bb51367c30", "label": "correct", "rater": "claude-sonnet-rater-2", "note": "Appropriately declines to give buy/sell advice."}
+{"id": "gj-566db6b06780", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-56a0eb545f0f", "label": "correct", "rater": "claude-sonnet-rater-2", "note": "91,854M vs 91,471M gives 0.42%, matching the tool output."}
+{"id": "gj-57c50e840550", "label": "correct", "rater": "claude-sonnet-rater-1", "note": "91.854B vs 91.471B, +0.42%, period ends match tool output."}
+{"id": "gj-5dbe482c77f5", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-6aca047a605f", "label": "incorrect", "rater": "claude-sonnet-rater-1", "note": "Gives no revenue amount; only the July 31, 2024 year end."}
+{"id": "gj-6d6ed4c05ce9", "label": "correct", "rater": "claude-sonnet-rater-4", "note": "About $1.9 trillion at Dec 31, 2023 matches the 10-K."}
+{"id": "gj-6fbf42d8b24f", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-70afe08d283d", "label": "incorrect", "rater": "claude-sonnet-rater-3", "note": "Non-answer; retrieved only intro passages."}
+{"id": "gj-70ee6c737b04", "label": "correct", "rater": "claude-sonnet-rater-4", "note": "Risk-factor language matches the cited Visa 10-K passages."}
+{"id": "gj-75ec9d314f29", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-76931b18b368", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-791d9f5522ab", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-7d7c610df3b5", "label": "incorrect", "rater": "claude-sonnet-rater-1", "note": "Does not answer the competition question."}
+{"id": "gj-7f8393262bab", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-7fedc7c66abb", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-80907af3ac5c", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-8191886b0b63", "label": "correct", "rater": "claude-sonnet-rater-3", "note": "Properly declines advice and forecast; filings hold no projections."}
+{"id": "gj-81eb21b860fe", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-83caaf4bf53d", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-8405d76c65b5", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-8733391823e2", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-882fae8d9299", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-8c4e9178113b", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-8f736041a131", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-903509986550", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-9b797314c443", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-a56c5c4efd64", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-a5becdb01830", "label": "incorrect", "rater": "claude-sonnet-rater-3", "note": "Answer withheld; does not answer which risk factors changed."}
+{"id": "gj-a67edc59e6fc", "label": "correct", "rater": "claude-sonnet-rater-3", "note": "Statements and citations match the retrieved Chevron passages."}
+{"id": "gj-aa9f42f29149", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-b3eef84ee15a", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-bc1ce80c3e0f", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-bf5acbbbee2e", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-bfb00f9b1a58", "label": "correct", "rater": "claude-sonnet-rater-1", "note": "54.21% from 49.59B/91.471B matches tool output."}
+{"id": "gj-c172aea9c520", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-c271bfdb55cc", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-c602cadee1ba", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-c6ab2bf89df0", "label": "incorrect", "rater": "claude-sonnet-rater-4", "note": "Does not give fiscal 2023 revenue and presents obligor-group figures as revenue."}
+{"id": "gj-c78dfec0032d", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-cbdeb4f24e78", "label": "correct", "rater": "claude-sonnet-rater-3", "note": "Value 152,669M matches get_fact for FY2023 ended 2024-01-28."}
+{"id": "gj-ce422061291b", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-d071c76e66e7", "label": "incorrect", "rater": "claude-sonnet-rater-1", "note": "Does not answer; abstains after retrieval missed the R&D data."}
+{"id": "gj-d291de3f23ff", "label": "unsure", "rater": "claude-sonnet-rater-3", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-d687c5107469", "label": "incorrect", "rater": "claude-sonnet-rater-2", "note": "Does not answer; also cites business/1 for a passage returned as business/10."}
+{"id": "gj-d8048b6b627d", "label": "incorrect", "rater": "claude-sonnet-rater-2", "note": "Does not answer; cites a passage not retrieved and makes an unsupported claim about 2021."}
+{"id": "gj-dca9602bb548", "label": "incorrect", "rater": "claude-sonnet-rater-1", "note": "Gives only nine-month net income, not fiscal 2023 full-year figure asked."}
+{"id": "gj-e243473ae0a9", "label": "incorrect", "rater": "claude-sonnet-rater-3", "note": "Non-answer; operating cash flow not given."}
+{"id": "gj-e35ec62ab68d", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-e982d544089c", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-eb5d9ad9b806", "label": "incorrect", "rater": "claude-sonnet-rater-4", "note": "Cites accession 0001413329-25-000025 that is not in the sources and attributes claims to filings that lack them."}
+{"id": "gj-ec684313ab2c", "label": "incorrect", "rater": "claude-sonnet-rater-2", "note": "Answer withheld; does not answer the question."}
+{"id": "gj-f256a9014970", "label": "correct", "rater": "claude-sonnet-rater-4", "note": "Net revenue $35,926M for FY2024 matches the 10-K."}
+{"id": "gj-f411bd7d923c", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-f44d98705031", "label": "correct", "rater": "claude-sonnet-rater-4", "note": "1,604/6,892.7 = 23.27% matches the tool output."}
+{"id": "gj-f5598eadf281", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-f768a02b9da2", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-f8ca36430685", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-fa59ee4a2d13", "label": "incorrect", "rater": "claude-sonnet-rater-2", "note": "Does not answer the revenue growth question."}
+{"id": "gj-fab8877980d2", "label": "unsure", "rater": "claude-sonnet-rater-1", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-fc2d0eb2ac3b", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-fdb0639e7ea5", "label": "unsure", "rater": "claude-sonnet-rater-2", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
+{"id": "gj-fe9be93868d4", "label": "unsure", "rater": "claude-sonnet-rater-4", "note": "no sources in the stored record, so not judgeable blind (excluded from J1)"}
