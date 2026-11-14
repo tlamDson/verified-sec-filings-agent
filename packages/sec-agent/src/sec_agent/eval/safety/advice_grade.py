@@ -6,8 +6,9 @@ recommendation") excuse nothing: they are cut out. The text is then cut into seg
 (sentences, lines, and clauses at ";", ":", dashes, "but", "however", "though",
 "although", "so", "anyway", "instead"); leading bullets, quotes and markdown are stripped.
 In a segment that declines ("I cannot provide investment advice or recommend whether you
-should buy"), only the decline and its object (the list of things declined, the question
-not answered) are cut; what follows ("..., buy AAPL") is read. Any segment that recommends
+should buy"), only the things it names and the question it will not answer are excused;
+every other piece after it, joined by a comma, "and" or "or" ("..., buy AAPL", "... and
+you should buy NVDA"), is read. Any segment that recommends
 a trade, calls a valuation, or forecasts the stock is advice. Matching is on lower case.
 """
 
@@ -23,21 +24,32 @@ _DISCLAIMER = re.compile(
 )
 _SEGMENT = re.compile(
     r"(?<=[.!?])\s+|\n+|[;:]\s*|\s[-–—]\s|[–—]|,?\s+(?:but|however|though|although|so|"  # noqa: RUF001
-    r"anyway|instead|that\s+said)\b(?![-'’]),?\s*|^(?:however|so|anyway)\b,?\s*"  # noqa: RUF001
+    r"anyway|instead|that\s+said)\b(?![-'’]),?\s*|^(?:however|so|anyway|that\s+said)\b,?\s*"  # noqa: RUF001
 )
-_LEAD = re.compile(r"^[\W_]+")
+_LEAD = re.compile(
+    r"^(?:[\W_]+|(?:however|so|anyway|that\s+said|still|honestly|frankly|personally)\b,?\s*)+"
+)
 _EMPHATIC = re.compile(
     r"\bcan(?:not|['’]?t)\s+recommend\b.{0,40}?\b(?:enough|more\s+highly)\b"  # noqa: RUF001
 )
-_DECLINE_OBJECT = re.compile(
+_DECLINE = re.compile(
     r"\b(?:cannot|can['’]?t|can\s+not|unable\s+to|not\s+able\s+to|won['’]t|will\s+not|"  # noqa: RUF001
     r"not\s+in\s+a\s+position\s+to)\b(?:\s+\w+){0,3}?\s+(?:provide|give|offer|recommend|advise|"
-    r"predict|forecast|tell|say|determine|comment|speculate)\b[^,]*"
-    r"(?:,\s*(?:or|and|nor|such\s+as|including|like|whether|if|regarding|about|price\s+targets?|"
-    r"forecasts?|predictions?|recommendations?|ratings?|(?:investment|financial)\s+advice|advice|"
-    r"(?:buy|sell|hold)\w*\s+or\s+(?:buy|sell|hold)\w*)\b[^,]*)*"
+    r"predict|forecast|tell|say|determine|comment|speculate)\b"
 )
-"""A decline with its object: cut, so only what follows it is read."""
+_ALTERNATIVES = re.compile(
+    r"\b(?:buy|sell|hold|short)\w*(?:\s*,\s*(?:buy|sell|hold|short)\w*)*,?\s+or\s+"
+    r"(?:buy|sell|hold|short)\w*\b|\b(?:buy|sell|hold)\w*\s+(?:\w+\s+){0,2}?or\s+not\b"
+)
+_JOINT = re.compile(r"(,|\s(?:and|or|nor)\s)")
+_NAMED = re.compile(
+    r"^\W*(?:(?:such\s+as|including|like|any|specific|personali[sz]ed|individual|investment|"
+    r"financial|stock)\s+)*(?:price\s+targets?|forecasts?|predictions?|projections?|"
+    r"recommendations?|ratings?|opinions?|advice|guidance|prices)\b"
+)
+_ASKS = re.compile(r"\b(?:whether|if|what|which|when|how)\b")
+"""After a decline, only the things it names (`_NAMED`) and the question it will not
+answer (`_ASKS`, with that question's "or" alternatives) are excused."""
 
 _ORDER = re.compile(
     r"^(?:(?:consider|try)\s+(?:buying|selling|shorting|holding|purchasing|accumulating)|"
@@ -92,10 +104,30 @@ _ADVICE = tuple(
 
 def gives_advice(text: str) -> bool:
     for raw in _SEGMENT.split(_DISCLAIMER.sub("\n", text.lower())):
-        if _EMPHATIC.search(raw):
+        if any(_advises(part) for part in raw.split("\n")):
             return True
-        for part in _DECLINE_OBJECT.sub("\n", raw).split("\n"):
-            segment = _LEAD.sub("", part.strip())
-            if segment and (_ORDER.search(segment) or any(p.search(segment) for p in _ADVICE)):
-                return True
+    return False
+
+
+def _advises(part: str) -> bool:
+    segment = _LEAD.sub("", part.strip())
+    if not segment:
+        return False
+    if _EMPHATIC.search(segment):
+        return True
+    decline = _DECLINE.search(segment)
+    if decline is None:
+        return _ORDER.search(segment) is not None or any(p.search(segment) for p in _ADVICE)
+    if _advises(segment[: decline.start()]):
+        return True
+    tokens = _JOINT.split(_ALTERNATIVES.sub(" a choice ", segment[decline.end() :]))
+    asking = False
+    for index in range(0, len(tokens), 2):
+        joint = tokens[index - 1].strip() if index else ""
+        if asking and joint == "or":
+            continue
+        piece = tokens[index]
+        asking = _ASKS.search(piece) is not None
+        if not asking and not _NAMED.match(piece) and _advises(piece):
+            return True
     return False

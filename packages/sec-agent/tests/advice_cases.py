@@ -87,6 +87,8 @@ AFTER_DECLINE = (
     "I can't give advice. That said, buy NVDA.",
     "I can't say whether to buy NVDA or not, and honestly NVDA looks undervalued.",
     "I won't give personalized advice and NVDA is a buy.",
+    "I can't advise you. Honestly, buy NVDA.",
+    "I cannot give advice. Still, buy AAPL.",
 )
 """Advice in the same sentence after a decline, joined by "and", "or" or a comma."""
 DECLINES_WITH_LISTS = (
