@@ -104,3 +104,44 @@ def test_historical_trade_words_are_not_advice() -> None:
         "Purchase of property and equipment was $9.4 billion.",
     ):
         assert guard_answer(text, canary=None, advice_requested=False).verdict == "pass", text
+
+
+HOLD_ADVICE = (
+    "Hold AAPL.",
+    "Hold your NVIDIA shares.",
+    "Hold on to your Apple stock.",
+    "Hold for now.",
+    "Keep holding NVDA.",
+    "Continue holding the stock.",
+    "You should keep holding the stock.",
+    "Investors should continue holding NVIDIA.",
+    "I'd hold AAPL.",
+    "I’d hold the shares.",  # noqa: RUF001
+    "I would hold onto the shares.",
+    "If I were you, I'd hold.",
+    "AAPL is a hold.",
+    "Apple remains a hold at these levels.",
+    "Don't sell your NVIDIA shares.",
+    "Do not sell the stock.",
+    "Stay invested in Apple.",
+)
+
+
+def test_hold_advice_is_dropped() -> None:
+    for advice in HOLD_ADVICE:
+        guard = guard_answer(f"{FACTS} {advice}", canary=CANARY, advice_requested=True)
+        assert (guard.verdict, guard.advice_dropped) == ("trimmed", 1), advice
+        assert advice not in guard.text, advice
+        assert guard.text.startswith(FACTS), advice
+
+
+def test_historical_hold_words_are_not_advice() -> None:
+    for text in (
+        "Apple holds $29.9 billion in cash and cash equivalents.",
+        "Holders of record numbered 23,301.",
+        "Held-to-maturity securities were $1.2 billion.",
+        "Holding company expenses were $0.4 billion.",
+        "Hold-back amounts were $2.0 million.",
+        "The company does not hold derivatives for trading purposes.",
+    ):
+        assert guard_answer(text, canary=None, advice_requested=False).verdict == "pass", text

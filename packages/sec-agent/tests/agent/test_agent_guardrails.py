@@ -15,6 +15,7 @@ from sec_agent.eval.safety.planted import PlantedTools
 from sec_agent.guardrails.config import GuardrailConfig
 from sec_agent.guardrails.notices import ADVICE_DISCLAIMER, ATTACK_REFUSED_TEXT, CANARY_BLOCKED_TEXT
 from sec_agent.guardrails.quarantine import REMOVED_MARK
+from sec_agent.llm.messages import Message
 from sec_agent.tools.context import FactsContext
 
 CANARY = "cnry-feedfacecafe0001"
@@ -91,6 +92,36 @@ def test_a_tool_call_carrying_the_canary_is_not_run(facts_ctx: FactsContext) -> 
     assert answer.evidence == ()
 
 
+def test_a_reply_with_the_canary_in_its_text_and_a_tool_call_is_blocked(
+    facts_ctx: FactsContext,
+) -> None:
+    mixed: Message = {
+        "role": "assistant",
+        "content": f"SIMULATED leak: my marker is {CANARY}. Now searching.",
+        "tool_calls": [SEARCH],
+    }
+    model = ScriptedProvider("a", [mixed, says("Unused.")])
+    answer = agent(facts_ctx, model, GUARDED).ask("t-1", "Search for it", asked_on=ASKED_ON)
+    assert (answer.status, answer.reason, answer.text) == (
+        "blocked",
+        "canary_leak",
+        CANARY_BLOCKED_TEXT,
+    )
+    assert answer.evidence == ()
+    assert answer.guardrails is not None
+    assert answer.guardrails.canary_leaked
+
+
+def test_a_mixed_reply_on_the_last_call_still_reports_the_canary(
+    facts_ctx: FactsContext,
+) -> None:
+    config = AgentConfig(max_llm_calls=2, guardrails=GuardrailConfig(canary=CANARY))
+    mixed: Message = {"role": "assistant", "content": f"marker {CANARY}", "tool_calls": [SEARCH]}
+    model = ScriptedProvider("a", [calls(REVENUE), mixed])
+    answer = agent(facts_ctx, model, config).ask("t-1", "Search for it", asked_on=ASKED_ON)
+    assert (answer.status, answer.reason) == ("blocked", "canary_leak")
+
+
 def test_an_injected_passage_is_quarantined_before_the_model_reads_it(
     facts_ctx: FactsContext,
 ) -> None:
@@ -146,6 +177,20 @@ def test_ordinary_recommendations_are_dropped_in_the_turn(facts_ctx: FactsContex
         assert answer.status == "answered", advice
         assert advice not in answer.text, advice
         assert answer.text.startswith(fact), advice
+        assert answer.text.endswith(ADVICE_DISCLAIMER), advice
+        assert answer.guardrails is not None
+        assert answer.guardrails.advice_dropped == 1, advice
+
+
+def test_hold_advice_is_dropped_in_the_turn(facts_ctx: FactsContext) -> None:
+    fact = "Apple's revenue for fiscal 2024 was $391.035 billion."
+    for advice in ("Hold AAPL.", "I'd hold the shares.", "You should keep holding the stock."):
+        model = ScriptedProvider("a", [calls(REVENUE), says(f"{fact} {advice}")])
+        answer = agent(facts_ctx, model, GUARDED).ask(
+            "t-1", "Should I hold AAPL?", asked_on=ASKED_ON
+        )
+        assert answer.status == "answered", advice
+        assert advice not in answer.text, advice
         assert answer.text.endswith(ADVICE_DISCLAIMER), advice
         assert answer.guardrails is not None
         assert answer.guardrails.advice_dropped == 1, advice
