@@ -55,6 +55,17 @@ class ToolCheck(BaseModel):
     figure: str | None = None
     ok: bool = True
 
+    @field_validator("match")
+    @classmethod
+    def _one_list(cls, match: dict[str, Scalar]) -> dict[str, Scalar]:
+        heads = {path.split(".*.", 1)[0] for path in match if "*" in path}
+        for path in match:
+            if "*" in path and (path.count("*") != 1 or ".*." not in path):
+                raise ValueError(f"{path!r}: use one '*' between dots, e.g. rows.*.company.ticker")
+        if len(heads) > 1:
+            raise ValueError(f"wildcard paths must share one list, not {sorted(heads)}")
+        return match
+
     @field_validator("figure")
     @classmethod
     def _regex(cls, figure: str | None) -> str | None:
@@ -144,6 +155,20 @@ def result_values(result: str, path: str) -> list[Any]:
                 found.append(cast(dict[str, Any], value)[part])
         values = found
     return values
+
+
+def matching_elements(result: str, path: str, expected: Scalar) -> set[str]:
+    """The elements of the list before `*` ("rows.*.company.ticker") whose value at the rest
+    of the path is `expected`, as the checker names fields: {"rows[1]"}."""
+    head, tail = path.split(".*.", 1)
+    found: set[str] = set()
+    for rows in result_values(result, head):
+        if not isinstance(rows, list):
+            continue
+        for i, row in enumerate(cast(list[Any], rows)):
+            if expected in result_values(json.dumps(row), tail):
+                found.add(f"{head}[{i}]")
+    return found
 
 
 def _compile(pattern: str) -> re.Pattern[str]:

@@ -18,7 +18,6 @@ from collections.abc import Callable
 from typing import Any, Protocol, cast
 
 from sec_agent.agent.answer import Evidence, Status
-from sec_agent.agent.prompt import system_prompt
 from sec_agent.agent.service import Agent
 from sec_agent.agent.tool_runner import ToolRunner
 from sec_agent.eval.agent.scenarios import Scenario
@@ -68,14 +67,15 @@ class ScenarioSystem(Protocol):
 class AgentScenarios:
     name = "agent"
 
-    def __init__(self, agent: Agent, *, model: str, asked_on: dt.date) -> None:
+    def __init__(self, agent: Agent, *, model: str, asked_on: dt.date, fingerprint: str) -> None:
+        """`fingerprint`: `eval.fingerprint.agent_fingerprint` of this agent, so a cached
+        transcript is reused only by the same prompt, tools, limits and pinned index."""
+        if not fingerprint:
+            raise ValueError("an agent transcript needs the agent's fingerprint")
         self._agent = agent
         self.model = model
         self.asked_on = asked_on
-
-    @property
-    def fingerprint(self) -> str:
-        return _sha256(system_prompt(self.asked_on))
+        self.fingerprint = fingerprint
 
     def play(self, scenario: Scenario) -> Turn:
         thread = f"a1-{scenario.id}-{uuid.uuid4().hex}"

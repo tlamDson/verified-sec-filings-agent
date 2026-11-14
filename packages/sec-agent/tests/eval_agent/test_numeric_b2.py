@@ -24,6 +24,7 @@ from sec_agent.tools.context import FactsContext
 
 ASKED_ON = dt.date(2026, 11, 13)
 NOW = dt.datetime(2026, 11, 13, 1, 0, tzinfo=dt.UTC)
+FP = "sim-agent-1"
 REVENUE = call("get_fact", "c1", company="AAPL", concept="revenue", fiscal_year=2024)
 TRACED = (
     "SIMULATED: Apple's revenue for fiscal 2024 (ended 2024-09-28) was $391.0 billion.\n"
@@ -83,7 +84,7 @@ def test_a_traced_agent_answer_is_recorded_as_shown_and_graded_right(
     facts_ctx: FactsContext,
 ) -> None:
     agent = agent_of(facts_ctx, ScriptedProvider("a", [calls(REVENUE), says(TRACED)]))
-    model = AgentChatModel(agent, name="agent:sim", asked_on=ASKED_ON)
+    model = AgentChatModel(agent, name="agent:sim", asked_on=ASKED_ON, fingerprint=FP)
     question = apple_question()
     output = model.complete(B2().prompt(question))
     assert output == TRACED
@@ -94,7 +95,7 @@ def test_a_traced_agent_answer_is_recorded_as_shown_and_graded_right(
 def test_an_invented_value_never_reaches_the_grader(facts_ctx: FactsContext) -> None:
     """The checker withholds the untraced reply line, so b2 cannot score a model's number."""
     agent = agent_of(facts_ctx, ScriptedProvider("a", [calls(REVENUE), says(INVENTED)]))
-    model = AgentChatModel(agent, name="agent:sim", asked_on=ASKED_ON)
+    model = AgentChatModel(agent, name="agent:sim", asked_on=ASKED_ON, fingerprint=FP)
     question = apple_question()
     output = model.complete(B2().prompt(question))
     assert "400000000000" not in output
@@ -103,7 +104,9 @@ def test_an_invented_value_never_reaches_the_grader(facts_ctx: FactsContext) -> 
 
 def test_each_question_is_its_own_conversation(facts_ctx: FactsContext) -> None:
     provider = ScriptedProvider("a", [says("SIMULATED one."), says("SIMULATED two.")])
-    model = AgentChatModel(agent_of(facts_ctx, provider), name="agent:sim", asked_on=ASKED_ON)
+    model = AgentChatModel(
+        agent_of(facts_ctx, provider), name="agent:sim", asked_on=ASKED_ON, fingerprint=FP
+    )
     model.complete(B2().prompt(apple_question("gnum-000000000000000a")))
     model.complete(B2().prompt(apple_question("gnum-000000000000000b")))
     second = provider.requests[1]
@@ -114,7 +117,10 @@ def test_the_agent_model_refuses_a_prompt_that_is_not_one_user_turn(
     facts_ctx: FactsContext,
 ) -> None:
     model = AgentChatModel(
-        agent_of(facts_ctx, ScriptedProvider("a")), name="agent:sim", asked_on=ASKED_ON
+        agent_of(facts_ctx, ScriptedProvider("a")),
+        name="agent:sim",
+        asked_on=ASKED_ON,
+        fingerprint=FP,
     )
     with pytest.raises(ValueError, match="one user message"):
         model.complete(B0().prompt(apple_question()))
@@ -125,13 +131,15 @@ def test_no_provider_stops_the_night_and_keeps_what_was_answered(
 ) -> None:
     down = ProviderUnavailableError("503")
     provider = ScriptedProvider("a", [calls(REVENUE), says(TRACED), down, down, down])
-    model = AgentChatModel(agent_of(facts_ctx, provider), name="agent:sim", asked_on=ASKED_ON)
+    model = AgentChatModel(
+        agent_of(facts_ctx, provider), name="agent:sim", asked_on=ASKED_ON, fingerprint=FP
+    )
     results = tmp_path / "b2.jsonl"
     questions = [apple_question("gnum-000000000000000a"), apple_question("gnum-000000000000000b")]
     with pytest.raises(AgentUnavailableError):
         run_numeric(questions, B2(), model, results=results, now=lambda: NOW)
     cached = read_jsonl(cache_path(results), AnswerRecord)
     assert [(r.qid, r.system, r.model) for r in cached] == [
-        ("gnum-000000000000000a", "b2", "agent:sim")
+        ("gnum-000000000000000a", "b2", f"agent:sim@{FP}")
     ]
     assert "degraded" not in cached[0].output

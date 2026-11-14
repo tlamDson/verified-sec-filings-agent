@@ -152,3 +152,32 @@ def test_a_scenario_rejects_unknown_fields_and_bad_regexes() -> None:
         scenario(expected_answer="391")
     with pytest.raises(ValidationError, match="regex"):
         scenario(says=("(unclosed",))
+
+
+def test_a_peer_check_is_met_only_by_its_own_companys_row(facts_ctx: FactsContext) -> None:
+    """One company's figure must not pass the check of the other company in the table."""
+    peers = run_tool(
+        facts_ctx, "compare_peers", companies=["AAPL", "NVDA"], metric="revenue", fiscal_year=2024
+    )
+    per_company = scenario(
+        category="peers",
+        companies=("AAPL", "NVDA"),
+        tools=tuple(
+            ToolCheck(
+                tool="compare_peers",
+                match={"metric": "revenue", "rows.*.company.ticker": ticker},
+                figure=r"rows\[\d+\]\.value",
+            )
+            for ticker in ("AAPL", "NVDA")
+        ),
+    )
+    only_nvidia = "SIMULATED: NVIDIA's revenue for fiscal 2024 was $60.9 billion."
+    result = check_scenario(per_company, transcript(only_nvidia, (peers,)))
+    assert [(f.kind, f.detail.split(":")[0]) for f in result.failures] == [("figure", "tools[0]")]
+    both = f"{only_nvidia} Apple's revenue for fiscal 2024 was $391.0 billion."
+    assert kinds(per_company, transcript(both, (peers,))) == []
+
+
+def test_wildcards_must_share_one_list() -> None:
+    with pytest.raises(ValidationError, match="one list"):
+        ToolCheck(match={"rows.*.company.ticker": "HD", "passages.*.company.ticker": "HD"})

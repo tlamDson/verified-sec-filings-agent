@@ -93,7 +93,12 @@ def test_the_agent_plays_every_turn_in_one_conversation_and_keeps_the_last(
     provider = ScriptedProvider(
         "a", [says("SIMULATED: Apple makes phones."), calls(REVENUE), says(TRACED)]
     )
-    system = AgentScenarios(agent_of(facts_ctx, provider), model="agent:sim", asked_on=ASKED_ON)
+    system = AgentScenarios(
+        agent_of(facts_ctx, provider),
+        model="agent:sim",
+        asked_on=ASKED_ON,
+        fingerprint="sim-agent-1",
+    )
     results = tmp_path / "agent.jsonl"
     summary = run_scenarios([FOLLOW_UP], system, results=results, now=lambda: NOW)
     assert (summary.asked, summary.cached) == (1, 0)
@@ -112,7 +117,12 @@ def test_a_rerun_asks_nothing_and_a_changed_scenario_asks_again(
     facts_ctx: FactsContext, tmp_path: Path
 ) -> None:
     provider = ScriptedProvider("a", [calls(REVENUE), says(TRACED)])
-    system = AgentScenarios(agent_of(facts_ctx, provider), model="agent:sim", asked_on=ASKED_ON)
+    system = AgentScenarios(
+        agent_of(facts_ctx, provider),
+        model="agent:sim",
+        asked_on=ASKED_ON,
+        fingerprint="sim-agent-1",
+    )
     results = tmp_path / "agent.jsonl"
     run_scenarios([VALUE], system, results=results, now=lambda: NOW)
     again = run_scenarios([VALUE], system, results=results, now=lambda: NOW)
@@ -126,7 +136,12 @@ def test_a_rerun_asks_nothing_and_a_changed_scenario_asks_again(
 
 def test_no_provider_stops_the_run(facts_ctx: FactsContext, tmp_path: Path) -> None:
     provider = ScriptedProvider("a", [ProviderUnavailableError("503")])
-    system = AgentScenarios(agent_of(facts_ctx, provider), model="agent:sim", asked_on=ASKED_ON)
+    system = AgentScenarios(
+        agent_of(facts_ctx, provider),
+        model="agent:sim",
+        asked_on=ASKED_ON,
+        fingerprint="sim-agent-1",
+    )
     with pytest.raises(AgentUnavailableError):
         run_scenarios([VALUE], system, results=tmp_path / "agent.jsonl", now=lambda: NOW)
 

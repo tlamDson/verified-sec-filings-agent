@@ -1,8 +1,9 @@
 """`sec-agent eval answer --system b0|b1|b2`: ask one system the G-num questions of a split.
 
 Answers go to `results/numeric/SPLIT/SYSTEM.jsonl` (and its cache), which `eval numeric`
-then grades. An interrupted night resumes from the cache; `--limit` asks only the first N
-questions in file order, so a short night is reported with its true N, never padded.
+then grades. An interrupted night resumes from the cache; `--limit N` asks N questions
+shared by the question types in turn (`numeric.sample.stratified`), so a short night covers
+every type and is reported with its true N, never padded.
 """
 
 import argparse
@@ -16,6 +17,7 @@ from sec_agent.eval.numeric.agent_model import AgentChatModel, AgentUnavailableE
 from sec_agent.eval.numeric.baselines import B0, B1, B2, ChatModel, NumericSystem
 from sec_agent.eval.numeric.passages import SearchPassages
 from sec_agent.eval.numeric.runner import run_numeric
+from sec_agent.eval.numeric.sample import stratified
 from sec_agent.eval.stack import EvalStack, add_stack_options, eval_stack
 from sec_agent.golden.gnum.models import NumQuestion
 from sec_agent.golden.jsonl import read_jsonl
@@ -36,11 +38,10 @@ def add_commands(actions: "Subparsers") -> None:
     answer.add_argument("--system", choices=("b0", "b1", "b2"), required=True)
     answer.add_argument("--questions", type=Path, default=DEFAULT_GNUM_FILE)
     answer.add_argument("--split", choices=("train", "dev", "test"), default="test")
-    answer.add_argument("--limit", type=int, default=None, help="ask only the first N questions")
-    answer.add_argument("--results-dir", type=Path, default=None)
     answer.add_argument(
-        "--asked-on", type=dt.date.fromisoformat, default=None, help="b2's date (default today)"
+        "--limit", type=int, default=None, help="ask N questions, the question types in turn"
     )
+    answer.add_argument("--results-dir", type=Path, default=None)
     add_stack_options(answer)
     answer.set_defaults(run=_answer)
 
@@ -50,7 +51,7 @@ def _answer(args: argparse.Namespace) -> int:
         return 2
     questions = [q for q in read_jsonl(args.questions, NumQuestion) if q.split == args.split]
     if args.limit is not None:
-        questions = questions[: args.limit]
+        questions = stratified(questions, args.limit)
     if not questions:
         print(f"error: no {args.split} question in {args.questions}", file=sys.stderr)
         return 2
@@ -81,5 +82,9 @@ def _system(args: argparse.Namespace, stack: EvalStack) -> tuple[NumericSystem, 
         if text is None:
             raise ValueError("b1 needs a text snapshot; none is pinned")
         return B1(SearchPassages(text.conn, text.space, text.embedder)), chat
-    asked_on: dt.date = args.asked_on or dt.date.today()
-    return B2(), AgentChatModel(stack.agent, name=f"agent:{stack.model}", asked_on=asked_on)
+    return B2(), AgentChatModel(
+        stack.agent,
+        name=f"agent:{stack.model}",
+        asked_on=stack.asked_on,
+        fingerprint=stack.fingerprint,
+    )

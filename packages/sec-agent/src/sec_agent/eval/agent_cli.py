@@ -50,7 +50,6 @@ def add_commands(actions: "Subparsers") -> None:
     run = commands.add_parser("run", help="play the scenarios with the agent or RAG only")
     run.add_argument("--system", choices=("agent", "rag"), required=True)
     _common(run)
-    run.add_argument("--asked-on", type=dt.date.fromisoformat, default=None)
     add_stack_options(run)
     run.set_defaults(run=_run)
 
@@ -78,17 +77,19 @@ def _run(args: argparse.Namespace) -> int:
     scenarios = [s for s in read_scenarios(args.scenarios) if s.split == args.split]
     results = _results(args) / f"{args.system}.jsonl"
     results.parent.mkdir(parents=True, exist_ok=True)
-    asked_on: dt.date = args.asked_on or dt.date.today()
     try:
         with eval_stack(url, args) as stack:
             if args.system == "agent":
                 system = AgentScenarios(
-                    stack.agent, model=f"agent:{stack.model}", asked_on=asked_on
+                    stack.agent,
+                    model=f"agent:{stack.model}",
+                    asked_on=stack.asked_on,
+                    fingerprint=stack.fingerprint,
                 )
                 summary = run_scenarios(scenarios, system, results=results, now=_now)
             else:
                 chat = RouterChatModel(stack.router, name=stack.model, max_tokens=args.max_tokens)
-                rag = RagScenarios(tool_search(stack.tools), chat, asked_on=asked_on)
+                rag = RagScenarios(tool_search(stack.tools), chat, asked_on=stack.asked_on)
                 summary = run_scenarios(scenarios, rag, results=results, now=_now)
     except (LLMConfigError, RerankerLoadError, ServeConfigError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
