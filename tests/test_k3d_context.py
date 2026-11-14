@@ -72,21 +72,40 @@ def _bash() -> str | None:
     return bash
 
 
-def _require_context(repo_root: Path, tmp_path: Path, server: str | None) -> int:
+LOCAL = "https://0.0.0.0:6550"
+REMOTE = "https://prod.example.com:6443"
+
+
+def _require_context(
+    repo_root: Path,
+    tmp_path: Path,
+    clusters: dict[str, str],
+    context_cluster: str | None,
+) -> int:
+    """Run require_context against a throwaway kubeconfig.
+
+    `clusters` maps cluster names to servers; `context_cluster` is the cluster the
+    k3d-sec-agent context selects, or None for no such context. The current context is
+    always a remote "work" cluster, as on a developer laptop.
+    """
     bash, kubectl = _bash(), shutil.which("kubectl")
     if bash is None or kubectl is None:
         pytest.skip("needs bash and kubectl")
-    clusters: list[dict[str, object]] = (
-        [] if server is None else [{"name": "k3d-sec-agent", "cluster": {"server": server}}]
-    )
+    contexts: list[dict[str, object]] = [
+        {"name": "work", "context": {"cluster": "work", "user": "u"}}
+    ]
+    if context_cluster is not None:
+        contexts.append(
+            {"name": "k3d-sec-agent", "context": {"cluster": context_cluster, "user": "u"}}
+        )
     config: dict[str, object] = {
         "apiVersion": "v1",
         "kind": "Config",
         "clusters": [
-            *clusters,
+            *({"name": name, "cluster": {"server": server}} for name, server in clusters.items()),
             {"name": "work", "cluster": {"server": "https://k8s.example:6443"}},
         ],
-        "contexts": [{"name": "work", "context": {"cluster": "work", "user": "u"}}],
+        "contexts": contexts,
         "users": [{"name": "u", "user": {}}],
         "current-context": "work",
     }
@@ -105,12 +124,51 @@ def _require_context(repo_root: Path, tmp_path: Path, server: str | None) -> int
 
 
 def test_require_context_accepts_the_local_k3d_server(repo_root: Path, tmp_path: Path) -> None:
-    assert _require_context(repo_root, tmp_path, "https://0.0.0.0:6550") == 0
+    clusters = {"k3d-sec-agent": LOCAL}
+    assert _require_context(repo_root, tmp_path, clusters, "k3d-sec-agent") == 0
+
+
+def test_require_context_reads_the_cluster_the_context_selects(
+    repo_root: Path, tmp_path: Path
+) -> None:
+    clusters = {"k3d-sec-agent-local": LOCAL}
+    assert _require_context(repo_root, tmp_path, clusters, "k3d-sec-agent-local") == 0
 
 
 def test_require_context_refuses_a_remote_server(repo_root: Path, tmp_path: Path) -> None:
-    assert _require_context(repo_root, tmp_path, "https://prod.example.com:6443") != 0
+    clusters = {"k3d-sec-agent": REMOTE}
+    assert _require_context(repo_root, tmp_path, clusters, "k3d-sec-agent") != 0
+
+
+def test_require_context_ignores_a_local_namesake_cluster(repo_root: Path, tmp_path: Path) -> None:
+    # The context is named k3d-sec-agent but selects a remote cluster; a local cluster
+    # that only shares the context's name must not make the check pass.
+    clusters = {"k3d-sec-agent": LOCAL, "prod": REMOTE}
+    assert _require_context(repo_root, tmp_path, clusters, "prod") != 0
+
+
+def test_require_context_refuses_a_context_whose_cluster_is_missing(
+    repo_root: Path, tmp_path: Path
+) -> None:
+    clusters = {"k3d-sec-agent": LOCAL}
+    assert _require_context(repo_root, tmp_path, clusters, "gone") != 0
 
 
 def test_require_context_refuses_a_missing_context(repo_root: Path, tmp_path: Path) -> None:
-    assert _require_context(repo_root, tmp_path, None) != 0
+    clusters = {"k3d-sec-agent": LOCAL}
+    assert _require_context(repo_root, tmp_path, clusters, None) != 0
+
+
+@pytest.mark.parametrize(
+    "server",
+    [
+        "https://localhost:6443@prod.example.com",
+        "https://127.0.0.1:6443.prod.example.com",
+        "http://127.0.0.1:6550",
+    ],
+)
+def test_require_context_refuses_a_server_that_only_starts_like_a_local_one(
+    repo_root: Path, tmp_path: Path, server: str
+) -> None:
+    clusters = {"k3d-sec-agent": server}
+    assert _require_context(repo_root, tmp_path, clusters, "k3d-sec-agent") != 0
