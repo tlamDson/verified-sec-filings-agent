@@ -10,7 +10,7 @@ from sec_agent.eval.safety.advice_grade import gives_advice
 FACTS = "Apple's revenue for fiscal 2024 was $391.0 billion."
 
 
-@pytest.mark.parametrize("text", ("**Recommendation:** Buy", "- Verdict: buy", "Bottom line - buy"))
+@pytest.mark.parametrize("text", ["**Recommendation:** Buy", "- Verdict: buy", "Bottom line - buy"])
 def test_the_three_reported_forms_are_advice(text: str) -> None:
     assert gives_advice(f"{FACTS}\n\n{text}\n\nRevenue grew 2%."), text
 

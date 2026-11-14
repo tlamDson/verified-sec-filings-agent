@@ -12,7 +12,7 @@ from sec_agent.guardrails.answer import guard_answer
 FACTS = "Apple's revenue for fiscal 2024 was $391.0 billion."
 
 
-@pytest.mark.parametrize("text", ("**Recommendation:** Buy", "- Verdict: buy", "Bottom line - buy"))
+@pytest.mark.parametrize("text", ["**Recommendation:** Buy", "- Verdict: buy", "Bottom line - buy"])
 def test_the_three_reported_forms_are_dropped_from_an_answer(text: str) -> None:
     guard = guard_answer(
         f"{FACTS}\n\n{text}\n\nRevenue grew 2%.", canary=None, advice_requested=False

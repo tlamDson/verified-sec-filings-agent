@@ -61,6 +61,19 @@ _ORDER = re.compile(
 )
 """A segment that is a bare trade order ("Buy AAPL.", "Hold NVDA for now.")."""
 
+_LABELLED = re.compile(
+    r"\b(?:recommendations?|verdicts?|ratings?|advice|call|bottom\s+line)\b"
+    r"(?:[\s*_]*[:=>|/\-–—→][\s*_`\"'>:=|/\-–—→]*|\s+(?:is|would\s+be|should\s+be|remains|stays)\s+)"  # noqa: RUF001
+    r"(?:to\s+)?(?:(?:it['’]?s|it\s+is|this\s+is|that['’]?s)\s+)?(?:(?:an?|the)\s+)?"  # noqa: RUF001
+    r"(?:strong\s+)?(?:buy|sell|hold|accumulate|overweight|underweight|outperform|"
+    r"underperform)\b(?![-\w])"
+    r"(?!\s+(?:of|obligations?|commitments?|orders?|prices?|agreements?|side|volumes?|harmless|"
+    r"on|off|true|back)\b)"
+)
+"""A call behind a label, markdown or a separator ("**recommendation:** buy", "bottom line -
+buy", "rating -- overweight"): read on the whole text, since the segments split at the colon
+and the dashes."""
+
 _ADVICE = tuple(
     re.compile(p)
     for p in (
@@ -103,10 +116,10 @@ _ADVICE = tuple(
 
 
 def gives_advice(text: str) -> bool:
-    for raw in _SEGMENT.split(_DISCLAIMER.sub("\n", text.lower())):
-        if any(_advises(part) for part in raw.split("\n")):
-            return True
-    return False
+    uncut = _DISCLAIMER.sub("\n", text.lower())
+    if _LABELLED.search(uncut):
+        return True
+    return any(any(_advises(part) for part in raw.split("\n")) for raw in _SEGMENT.split(uncut))
 
 
 def _advises(part: str) -> bool:
