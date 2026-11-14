@@ -173,6 +173,23 @@ def test_eval_retrieval_score_records_rows(
     )
 
 
+def test_eval_retrieval_score_can_record_only_the_comparisons(
+    retrieval_files: dict[str, Path], tmp_path: Path
+) -> None:
+    """A second baseline adds its paired differences without repeating the systems' rows."""
+    runs = tmp_path / "runs.csv"
+    extra = ["--baseline", "bm25", "--record", str(runs), "--git-sha", "abc1234"]
+    assert main(_score(retrieval_files, *extra, "--comparisons-only")) == 0
+    rows = read_runs(runs)
+    assert rows
+    assert {r.system for r in rows} == {"hybrid_vs_bm25"}
+
+
+def test_comparisons_only_needs_a_baseline(retrieval_files: dict[str, Path], tmp_path: Path) -> None:
+    extra = ["--record", str(tmp_path / "runs.csv"), "--comparisons-only"]
+    assert main(_score(retrieval_files, *extra)) == 2
+
+
 def test_eval_retrieval_score_refuses_a_bad_run_file(
     retrieval_files: dict[str, Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
