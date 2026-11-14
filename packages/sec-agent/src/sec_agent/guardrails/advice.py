@@ -131,7 +131,8 @@ ADVICE_STATEMENT: Rules = (
 
 DECLINE = re.compile(
     r"\b(?:cannot|can['’]?t|can\s+not|won['’]t|will\s+not|(?:am|['’]m)\s+(?:not\s+able|unable)\s+"  # noqa: RUF001
-    r"to|unable\s+to|not\s+able\s+to|not\s+in\s+a\s+position\s+to|(?:must\s+)?decline\s+to)\s+"
+    r"to|unable\s+to|not\s+able\s+to|not\s+in\s+a\s+position\s+to|(?:must\s+)?decline\s+to|"
+    r"(?:can|could|will|would)\s+neither)\s+"
     r"(?:\w+\s+){0,2}?(?:provide|give|offer|make|share|recommend|advise|predict|forecast|tell|"
     r"say|determine|comment|speculate|assess|judge)\b"
     r"|\b(?:do\s+not|don['’]t)\s+(?:\w+\s+)?(?:provide|give|offer|make|predict|forecast|"  # noqa: RUF001
@@ -203,6 +204,12 @@ _DATE = re.compile(
     re.IGNORECASE,
 )
 """A date or period in a declined thing ("for 2025", "12-month"): not a figure given."""
+_FIGURE = re.compile(
+    r"[$€£¥]\s*\d|\d[\d,.]*\s*(?:%|percent\b|dollars?\b|usd\b|eur\b|(?:per|a)\s+share\b)"
+    r"|\b(?:of|at|to|near|around|above|below|toward|towards)\s+\d",
+    re.IGNORECASE,
+)
+"""A money amount or a level ("of $2025", "near 2025 dollars"): a figure given, never a date."""
 _QUESTION = re.compile(r"\b(?:whether|if|what|which|when|how)\b", re.IGNORECASE)
 
 
@@ -258,7 +265,7 @@ def _names_declined_thing(piece: str) -> bool:
     ("a price target you should buy NVDA") is read as advice."""
     named = _DECLINE_LEAD.sub("", piece)
     thing = _DECLINED_THING.match(named)
-    if thing is None or re.search(r"\d", _DATE.sub(" ", piece)):
+    if thing is None or _FIGURE.search(piece) or re.search(r"\d", _DATE.sub(" ", piece)):
         return False
     rest = named[thing.end() :].strip()
     if not rest:

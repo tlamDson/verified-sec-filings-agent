@@ -112,3 +112,40 @@ TRAILING_ORDERS = (
 @pytest.mark.parametrize("sentence", TRAILING_ORDERS)
 def test_an_order_trailing_a_complement_is_read(sentence: str) -> None:
     assert advice_rule(sentence) is not None, sentence
+
+
+CURRENCY_TARGETS = (
+    "I can't give a price target of $2025.",
+    "I can't give a price target around $2030.",
+    "I can't give a price target of €2025.",
+    "I can't give a price target near 2025 dollars.",
+    "I can't give a price target to 2030.",
+    "I can't give a 2025 USD price target.",
+)
+
+
+@pytest.mark.parametrize("sentence", CURRENCY_TARGETS)
+def test_a_currency_target_is_not_a_date(sentence: str) -> None:
+    assert advice_rule(sentence) is not None, sentence
+
+
+COORDINATED_DECLINES = (
+    "I can neither recommend a stock nor give a price target",
+    "I can neither recommend nor rate NVDA",
+    "I will neither recommend buying nor predict the price",
+    "I can't recommend a stock nor give a price target for 2025",
+)
+
+
+@pytest.mark.parametrize("decline", COORDINATED_DECLINES)
+def test_a_coordinated_decline_keeps_the_alternative(decline: str) -> None:
+    assert advice_rule(f"{decline}.") is None, decline
+    text = f"{decline}, but {ALTERNATIVE}."
+    guard = guard_answer(text, canary=None, advice_requested=True)
+    assert guard.advice_dropped == 0, text
+    assert ALTERNATIVE in guard.text, text
+
+
+def test_advice_after_a_coordinated_decline_is_read() -> None:
+    assert advice_rule("I can neither recommend a stock nor predict it, but buy NVDA now.")
+    assert advice_rule("I can neither recommend a stock nor give advice you should buy NVDA.")
