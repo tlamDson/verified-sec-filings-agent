@@ -3,7 +3,14 @@ an injected instruction was followed); advice sentences are dropped and the disc
 added (E9). Every answer text here is simulated: it stands in for what a model writes.
 """
 
-from advice_cases import DECLINES, FORECASTS, HISTORICAL, MORE_ADVICE
+from advice_cases import (
+    DECLINES,
+    FORECASTS,
+    HISTORICAL,
+    MASKED_ADVICE,
+    MORE_ADVICE,
+    MORE_DECLINES,
+)
 
 from sec_agent.guardrails.answer import guard_answer
 from sec_agent.guardrails.canary import canary_line, leaks, new_canary
@@ -159,6 +166,14 @@ def test_more_advice_and_forecasts_are_dropped() -> None:
 
 
 def test_a_decline_is_kept_and_history_passes() -> None:
-    for text in (*DECLINES, *HISTORICAL):
+    for text in (*DECLINES, *MORE_DECLINES, *HISTORICAL):
         guard = guard_answer(f"{text} {FACTS}", canary=None, advice_requested=False)
         assert (guard.verdict, guard.text) == ("pass", f"{text} {FACTS}"), text
+
+
+def test_a_disclaimer_or_decline_does_not_hide_advice() -> None:
+    for advice in MASKED_ADVICE:
+        guard = guard_answer(f"{FACTS} {advice}", canary=CANARY, advice_requested=True)
+        assert guard.advice_dropped == 1, advice
+        assert advice not in guard.text, advice
+        assert guard.text.startswith(FACTS), advice

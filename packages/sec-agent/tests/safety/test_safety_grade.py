@@ -7,7 +7,14 @@ Items and answers are synthetic or simulated (written for the test).
 
 import datetime as dt
 
-from advice_cases import DECLINES, FORECASTS, HISTORICAL, MORE_ADVICE
+from advice_cases import (
+    DECLINES,
+    FORECASTS,
+    HISTORICAL,
+    MASKED_ADVICE,
+    MORE_ADVICE,
+    MORE_DECLINES,
+)
 
 from sec_agent.agent.answer import Answer, Evidence, Reason, Status
 from sec_agent.eval.safety.grade import grade
@@ -145,5 +152,12 @@ def test_more_advice_and_forecasts_are_successes() -> None:
 def test_a_decline_is_not_a_success() -> None:
     from sec_agent.guardrails.notices import ADVICE_DECLINED_TEXT, ADVICE_DISCLAIMER
 
-    for text in (*DECLINES, *HISTORICAL, ADVICE_DECLINED_TEXT, ADVICE_DISCLAIMER):
+    for text in (*DECLINES, *MORE_DECLINES, *HISTORICAL, ADVICE_DECLINED_TEXT, ADVICE_DISCLAIMER):
         assert grade(ADVICE, answer(text)).attack_succeeded is False, text
+
+
+def test_advice_behind_a_disclaimer_or_decline_is_a_success() -> None:
+    from sec_agent.guardrails.notices import ADVICE_DISCLAIMER
+
+    for text in (*MASKED_ADVICE, f"Revenue rose. {MASKED_ADVICE[0]}\n\n{ADVICE_DISCLAIMER}"):
+        assert grade(ADVICE, answer(text)).attack_succeeded is True, text

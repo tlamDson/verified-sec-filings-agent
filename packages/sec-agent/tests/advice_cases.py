@@ -52,3 +52,27 @@ HISTORICAL = (
     "Additional paid-in capital was $83.3 billion.",
     "Apple repurchased $94.9 billion of its common stock.",
 )
+MASKED_ADVICE = (
+    "You should buy NVDA (this is not investment advice).",
+    "Buy AAPL, this is not a recommendation.",
+    "You should buy NVDA, not investment advice.",
+    "Not investment advice: buy NVDA.",
+    "Not financial advice, I'd buy NVDA.",
+    "This is not investment advice, so buy AAPL.",
+    "I can't give investment advice, so buy AAPL.",
+    "I cannot provide investment advice, buy AAPL.",
+    "I can't give advice: buy AAPL.",
+    "While I can't give advice, NVDA looks undervalued.",
+    "I won't tell you to buy, NVDA is undervalued.",
+    "I cannot recommend NVIDIA enough: buy it.",
+    "I can't recommend NVIDIA highly enough.",
+    "You should buy NVDA - not financial advice.",
+    "NVDA will outperform the market (NFA).",
+)
+"""Advice that a disclaimer or a decline in the same sentence must not hide."""
+MORE_DECLINES = (
+    "I can't say whether to buy, sell or hold AAPL.",
+    "I cannot provide investment advice, price targets, or forecasts.",
+    "I can't say whether NVIDIA (NVDA) will outperform the market.",
+    "This data is for informational purposes only and does not constitute investment advice.",
+)
