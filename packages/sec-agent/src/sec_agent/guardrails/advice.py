@@ -171,6 +171,7 @@ _CHOICE = re.compile(
 _PIECE = re.compile(r"(,|\s(?:and|or|nor)\s)", re.IGNORECASE)
 _DECLINED_THING = re.compile(
     r"^\W*(?:(?:such\s+as|including|like|any|you|an?|the|your|its|their|buy|sell|hold|specific|personali[sz]ed|"
+    r"\d+[-\s](?:months?|years?|weeks?|days?|quarters?)|(?:near|long|short)[-\s]term|"
     r"individual|investment|financial|stock)\s+)*(?:price\s+targets?|forecasts?|predictions?|projections?|"
     r"recommendations?|ratings?|opinions?|advice|guidance|prices)\b",
     re.IGNORECASE,
@@ -183,10 +184,25 @@ _DECLINE_LEAD = re.compile(
 )
 """A further verb of the same decline ("or give a price target"): the thing it names is
 read like the first one."""
-_COMPLEMENT = re.compile(r"^(?:to|on|for|about|regarding|of|as\s+to)\b", re.IGNORECASE)
+_COMPLEMENT = re.compile(
+    rf"^(?:to|on|for|about|regarding|of|as\s+to)\b\s*(?:{_TRADE}\b)?", re.IGNORECASE
+)
 """What follows a declined thing as its own complement ("recommendations to buy AAPL now",
-"advice on NVDA"): it names the thing declined, so "buy now" there is not an order."""
-_COMPLEMENT_RULES: Rules = tuple(r for r in ADVICE_STATEMENT if r[0] != "buy_now")
+"advice on NVDA"): it names the thing declined. Its leading trade verb ("to buy") is the
+thing's content; an order after the complement's object ("on NVDA buy it now") is read."""
+_ORDER = re.compile(
+    r"(?<!\bto\s)\b(?:buy|sell|short|dump|accumulate|purchase|hold)\s+(?:it|them|this|that|now|"
+    r"today|shares|(?:the|its|this|that|those|these)\s+(?:stock|shares)|(?-i:[A-Z]{2,5}))\b",
+    re.IGNORECASE,
+)
+"""A trade order inside a complement that its "to" does not govern ("just buy it")."""
+_DATE = re.compile(
+    r"(?<!\bof\s)(?<!\bat\s)\b(?:fy\s*)?(?:19|20)\d{2}\b|\bq[1-4]\b|\b\d+[-\s]"
+    r"(?:months?|years?|weeks?|days?|quarters?)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|"
+    r"nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?\b",
+    re.IGNORECASE,
+)
+"""A date or period in a declined thing ("for 2025", "12-month"): not a figure given."""
 _QUESTION = re.compile(r"\b(?:whether|if|what|which|when|how)\b", re.IGNORECASE)
 
 
@@ -230,6 +246,8 @@ def _after_decline(tail: str) -> str | None:
             continue
         if (name := _clause_rule(piece)) is not None:
             return name
+        if _ORDER.search(piece):
+            return "trade_order"
     return None
 
 
@@ -240,11 +258,12 @@ def _names_declined_thing(piece: str) -> bool:
     ("a price target you should buy NVDA") is read as advice."""
     named = _DECLINE_LEAD.sub("", piece)
     thing = _DECLINED_THING.match(named)
-    if thing is None or re.search(r"\d", piece):
+    if thing is None or re.search(r"\d", _DATE.sub(" ", piece)):
         return False
     rest = named[thing.end() :].strip()
     if not rest:
         return True
-    if _COMPLEMENT.match(rest):
-        return first_match(rest, _COMPLEMENT_RULES) is None
+    if (complement := _COMPLEMENT.match(rest)) is not None:
+        own = rest[complement.end() :]
+        return first_match(own, ADVICE_STATEMENT) is None and _ORDER.search(own) is None
     return _clause_rule(rest) is None
