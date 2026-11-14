@@ -12,6 +12,7 @@ from typing import Any
 import psycopg
 
 from sec_agent.mcp_server.dispatch import ToolContexts
+from sec_agent.rerank.service import Reranker
 from sec_agent.retrieval.embedder import Embedder
 from sec_agent.retrieval.errors import SnapshotNotFoundError
 from sec_agent.retrieval.models import EmbedderSpec, Snapshot
@@ -39,6 +40,7 @@ def open_contexts(
     embedder: EmbedderFactory,
     snapshot: str | None = None,
     companies: CompanyDirectory | None = None,
+    reranker: Reranker | None = None,
 ) -> Generator[ToolContexts]:
     directory = CompanyDirectory.from_universe() if companies is None else companies
     with ExitStack() as stack:
@@ -59,6 +61,7 @@ def open_contexts(
                 sections=PostgresRiskSections(conn),
                 facts_version=facts_version,
                 embedder=embedder(pinned.spec),
+                reranker=reranker,
             )
         )
         yield ToolContexts(facts=facts, text=text)

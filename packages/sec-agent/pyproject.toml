@@ -10,11 +10,14 @@ dependencies = [
     "langgraph>=1.0",
     "langgraph-checkpoint-postgres>=3.0",
     "mcp>=1.20",
+    "numpy>=2.0",
+    "onnxruntime>=1.20",
     "opentelemetry-api>=1.38",
     "opentelemetry-exporter-otlp-proto-http>=1.38",
     "opentelemetry-sdk>=1.38",
     "psycopg[binary]>=3.3",
     "pydantic>=2.12",
+    "tokenizers>=0.21",
     "uvicorn>=0.30",
 ]
 
@@ -23,6 +26,13 @@ dependencies = [
 embed = [
     "sentence-transformers>=5.1",
     "torch>=2.8",
+]
+# Reranker fine-tuning and ONNX export (`sec-agent rerank cv|export`, GPU). Serving needs
+# only onnxruntime and tokenizers, which are core dependencies.
+train = [
+    "onnx>=1.17",
+    "torch>=2.8",
+    "transformers>=4.50",
 ]
 
 [project.scripts]
