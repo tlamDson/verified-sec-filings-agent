@@ -9,6 +9,8 @@ from typing import Any, Literal, NotRequired, TypedDict
 
 Role = Literal["system", "user", "assistant", "tool"]
 ToolChoice = Literal["auto", "none"]
+LLMRole = Literal["answer", "tool_choice", "judge", "guardrail"]
+"""What a call is for; a provider's `thinking` setting is chosen by it."""
 
 
 class FunctionCall(TypedDict):
@@ -69,6 +71,7 @@ class ChatRequest:
     tool_choice: ToolChoice = "auto"
     max_tokens: int | None = None
     temperature: float = 0.0
+    role: LLMRole = "answer"
 
 
 @dataclass(frozen=True)

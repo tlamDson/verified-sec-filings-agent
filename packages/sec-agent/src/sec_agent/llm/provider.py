@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from sec_agent.llm.messages import ChatRequest, Completion
 from sec_agent.llm.quota import QuotaLimits
+from sec_agent.llm.thinking import ThinkingSettings
 
 DEFAULT_TIMEOUT_SECONDS = 60.0
 
@@ -35,6 +36,8 @@ class ProviderConfig(BaseModel):
     api_key_env: str | None = Field(default=None, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
     timeout_seconds: float = Field(default=DEFAULT_TIMEOUT_SECONDS, gt=0, le=3600)
     limits: QuotaLimits = QuotaLimits()
+    thinking: ThinkingSettings = ThinkingSettings()
+    """Per role: whether the model thinks before it answers. Unset: the server decides."""
 
     @field_validator("base_url")
     @classmethod

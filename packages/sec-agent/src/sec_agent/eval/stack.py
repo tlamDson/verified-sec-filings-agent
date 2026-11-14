@@ -23,7 +23,7 @@ from sec_agent.agent.tool_runner import ToolRunner
 from sec_agent.eval.chat import DEFAULT_MAX_TOKENS
 from sec_agent.eval.fingerprint import agent_fingerprint
 from sec_agent.jobs.cli import add_database_url_option
-from sec_agent.llm.config import build_providers, providers_from_env
+from sec_agent.llm.config import build_providers, model_label, providers_from_env
 from sec_agent.llm.quota_postgres import PostgresQuotaStore
 from sec_agent.llm.router import LLMRouter
 from sec_agent.mcp_server.cli import model_embedder, no_embedder
@@ -98,7 +98,7 @@ def eval_stack(url: str, args: argparse.Namespace) -> Generator[EvalStack]:
         }
         yield EvalStack(
             router=router,
-            model="+".join(f"{c.name}:{c.model}" for c in configs),
+            model=model_label(configs),
             contexts=contexts,
             tools=tools,
             agent=Agent(router=router, tools=tools, checkpointer=InMemorySaver(), config=config),
