@@ -42,7 +42,8 @@ def test_up_script_imports_the_image_and_makes_the_secret_from_env(repo_root: Pa
     assert text.startswith("#!/usr/bin/env bash")
     assert "set -euo pipefail" in text
     assert "k3d cluster create --config" in text
-    assert "docker build" in text and "infra/load/Dockerfile" in text
+    assert "docker build" in text
+    assert "infra/load/Dockerfile" in text
     assert "k3d image import" in text
     assert "kubectl create secret generic" in text
     for key in ("PGPASSWORD", "API_AUTH_SECRET", "SEC_USER_AGENT"):
@@ -66,9 +67,7 @@ def test_down_script_deletes_the_cluster(repo_root: Path) -> None:
 
 
 def test_helm_workflow_lints_and_renders_the_chart(repo_root: Path) -> None:
-    workflow = yaml.safe_load(
-        (repo_root / ".github" / "workflows" / "helm.yml").read_text("utf-8")
-    )
+    workflow = yaml.safe_load((repo_root / ".github" / "workflows" / "helm.yml").read_text("utf-8"))
     jobs = workflow["jobs"]
     assert "Python checks" not in [job.get("name") for job in jobs.values()]
     steps = " ".join(str(step.get("run", "")) for job in jobs.values() for step in job["steps"])

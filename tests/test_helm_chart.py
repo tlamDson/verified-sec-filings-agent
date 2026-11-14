@@ -104,7 +104,8 @@ def test_default_models_are_simulated_and_cost_nothing(repo_root: Path) -> None:
     assert [p["model"] for p in providers] == ["fake-llm-sim", "fake-llm-sim"]
     assert all("fake-llm" in p["base_url"] for p in providers)
     text = _template(repo_root, "fake-llm.yaml")
-    assert "sec-agent" in text and "fake-llm" in text
+    assert "sec-agent" in text
+    assert "fake-llm" in text
     assert "kind: Service" in text
 
 
@@ -112,8 +113,10 @@ def test_workers_share_the_queue_and_keep_a_lease(repo_root: Path) -> None:
     values = _yaml(repo_root, "values.yaml")
     assert values["worker"]["replicas"] >= 2
     text = _template(repo_root, "worker-deployment.yaml")
-    assert "sec-agent" in text and "worker" in text
-    assert "--lease" in text and "--heartbeat" in text
+    assert "sec-agent" in text
+    assert "worker" in text
+    assert "--lease" in text
+    assert "--heartbeat" in text
     assert "SEC_USER_AGENT" in text
     assert "terminationGracePeriodSeconds" in text
 
@@ -121,7 +124,8 @@ def test_workers_share_the_queue_and_keep_a_lease(repo_root: Path) -> None:
 def test_postgres_is_paradedb_pg17_with_the_repo_init_sql(repo_root: Path) -> None:
     values = _yaml(repo_root, "values.yaml")
     image = values["postgres"]["image"]
-    assert image.startswith("paradedb/paradedb:") and image.endswith("-pg17")
+    assert image.startswith("paradedb/paradedb:")
+    assert image.endswith("-pg17")
     assert values["postgres"]["initConfigMap"]
     text = _template(repo_root, "postgres.yaml")
     assert "kind: StatefulSet" in text
