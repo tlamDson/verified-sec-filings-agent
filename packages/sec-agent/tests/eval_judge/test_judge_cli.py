@@ -68,7 +68,7 @@ def test_score_prints_each_judge_and_records_rows(
             "--labelled-by", "simulated raters (test)",
             "--verdicts", str(verdicts),
             "--record", str(runs),
-            "--git-sha", "abc123",
+            "--git-sha", "abc1234",
         ]
     )  # fmt: skip
     assert code == 0

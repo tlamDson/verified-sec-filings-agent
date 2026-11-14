@@ -51,7 +51,12 @@ def candidate(stratum: Stratum, system: str, n: int) -> Candidate:
 def pool() -> list[Candidate]:
     out: list[Candidate] = []
     n = 0
-    for stratum, count in (("correct", 40), ("wrong_number", 12), ("wrong_period", 3)):
+    counts: tuple[tuple[Stratum, int], ...] = (
+        ("correct", 40),
+        ("wrong_number", 12),
+        ("wrong_period", 3),
+    )
+    for stratum, count in counts:
         for system in ("b0", "b1"):
             for _ in range(count):
                 out.append(candidate(stratum, system, n))

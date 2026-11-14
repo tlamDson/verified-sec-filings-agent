@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, get_args
 
-from sec_agent.eval import agent_cli, answer_cli, retrieval_cli
+from sec_agent.eval import agent_cli, answer_cli, judge_cli, retrieval_cli
 from sec_agent.eval.numeric.grade import ErrorKind
 from sec_agent.eval.numeric.report import NumericReport, SystemAccuracy, numeric_report
 from sec_agent.eval.numeric.runner import AnswerRecord
@@ -46,6 +46,7 @@ def add_commands(subparsers: "Subparsers") -> None:
     agent_cli.add_commands(actions)
     retrieval_cli.add_commands(actions)
     safety_cli.add_commands(actions)
+    judge_cli.add_commands(actions)
 
 
 def _numeric(args: argparse.Namespace) -> int:

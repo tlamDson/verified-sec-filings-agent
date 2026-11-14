@@ -6,7 +6,7 @@ import pytest
 
 from sec_agent.eval.judge.models import KeyEntry, Label, LabelValue, Verdict, VerdictValue
 from sec_agent.eval.judge.rows import judge_rows
-from sec_agent.eval.judge.score import cohen_kappa, grader_verdicts, score_judge
+from sec_agent.eval.judge.score import Pair, cohen_kappa, grader_verdicts, score_judge
 
 
 def labels_and_verdicts(
@@ -44,8 +44,10 @@ def test_kappa_tpr_tnr_on_a_known_table() -> None:
 
 
 def test_kappa_is_undefined_when_both_sides_never_vary() -> None:
-    assert cohen_kappa([("correct", "correct")] * 4) is None
-    assert cohen_kappa([("correct", "correct"), ("incorrect", "incorrect")]) == pytest.approx(1)
+    agree: Pair = ("correct", "correct")
+    disagree: Pair = ("incorrect", "incorrect")
+    assert cohen_kappa([agree] * 4) is None
+    assert cohen_kappa([agree, disagree]) == pytest.approx(1)
 
 
 def test_unsure_labels_and_missing_verdicts_are_counted_not_scored() -> None:
@@ -104,7 +106,10 @@ def test_rows_name_the_judge_and_the_labellers() -> None:
     labels, verdicts = labels_and_verdicts(TABLE)
     score = score_judge(labels, verdicts, judge="sim-judge")
     rows = judge_rows(
-        [score], labelled_by="LLM raters, owner-checked", date=dt.date(2026, 11, 14), git_sha="abc"
+        [score],
+        labelled_by="LLM raters, owner-checked",
+        date=dt.date(2026, 11, 14),
+        git_sha="abc1234",
     )
     assert [(r.metric, r.unit) for r in rows] == [
         ("J1_kappa", "kappa"),
