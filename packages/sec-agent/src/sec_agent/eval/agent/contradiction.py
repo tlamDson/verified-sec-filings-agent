@@ -5,12 +5,15 @@ Sharing words with a passage (`grounding`) does not make a sentence agree with i
 single supplier". Both sides are split into clauses (sentence ends, commas, ";", ":",
 "which", "but", "and"...). A clause of the sentence that shares `MIN_CLAUSE` content words
 with the passage as a whole is judged, even when the passage spreads those words over
-several of its sentences. It is compared with the passage clauses it shares the most words
-with; it agrees when one of them has the same negation ("not", "no", "never", "without",
-"fail to", "lack"...) and no opposite word ("increase" and "decrease", "rise" and "fall"),
-and contradicts otherwise. "Not only", "not just", "not limited to" and "without
-limitation" are not negations. A differing figure is not judged here: the faithfulness
-checker already fails a figure that no cited text holds. Code decides it, never a model.
+several of its sentences. A negation's whole scope (up to the end of its clause, across the
+commas and "or" of a list it governs) is judged as one more clause on both sides, so
+"not on a vendor, or a single supplier" stays negated. A clause is compared with the
+passage clauses it shares the most words with; it agrees when one of them has the same
+negation ("not", "no", "never", "without", "fail to", "lack"...) and no opposite word
+("increase" and "decrease", "rise" and "fall"), and contradicts otherwise. "Not only",
+"not just", "not limited to" and "without limitation" are not negations. A differing
+figure is not judged here: the faithfulness checker already fails a figure that no cited
+text holds. Code decides it, never a model.
 """
 
 import re
@@ -20,6 +23,9 @@ from sec_agent.eval.agent.grounding import stems
 
 MIN_CLAUSE = 3
 _CLAUSE = re.compile(r"[,;:]|\s(?:which|but|although|while|whereas|and)\s|(?<=[.!?])\s+", re.I)
+_SCOPE_END = re.compile(
+    r"[.;:!?]|\s(?:which|but|although|while|whereas|because|since)\s|,\s*(?:and|but)\s", re.I
+)
 _CITATION = re.compile(r"\[[^\]]*\]")
 _WORD = re.compile(r"[a-z']+")
 _NOT_NEGATION = re.compile(
@@ -58,8 +64,22 @@ def _opposed(a: str, b: str) -> bool:
     )
 
 
+def _negation_scopes(text: str) -> list[str]:
+    """Each negation with the words it governs: up to the end of its clause, across the
+    commas and "or" of a list ("not on a vendor, a carrier, or a single supplier")."""
+    clean = _NOT_NEGATION.sub(" ", text)
+    scopes: list[str] = []
+    for cue in _NEGATION.finditer(clean):
+        rest = clean[cue.start() :]
+        end = _SCOPE_END.search(rest)
+        scopes.append(rest[: end.start()] if end else rest)
+    return scopes
+
+
 def _clauses(text: str) -> list[tuple[str, frozenset[str]]]:
-    return [(c, stems(c)) for c in _CLAUSE.split(_CITATION.sub(" ", text))]
+    clean = _CITATION.sub(" ", text)
+    parts = _CLAUSE.split(clean) + _negation_scopes(clean)
+    return [(c, stems(c)) for c in parts]
 
 
 def _clause_contradicts(part: str, part_stems: frozenset[str], source: str) -> bool:
