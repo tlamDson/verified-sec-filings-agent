@@ -1,2 +1,5 @@
 * text=auto eol=lf
 *.png binary
+
+# runs.csv is append-only: concurrent PRs add rows, so git keeps both sides instead of conflicting.
+runs.csv merge=union
