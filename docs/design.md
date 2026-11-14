@@ -1,8 +1,8 @@
 # System design: Verified SEC Filings Research Agent
 
-Version 0 (scaffold). This document is written before most of the system exists. It records the intended design and the reasons for it; later PRs update it as parts are built and measured.
+Final version for the first release. It records the design as built, the reasons for it, and where the built system differs from the first plan. Measured results are in [README.md](README.md#results) and in `runs.csv`; the section [Results](#results) says how to read them.
 
-**About numbers in this document.** Measured results appear only in `runs.csv` and are quoted from there. No row exists yet, so this version contains no measured results. Every figure below is a **planning estimate** (marked _est._) or a fixed external limit (marked _limit_), with the arithmetic shown so it can be checked and replaced by a measurement later.
+**About numbers in this document.** Measured results appear only in `runs.csv` and are quoted from there; the README results block is generated from it. A figure marked **_est._** is a planning estimate made before the system existed, with its arithmetic shown, and is never a result. A figure marked **_limit_** is a fixed external limit.
 
 ## Problem
 
@@ -509,6 +509,21 @@ worker-1 container: sec-agent chaos kill-worker ──► 3 x sec-agent worker o
 - **Acceptance check.** `load-rows` then applies the plan's check in code (`sec_agent.chaos.acceptance`). The turn, resume and interrupted-resume error rates must each be under 5%, the limit the k6 thresholds also hold; the plan names none. A run with no follow-up fails, because it cannot show that conversations resume. On a failure it exits 1 after recording the rows. `chaos.sh` exits non-zero when k6 fails (99 when a threshold was crossed) or the check fails, after the rows of that run are written.
 - **Not here.** A global LLM semaphore and the answer cache (see Web app and API), load against the free hosts, and any quality measure under load.
 
+## Results
+
+Every measured number lives in `runs.csv`, one row per number, validated by `sec_agent.runs`. `sec-agent report sync` prints the latest row for each metric, system, split and cohort into the README, and `sec-agent report sync --check` (run by a test) fails when the README or `docs/bullets.md` is out of date. This document does not copy numbers, so it cannot drift from them.
+
+How to read the rows:
+
+- **Splits.** Companies are split before any question is written; the numbers on the README are on the `test` split (10 companies). The one step that uses test-company labels is the reranker, scored by leave-one-company-out cross-validation, and the model that is served is fine-tuned on all ten, so it can no longer be scored on those questions.
+- **Intervals and tests.** Fractions carry Wilson 95% intervals; retrieval metrics a bootstrap over companies; paired comparisons use McNemar's exact test (answers) or a paired bootstrap (retrieval). Many tests are run: a single small `p` is not a finding on its own.
+- **Local model.** Every LLM number was produced with the one local Qwen (cost cap $0), so absolute accuracies describe that model, not a frontier model. b0, b1 and b2 use the same model.
+- **Synthetic and simulated data.** G-red (S1) is synthetic with simulated filing passages. Load and simulated-user rows, when they exist, come from simulated accounts and carry cohort `simulated`; they never count as users and never mix with `real`.
+- **Grader labels.** The J1 labels were written by LLM raters, not by people, so J1 shows agreement between graders and those raters, not against human judgment.
+- **Superseded rows.** A re-run adds a row and the older one stays in the file for history; the README shows the latest. Rows whose notes say a subset or a superseded setup are not the headline.
+
+Not measured when this version was written: load and chaos rows (`LOAD`, `CHAOS`), user rows (`U1`, real or simulated), cold-start latency, and local-model throughput. Those capacity figures in this document remain _est._
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |
@@ -555,7 +570,7 @@ Every component must be justified by a metric or a requirement. Deliberately lef
 
 ## Open items
 
-- Measure local Qwen throughput on the first eval night and replace the eval-cost estimate.
+- Measure local Qwen throughput and replace the eval-cost estimate (no row yet).
 - Choose the production LLM provider by measuring free quotas.
 - Check FinanceBench answers (licence checked in s-06) before using G-public.
 - Confirm free-tier database size limits against measured index size.
