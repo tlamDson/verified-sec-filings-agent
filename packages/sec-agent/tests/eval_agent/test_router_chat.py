@@ -33,3 +33,9 @@ def test_no_provider_raises_so_the_run_stops_rather_than_caching_a_failure() -> 
     provider = ScriptedProvider("local", [ProviderUnavailableError("503")])
     with pytest.raises(AllProvidersFailedError):
         RouterChatModel(router_of(provider), name="m").complete(PROMPT)
+
+
+def test_the_baselines_ask_for_the_answer_role() -> None:
+    provider = ScriptedProvider("local", [says("SIMULATED answer")])
+    RouterChatModel(router_of(provider), name="m").complete(PROMPT)
+    assert [request.role for request in provider.requests] == ["answer"]
