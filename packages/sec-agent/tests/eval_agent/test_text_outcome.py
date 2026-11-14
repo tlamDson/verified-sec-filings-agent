@@ -1,7 +1,8 @@
 """A1 text and risk-diff outcomes: a cited non-answer is not a successful answer.
 
-A text check (search_filings) needs a cited sentence from a passage of the asked company; a
-risk-diff check needs a cited sentence naming a change of the compared filings. A system
+A text check (search_filings) needs a cited sentence that restates a passage of the asked
+company; a risk-diff check needs a cited sentence naming and restating a change of the
+compared filings. Citations alone, or a pointer ("see the 10-K"), state nothing. A system
 without diff_risk_factors (RAG) must cite both filings it compared, the oracle naming them.
 Passages, diffs and every answer text are simulated (they stand in for filing text and
 what a model writes).
@@ -55,7 +56,7 @@ PASSAGES = search_evidence(
     "SIMULATED: We depend on a single supplier for our widget casings.",
     "SIMULATED: Our risk factors were revised to address supplier concentration.",
 )
-DIFF_CALL = risk_diff_evidence("SIMULATED: We depend on a single supplier for casings.")
+DIFF_CALL = risk_diff_evidence("SIMULATED: We depend on a single supplier for our widget casings.")
 
 
 def moved(evidence: Evidence, index: int, **passage: str) -> Evidence:
@@ -102,7 +103,7 @@ def test_a_cited_answer_from_the_companys_passage_passes() -> None:
 def test_a_cited_non_answer_fails_text_for_the_agent_and_rag() -> None:
     text = (
         "SIMULATED: The provided passages do not contain information about supply risk. "
-        f"They describe widget casings [{passage_citation(0)}]."
+        f"They depend on a single supplier for widget casings [{passage_citation(0)}]."
     )
     assert kinds(TEXT, transcript(text, (PASSAGES,))) == ["non_answer"]
     assert kinds(TEXT, transcript(text, (PASSAGES,), offered=RAG_TOOLS)) == ["non_answer"]
@@ -111,7 +112,7 @@ def test_a_cited_non_answer_fails_text_for_the_agent_and_rag() -> None:
 def test_the_company_itself_not_described_is_a_non_answer() -> None:
     text = (
         "SIMULATED: SIM Widgets does not describe supply risk specifically. "
-        f"It depends on a single supplier [{passage_citation(0)}]."
+        f"It depends on a single supplier for its widget casings [{passage_citation(0)}]."
     )
     assert kinds(TEXT, transcript(text, (PASSAGES,), offered=RAG_TOOLS)) == ["non_answer"]
 
@@ -127,7 +128,10 @@ def test_the_cited_passage_must_be_of_the_asked_company() -> None:
 
 
 def test_the_agent_names_a_change_of_the_diff_it_called() -> None:
-    text = f"SIMULATED: SIM Widgets added a risk factor on supplier dependence [{SIM_ACCESSION}]."
+    text = (
+        "SIMULATED: SIM Widgets added a risk factor: it depends on a single supplier for "
+        f"widget casings [{SIM_ACCESSION}]."
+    )
     assert kinds(RISK, transcript(text, (DIFF_CALL,))) == []
 
 
@@ -152,8 +156,8 @@ BOTH_FILINGS = moved(
 
 def test_rag_passes_a_risk_diff_by_citing_both_compared_filings() -> None:
     text = (
-        "SIMULATED: SIM Widgets added a risk factor on supplier dependence "
-        f"[{passage_citation(0)}], which its earlier 10-K did not name "
+        "SIMULATED: SIM Widgets added a risk factor: it depends on a single supplier for "
+        f"widget casings [{passage_citation(0)}], which its earlier 10-K did not name "
         f"[{SIM_PREVIOUS_ACCESSION}/risk_factors/1]."
     )
     rag = transcript(text, (BOTH_FILINGS,), offered=RAG_TOOLS, oracle=ORACLE)
@@ -190,3 +194,27 @@ def test_a_not_reported_answer_is_not_a_non_answer() -> None:
     )
     text = "SIMULATED: The filings do not contain it: it is not reported."
     assert kinds(not_reported, transcript(text, (), offered=RAG_TOOLS)) == []
+
+
+def test_a_citation_only_answer_fails_text_for_the_agent_and_rag() -> None:
+    for text in (
+        f"[{passage_citation(0)}]",
+        f"SIMULATED: Sources: [{passage_citation(0)}] [{passage_citation(1)}].",
+        f"SIMULATED: See the 10-K for details [{passage_citation(0)}].",
+    ):
+        assert kinds(TEXT, transcript(text, (PASSAGES,))) == ["outcome"], text
+        assert kinds(TEXT, transcript(text, (PASSAGES,), offered=RAG_TOOLS)) == ["outcome"], text
+
+
+def test_a_change_word_with_a_citation_is_not_a_risk_diff_answer() -> None:
+    text = f"SIMULATED: Risk factors were added and changed [{SIM_ACCESSION}]."
+    assert kinds(RISK, transcript(text, (DIFF_CALL,))) == ["outcome"]
+    both = f"SIMULATED: Added [{passage_citation(0)}] [{SIM_PREVIOUS_ACCESSION}/risk_factors/1]."
+    rag = transcript(both, (BOTH_FILINGS,), offered=RAG_TOOLS, oracle=ORACLE)
+    assert kinds(RISK, rag) == ["outcome"]
+
+
+def test_the_restated_text_must_be_of_the_cited_passage() -> None:
+    """Passage 1 is about supplier concentration; restating passage 0 while citing 1 fails."""
+    text = f"SIMULATED: SIM Widgets depends on a single casing supplier [{passage_citation(1)}]."
+    assert kinds(TEXT, transcript(text, (PASSAGES,))) == ["outcome"]

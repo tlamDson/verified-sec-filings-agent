@@ -98,9 +98,10 @@ def test_a_blocked_or_degraded_turn_fails_its_status(revenue: Evidence) -> None:
 
 
 def test_a_citation_must_name_a_passage_of_the_turn() -> None:
-    passages = search_evidence("SIMULATED: supply chain risk in Asia.")
-    cited = f"SIMULATED: The filing names supply chain risk [{passage_citation(0)}]."
-    unknown = f"SIMULATED: The filing names supply chain risk [{passage_citation(7)}]."
+    passages = search_evidence("SIMULATED: supply chain risk in Asia from port closures.")
+    said = "SIMULATED: The filing names supply chain risk in Asia from port closures"
+    cited = f"{said} [{passage_citation(0)}]."
+    unknown = f"{said} [{passage_citation(7)}]."
     text_scenario = scenario(
         category="text",
         tools=(ToolCheck(tool="search_filings"),),

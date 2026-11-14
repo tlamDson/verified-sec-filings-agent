@@ -4,9 +4,11 @@ A citation alone is not an outcome: "the passages do not contain that [cite]" ci
 answers nothing. So for a check of a text tool:
 - `non_answer`: a sentence of the answer says the sources (or the company) do not hold
   what was asked;
-- `outcome`: no cited sentence states the outcome. For search_filings, a sentence citing a
-  passage of the asked company (the check's `*` rows); for diff_risk_factors, a sentence
-  naming a change (added, removed, changed...) that cites a compared filing. A system
+- `outcome`: no cited sentence states the outcome. For search_filings, a sentence that
+  restates (`grounding`) a passage of the asked company (the check's `*` rows) it cites;
+  for diff_risk_factors, a sentence naming a change (added, removed, changed...) that cites
+  a compared filing and restates a changed paragraph (with the tool) or a passage it cites
+  (without). Citations alone or a pointer ("see the 10-K") state nothing. A system
   without diff_risk_factors (RAG) did the comparison itself, so its answer must cite
   passages of both filings the oracle compared.
 Each sentence is judged by code (regexes, citation keys), never by a model.
@@ -17,6 +19,7 @@ from collections.abc import Sequence
 from typing import Any, Literal, cast
 
 from sec_agent.agent.answer import Evidence
+from sec_agent.eval.agent.grounding import restates
 from sec_agent.eval.agent.scenarios import ToolCheck, result_values
 from sec_agent.eval.agent.tracing import matching_calls
 from sec_agent.faithfulness.models import FaithfulnessReport, SentenceCheck
@@ -71,13 +74,19 @@ def outcome_failure(
         return "tool" if offered else "oracle"
     stated = [s for s in report.sentences if _NON_ANSWER.search(s.text) is None]
     if check.tool == SEARCH:
-        keys = {k for e in source if e.call_id in calls for k in _passage_keys(e, calls)}
-        return None if any(_cited(s) & keys for s in stated) else "outcome"
+        texts = {k: t for e in source if e.call_id in calls for k, t in _passages(e, calls).items()}
+        return None if any(_restates_cited(s, texts) for s in stated) else "outcome"
     filings = [f for e in source if e.call_id in calls for f in _compared(e)]
-    if not any(
-        _CHANGE.search(s.text) and _cites_any(_cited(s), {a for pair in filings for a in pair})
-        for s in stated
-    ):
+    compared = {a for pair in filings for a in pair}
+    changes = [t for e in source if e.call_id in calls for t in _change_texts(e)]
+    passages = {k: t for e in evidence for k, t in _passages(e, {e.call_id: {""}}).items()}
+
+    def states_change(s: SentenceCheck) -> bool:
+        if _CHANGE.search(s.text) is None or not _cites_any(_cited(s), compared):
+            return False
+        return restates(s.text, changes) if offered else _restates_cited(s, passages)
+
+    if not any(states_change(s) for s in stated):
         return "outcome"
     if offered:
         return None
@@ -94,19 +103,33 @@ def _cites_any(keys: set[str], accessions: set[str]) -> bool:
     return any(k.split("/", 1)[0] in accessions for k in keys)
 
 
-def _passage_keys(evidence: Evidence, calls: dict[str, set[str]]) -> set[str]:
-    """Citation keys of the passages in the call's scope (all, or the asked company's)."""
-    scope = calls[evidence.call_id]
-    found: set[str] = set()
+def _restates_cited(sentence: SentenceCheck, texts: dict[str, str]) -> bool:
+    """Whether the sentence restates a passage of `texts` (key -> text) that it cites."""
+    return restates(sentence.text, [texts[k] for k in _cited(sentence) if k in texts])
+
+
+def _passages(evidence: Evidence, calls: dict[str, set[str]]) -> dict[str, str]:
+    """Citation key -> text of the passages in the call's scope (all, or the asked
+    company's)."""
+    scope = calls.get(evidence.call_id, set())
+    found: dict[str, str] = {}
     for passages in result_values(evidence.result, "passages"):
         if not isinstance(passages, list):
             continue
         for i, passage in enumerate(cast(list[Any], passages)):
             if ("" in scope or f"passages[{i}]" in scope) and isinstance(passage, dict):
                 key = cast(dict[str, Any], passage).get("citation")
-                if isinstance(key, str):
-                    found.add(key)
+                text = cast(dict[str, Any], passage).get("text")
+                if isinstance(key, str) and isinstance(text, str):
+                    found[key] = text
     return found
+
+
+def _change_texts(evidence: Evidence) -> list[str]:
+    """The paragraphs a diff reports as added, removed or changed (both sides)."""
+    found = result_values(evidence.result, "changes.*.text")
+    found += result_values(evidence.result, "changes.*.previous_text")
+    return [t for t in found if isinstance(t, str)]
 
 
 def _compared(evidence: Evidence) -> list[tuple[str, str]]:
