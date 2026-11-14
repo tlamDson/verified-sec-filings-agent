@@ -44,3 +44,9 @@ def test_web_job_runs_lint_types_tests(repo_root: Path) -> None:
         "pnpm test",
     ):
         assert command in run
+
+
+def test_python_job_runs_the_eval_gate_and_its_mutations(repo_root: Path) -> None:
+    run = _steps(repo_root, "Python checks")
+    assert "uv run sec-agent eval gate" in run
+    assert "uv run sec-agent eval mutations" in run
