@@ -2,9 +2,12 @@
 
 The prompt asks; it does not enforce. Numbers are checked against tool results by the
 faithfulness checker, and injected instructions by the guardrails, in their own modules.
+A guarded turn appends the canary line (`guardrails.canary`) after the rules.
 """
 
 import datetime as dt
+
+from sec_agent.guardrails.canary import canary_line
 
 _RULES = """\
 You are a research assistant for the SEC filings (10-K, 10-Q) of a fixed set of large US \
@@ -47,6 +50,7 @@ still give the historical figures the tools return, and add that this is not inv
 """
 
 
-def system_prompt(asked_on: dt.date) -> str:
-    """The rules, with the date relative periods are anchored on (E6)."""
-    return _RULES.format(today=asked_on.isoformat())
+def system_prompt(asked_on: dt.date, *, canary: str | None = None) -> str:
+    """The rules, with the date relative periods are anchored on (E6), then the canary."""
+    rules = _RULES.format(today=asked_on.isoformat())
+    return rules if canary is None else rules + canary_line(canary)

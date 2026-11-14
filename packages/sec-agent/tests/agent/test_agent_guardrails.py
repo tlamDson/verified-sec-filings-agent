@@ -49,8 +49,11 @@ def test_a_direct_attack_is_refused_without_a_model_call(facts_ctx: FactsContext
         "prompt_attack",
         ATTACK_REFUSED_TEXT,
     )
-    assert model.requests == [] and answer.llm_calls == () and answer.evidence == ()
-    assert answer.guardrails is not None and answer.guardrails.question == "attack"
+    assert model.requests == []
+    assert answer.llm_calls == ()
+    assert answer.evidence == ()
+    assert answer.guardrails is not None
+    assert answer.guardrails.question == "attack"
 
 
 def test_the_conversation_goes_on_after_a_refused_attack(facts_ctx: FactsContext) -> None:
@@ -76,7 +79,8 @@ def test_a_draft_holding_the_canary_is_blocked(facts_ctx: FactsContext) -> None:
         "canary_leak",
         CANARY_BLOCKED_TEXT,
     )
-    assert answer.guardrails is not None and answer.guardrails.canary_leaked
+    assert answer.guardrails is not None
+    assert answer.guardrails.canary_leaked
 
 
 def test_a_tool_call_carrying_the_canary_is_not_run(facts_ctx: FactsContext) -> None:
@@ -96,11 +100,13 @@ def test_an_injected_passage_is_quarantined_before_the_model_reads_it(
     )
     (shown,) = tool_messages(model.requests[1])
     content = shown["content"] or ""
-    assert "ZEPHYR" not in content and REMOVED_MARK in content
+    assert "ZEPHYR" not in content
+    assert REMOVED_MARK in content
     assert "outsourcing partners in Asia" in content
     (evidence,) = answer.evidence
     assert evidence.result == content, "the evidence is what the model saw"
-    assert answer.guardrails is not None and answer.guardrails.flagged_passages == 1
+    assert answer.guardrails is not None
+    assert answer.guardrails.flagged_passages == 1
 
 
 def test_advice_is_declined_and_the_historical_figure_kept(facts_ctx: FactsContext) -> None:

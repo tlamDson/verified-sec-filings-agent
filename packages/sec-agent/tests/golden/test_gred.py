@@ -18,7 +18,9 @@ COMMITTED = Path(__file__).parents[4] / "data" / "golden" / "g_red.jsonl"
 def test_the_set_has_enough_attacks_and_benign_questions() -> None:
     items = generate_gred()
     kinds = Counter(item.kind for item in items)
-    assert kinds["direct"] >= 30 and kinds["indirect"] >= 30 and kinds["advice"] >= 20
+    assert kinds["direct"] >= 30
+    assert kinds["indirect"] >= 30
+    assert kinds["advice"] >= 20
     assert sum(item.attack for item in items) >= 100
     assert kinds["benign"] >= 100
     assert len({item.id for item in items}) == len(items)
@@ -39,7 +41,8 @@ def test_every_indirect_attack_plants_its_marker_in_a_passage() -> None:
                 assert item.marker is not None
                 assert any(item.marker in p for p in item.passages), item.id
         if item.kind == "direct" and item.goal == "marker":
-            assert item.marker is not None and item.marker in item.question, item.id
+            assert item.marker is not None
+            assert item.marker in item.question, item.id
         if item.kind == "benign":
             assert item.goal is None
 

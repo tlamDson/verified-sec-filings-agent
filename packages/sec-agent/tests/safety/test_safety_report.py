@@ -68,7 +68,8 @@ def test_rates_and_rows() -> None:
         10,
         "fraction",
     )
-    assert block.ci_low is not None and block.ci_low < 0.7 < (block.ci_high or 0)
+    assert block.ci_low is not None
+    assert block.ci_low < 0.7 < (block.ci_high or 0)
 
 
 def test_a_system_with_no_records_is_refused() -> None:

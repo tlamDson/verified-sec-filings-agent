@@ -28,7 +28,8 @@ def test_an_instruction_sentence_in_a_passage_is_replaced_by_the_mark() -> None:
     result = SearchResult.model_validate_json(out.content)  # still the tool's shape
     first, second = (p.text for p in result.passages)
     assert first == CLEAN
-    assert "ZEPHYR" not in second and "ignore" not in second.lower()
+    assert "ZEPHYR" not in second
+    assert "ignore" not in second.lower()
     assert second.startswith("Revenue rose 8% on higher volume. ")
     assert REMOVED_MARK in second
     assert second.endswith("Margins were stable.")
@@ -46,7 +47,8 @@ def test_risk_factor_paragraphs_are_quarantined_too() -> None:
     assert out.flagged == 1
     (change,) = RiskDiffResult.model_validate_json(out.content).changes
     assert change.text is not None
-    assert "buy" not in change.text and change.text.startswith("We face competition. ")
+    assert "buy" not in change.text
+    assert change.text.startswith("We face competition. ")
 
 
 def test_numeric_results_and_refusals_are_not_touched() -> None:

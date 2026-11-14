@@ -1,6 +1,6 @@
 """The turn as a LangGraph state graph, behind one typed function.
 
-    begin ──► model ──► (tool calls?) ──► tools ──► model ──► ... ──► done
+    begin ──► (refused?) ──► model ──► (tool calls?) ──► tools ──► model ──► ... ──► done
 
 The graph checkpoints after every step under the conversation's `thread_id`, and waits
 for each write (`durability="sync"`): a replica that lost a race for the conversation
@@ -20,7 +20,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
-from sec_agent.agent.nodes import TurnNodes, after_model
+from sec_agent.agent.nodes import TurnNodes, after_begin, after_model
 from sec_agent.agent.state import AgentState, TurnInput
 
 TurnRunner = Callable[[str, TurnInput, int], AgentState]
@@ -37,7 +37,7 @@ def build_turn_graph(
     graph.add_node("model", nodes.call_model)
     graph.add_node("tools", nodes.run_tools)
     graph.add_edge(START, "begin")
-    graph.add_edge("begin", "model")
+    graph.add_conditional_edges("begin", after_begin, {"model": "model", "done": END})
     graph.add_conditional_edges("model", after_model, {"tools": "tools", "done": END})
     graph.add_edge("tools", "model")
     compiled = graph.compile(checkpointer=checkpointer)

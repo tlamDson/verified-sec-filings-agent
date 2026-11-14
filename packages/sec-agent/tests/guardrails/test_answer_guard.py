@@ -66,6 +66,8 @@ def test_historical_statements_are_not_advice() -> None:
 
 def test_canaries_are_random_and_stated_in_the_prompt_line() -> None:
     a, b = new_canary(), new_canary()
-    assert a != b and a.startswith("cnry-")
+    assert a != b
+    assert a.startswith("cnry-")
     assert a in canary_line(a)
-    assert leaks(a, f"x {a} y") and not leaks(a, b)
+    assert leaks(a, f"x {a} y")
+    assert not leaks(a, b)
