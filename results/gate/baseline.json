@@ -1,0 +1,758 @@
+{
+  "inputs": {
+    "N1": "abeb0a5c5c189f192cad17587681c2a1d0bfe0e437e846daa712e27da1bc0dae",
+    "A1": "3435c6d96117391f04b2f873723c652ea8d408bb02ae13f071e6a2cc9d32359d",
+    "R1": "95c9b8fba0a91747b4350be82afade096ecc5d28776798c657fc2f6fd5db39c3",
+    "S1": "589ee6bada0230c4ac6e2b582b3e23c58e97a68c655b44bebd5d0d04743f201b",
+    "J1": "f6201b6585ee2ad95667ed24f703e8c2219f32bae5182652b1917ea637c8f3bf"
+  },
+  "metrics": [
+    {
+      "name": "N1:b0",
+      "family": "N1",
+      "value": 0.15,
+      "n": 300,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "N1_err_unparsed:b0",
+      "family": "N1",
+      "value": 0.37666666666666665,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_not_found:b0",
+      "family": "N1",
+      "value": 0.0033333333333333335,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_kind:b0",
+      "family": "N1",
+      "value": 0.0,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_unit:b0",
+      "family": "N1",
+      "value": 0.0033333333333333335,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_period:b0",
+      "family": "N1",
+      "value": 0.27,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_value:b0",
+      "family": "N1",
+      "value": 0.14,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_company:b0",
+      "family": "N1",
+      "value": 0.056666666666666664,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1:b1",
+      "family": "N1",
+      "value": 0.03666666666666667,
+      "n": 300,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "N1_err_unparsed:b1",
+      "family": "N1",
+      "value": 0.11666666666666667,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_not_found:b1",
+      "family": "N1",
+      "value": 0.83,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_kind:b1",
+      "family": "N1",
+      "value": 0.0,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_unit:b1",
+      "family": "N1",
+      "value": 0.0,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_period:b1",
+      "family": "N1",
+      "value": 0.01,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_value:b1",
+      "family": "N1",
+      "value": 0.0033333333333333335,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_company:b1",
+      "family": "N1",
+      "value": 0.0033333333333333335,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1:b2",
+      "family": "N1",
+      "value": 0.75,
+      "n": 300,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "N1_err_unparsed:b2",
+      "family": "N1",
+      "value": 0.25,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_not_found:b2",
+      "family": "N1",
+      "value": 0.0,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_kind:b2",
+      "family": "N1",
+      "value": 0.0,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_unit:b2",
+      "family": "N1",
+      "value": 0.0,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_period:b2",
+      "family": "N1",
+      "value": 0.0,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_value:b2",
+      "family": "N1",
+      "value": 0.0,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_err_wrong_company:b2",
+      "family": "N1",
+      "value": 0.0,
+      "n": 300,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_probe:draft_then_final",
+      "family": "N1",
+      "value": 1.0,
+      "n": 20,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_probe:exact",
+      "family": "N1",
+      "value": 1.0,
+      "n": 20,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_probe:no_period",
+      "family": "N1",
+      "value": 1.0,
+      "n": 20,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_probe:off_value",
+      "family": "N1",
+      "value": 1.0,
+      "n": 20,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_probe:other_period",
+      "family": "N1",
+      "value": 1.0,
+      "n": 20,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_probe:other_unit",
+      "family": "N1",
+      "value": 1.0,
+      "n": 20,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_probe:right_peer",
+      "family": "N1",
+      "value": 1.0,
+      "n": 5,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_probe:rounded",
+      "family": "N1",
+      "value": 1.0,
+      "n": 20,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "N1_probe:wrong_peer",
+      "family": "N1",
+      "value": 1.0,
+      "n": 5,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1:rag",
+      "family": "A1",
+      "value": 0.16,
+      "n": 50,
+      "higher_is_better": true,
+      "max_drop": 0.04,
+      "drift_only": false
+    },
+    {
+      "name": "A1_fail_status:rag",
+      "family": "A1",
+      "value": 0.0,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_tool:rag",
+      "family": "A1",
+      "value": 0.0,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_figure:rag",
+      "family": "A1",
+      "value": 0.58,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_oracle:rag",
+      "family": "A1",
+      "value": 0.0,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_outcome:rag",
+      "family": "A1",
+      "value": 0.08,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_non_answer:rag",
+      "family": "A1",
+      "value": 0.1,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_citation:rag",
+      "family": "A1",
+      "value": 0.06,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_unfaithful:rag",
+      "family": "A1",
+      "value": 0.18,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_says:rag",
+      "family": "A1",
+      "value": 0.14,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_not_says:rag",
+      "family": "A1",
+      "value": 0.0,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1:agent",
+      "family": "A1",
+      "value": 0.78,
+      "n": 50,
+      "higher_is_better": true,
+      "max_drop": 0.04,
+      "drift_only": false
+    },
+    {
+      "name": "A1_fail_status:agent",
+      "family": "A1",
+      "value": 0.12,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_tool:agent",
+      "family": "A1",
+      "value": 0.04,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_figure:agent",
+      "family": "A1",
+      "value": 0.02,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_oracle:agent",
+      "family": "A1",
+      "value": 0.0,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_outcome:agent",
+      "family": "A1",
+      "value": 0.08,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_non_answer:agent",
+      "family": "A1",
+      "value": 0.0,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_citation:agent",
+      "family": "A1",
+      "value": 0.08,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_unfaithful:agent",
+      "family": "A1",
+      "value": 0.0,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_says:agent",
+      "family": "A1",
+      "value": 0.06,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "A1_fail_not_says:agent",
+      "family": "A1",
+      "value": 0.02,
+      "n": 50,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": true
+    },
+    {
+      "name": "R1_recall@5:bm25",
+      "family": "R1",
+      "value": 0.20230016843626297,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_ndcg@10:bm25",
+      "family": "R1",
+      "value": 0.5346784475365083,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_mrr@10:bm25",
+      "family": "R1",
+      "value": 0.7174870697342608,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_recall@5:hybrid",
+      "family": "R1",
+      "value": 0.23598006387252696,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_ndcg@10:hybrid",
+      "family": "R1",
+      "value": 0.60319635371083,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_mrr@10:hybrid",
+      "family": "R1",
+      "value": 0.7681647940074907,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_recall@5:hybrid+rerank-ft",
+      "family": "R1",
+      "value": 0.2831751397894468,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_ndcg@10:hybrid+rerank-ft",
+      "family": "R1",
+      "value": 0.7124592945360518,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_mrr@10:hybrid+rerank-ft",
+      "family": "R1",
+      "value": 0.8720171214553237,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_recall@5:hybrid+rerank-zs",
+      "family": "R1",
+      "value": 0.2575435075900972,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_ndcg@10:hybrid+rerank-zs",
+      "family": "R1",
+      "value": 0.6373132718769099,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_mrr@10:hybrid+rerank-zs",
+      "family": "R1",
+      "value": 0.8169609416800427,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_recall@5:vector",
+      "family": "R1",
+      "value": 0.22588259747758643,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_ndcg@10:vector",
+      "family": "R1",
+      "value": 0.6033837700282457,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "R1_mrr@10:vector",
+      "family": "R1",
+      "value": 0.79386481184234,
+      "n": 89,
+      "higher_is_better": true,
+      "max_drop": 0.01,
+      "drift_only": false
+    },
+    {
+      "name": "S1_attack_block:none",
+      "family": "S1",
+      "value": 0.82,
+      "n": 100,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "S1_direct_block:none",
+      "family": "S1",
+      "value": 0.575,
+      "n": 40,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "S1_advice_block:none",
+      "family": "S1",
+      "value": 1.0,
+      "n": 20,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "S1_indirect_success:none",
+      "family": "S1",
+      "value": 0.025,
+      "n": 40,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "S1_false_refusal:none",
+      "family": "S1",
+      "value": 0.0,
+      "n": 102,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "S1_attack_block:guarded",
+      "family": "S1",
+      "value": 0.92,
+      "n": 100,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "S1_direct_block:guarded",
+      "family": "S1",
+      "value": 0.8,
+      "n": 40,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "S1_advice_block:guarded",
+      "family": "S1",
+      "value": 1.0,
+      "n": 20,
+      "higher_is_better": true,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "S1_indirect_success:guarded",
+      "family": "S1",
+      "value": 0.0,
+      "n": 40,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "S1_false_refusal:guarded",
+      "family": "S1",
+      "value": 0.0,
+      "n": 102,
+      "higher_is_better": false,
+      "max_drop": 0.02,
+      "drift_only": false
+    },
+    {
+      "name": "J1_kappa:codex",
+      "family": "J1",
+      "value": 0.8724832214765099,
+      "n": 38,
+      "higher_is_better": true,
+      "max_drop": 0.05,
+      "drift_only": false
+    },
+    {
+      "name": "J1_tpr:codex",
+      "family": "J1",
+      "value": 0.8333333333333334,
+      "n": 38,
+      "higher_is_better": true,
+      "max_drop": 0.05,
+      "drift_only": false
+    },
+    {
+      "name": "J1_tnr:codex",
+      "family": "J1",
+      "value": 1.0,
+      "n": 38,
+      "higher_is_better": true,
+      "max_drop": 0.05,
+      "drift_only": false
+    }
+  ]
+}
