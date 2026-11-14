@@ -1,4 +1,8 @@
-"""b1's passages: a search of the pinned retrieval space, filtered to the question's companies."""
+"""b1's passages: a search of the pinned retrieval space, filtered to the question's companies.
+
+Hybrid by default; BM25 alone when there is no query embedder (`--lexical`), since dense
+and hybrid search refuse to run without one.
+"""
 
 from typing import Any
 
@@ -19,12 +23,13 @@ class SearchPassages:
         space: EmbeddingSpace,
         embedder: Embedder | None,
         *,
-        mode: SearchMode = "hybrid",
+        mode: SearchMode | None = None,
     ) -> None:
+        """`mode` None: hybrid with an embedder, lexical without one."""
         self._conn = conn
         self._space = space
         self._embedder = embedder
-        self._mode: SearchMode = mode
+        self._mode: SearchMode = mode or ("lexical" if embedder is None else "hybrid")
 
     def passages(self, question: NumQuestion, k: int) -> list[Passage]:
         hits = search(
