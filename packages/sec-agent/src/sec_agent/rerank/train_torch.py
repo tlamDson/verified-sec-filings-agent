@@ -169,7 +169,8 @@ def export_onnx(
         parity_max_abs_diff=_parity(encoder, onnx_scorer, check_pairs),
         created_at=dt.datetime.now(dt.UTC),
     )
-    (out_dir / MANIFEST_FILE).write_text(manifest.model_dump_json(indent=2) + "\n", "utf-8")
+    manifest_text = manifest.model_dump_json(indent=2) + "\n"
+    (out_dir / MANIFEST_FILE).write_text(manifest_text, "utf-8", newline="\n")
     return manifest
 
 

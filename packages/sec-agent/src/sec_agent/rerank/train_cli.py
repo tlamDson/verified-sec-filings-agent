@@ -104,7 +104,8 @@ def _cv(args: argparse.Namespace) -> int:
         "training": config.as_record(),
         "folds": summary,
     }
-    out.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n", "utf-8")
+    summary_text = json.dumps(record, indent=2) + "\n"
+    out.with_suffix(".json").write_text(summary_text, "utf-8", newline="\n")
     print(f"wrote {out} and {out.with_suffix('.json').name}")
     return 0
 

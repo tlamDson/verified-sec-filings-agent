@@ -89,6 +89,7 @@ golden sets ──► runner ──► results/*.json ──► CI gate (determi
 | XBRL parser           | companyfacts → facts; concept normalisation table; all amendment versions kept with filing date           | s-03     |
 | Filing parser         | 10-K/10-Q HTML → sections → ~400-token chunks, tagged with `index_version`                                | s-04     |
 | Retrieval             | Embeddings in pgvector (HNSW), BM25 via `pg_search` (fallback `tsvector`), RRF fusion in SQL              | s-05     |
+| Reranker              | Cross-encoder fine-tuned by company CV, served as ONNX on CPU behind a timeout and breaker                | s-15     |
 | Deterministic tools   | `get_fact`, `compute_ratio`, `compare_peers`, `search_filings`, `diff_risk_factors`                       | s-08     |
 | Agent and LLM router  | LangGraph state graph, Postgres checkpoints, OpenAI-compatible router with failover and quota             | s-09     |
 | Faithfulness checker  | Extract every number from an answer; match it to a tool result or cited passage, unit and period included | s-10     |
@@ -240,6 +241,27 @@ G-ret questions ──► snapshot (verified before and after) ──► random 
 - **R1.** `eval retrieval run` pins a snapshot, verifies its digest before and after, and writes one TREC run per baseline plus the snapshot manifest; every baseline searches only the question's company. `random` orders the company's chunks by a seeded hash; `oracle` (scoring only) orders judged chunks by grade. Grade 1 or 2 is relevant, unjudged chunks are not (pooling). nDCG uses linear gain (as trec_eval). Questions with no relevant judged chunk are listed and left out. Intervals and paired differences come from resampling companies (10 test companies, 10,000 resamples, one seed for every system so they see the same resamples).
 - **runs.csv.** `--record` appends one row per number: `N1` accuracy with its interval, `N1_mcnemar_p`, `R1_<metric>` with its interval, `R1_<metric>_diff` and `R1_<metric>_p`; cohort `none`, the git SHA, the questions' `index_version`.
 - CLI: `sec-agent eval numeric --split test --systems b0,b1`, `sec-agent eval retrieval run --snapshot S`, `sec-agent eval retrieval score --run R ... --baseline bm25 --oracle`.
+
+### Reranker (built in s-15)
+
+Code: `sec_agent.rerank`. A small cross-encoder reorders the hybrid candidates of `search_filings`; it is fine-tuned on G-ret labels with cross-validation by company, served as ONNX on CPU, and bypassed when slow or down.
+
+```
+G-ret pool + labels (10 test companies) ──► leave-one-company-out: 10 folds, train on 9
+        │                                     └─► rerank held-out company's hybrid top 20 ──► TREC run (R1)
+        └─► all 10 companies ──► fine-tune ──► ONNX export (+ parity check) ──► reranker.json manifest
+search_filings ──► hybrid top max(k, 20) ──► Reranker (timeout, bulkhead, breaker) ──► top k
+                                                   └─ fallback: hybrid order, reason in the result
+```
+
+- **Model.** `cross-encoder/ms-marco-MiniLM-L6-v2` (Apache-2.0, one logit per pair, 512 input tokens), the smallest common cross-encoder, so it can run on the Space's free CPU. The passage is truncated, never the question. Training is pointwise binary cross-entropy against the soft label grade / 2, AdamW, linear warmup and decay, seeded shuffles. Hyperparameters (2 epochs, learning rate 2e-5, batch 16, warmup 10%) are fixed in `TrainConfig` before any score is seen: G-ret has no dev questions to tune them on, and tuning on the folds would leak.
+- **Cross-validation by company.** G-ret labels exist only for the 10 test companies. `rerank cv` trains one model per company on the other nine companies' labelled pool and scores that company's questions with it, so no question is scored by a model that saw a label of its company. A `FoldScorer` carries the companies that trained it, and `rerank_runs` refuses a question about one of them (`LeakageError`); `rerank run` applies the same check to an exported model's `trained_on`.
+- **What R1 measures.** Each question's hybrid top 20 (`results/retrieval/v1/hybrid.run`) is reordered; every one of those chunks is judged, since the pool is each system's top 20. Systems `hybrid+rerank-zs` (the base model as is) and `hybrid+rerank-ft` (CV fine-tuned) are scored by `eval retrieval score` with the same company bootstrap as the other R1 baselines; `--comparisons-only` records a second baseline's paired differences without repeating the systems' rows. Results: `results/rerank/v1/` (runs, CV summary, manifests); numbers: `runs.csv`.
+- **Keep rule.** Fixed before the CV run: serve the fine-tuned model only if its nDCG@10 paired difference against the zero-shot model has a 95% interval above zero; otherwise serve the zero-shot model, and serve no reranker unless it beats hybrid the same way. The served model is then fine-tuned on all 10 companies (`rerank export --train`), so its manifest lists all 10 in `trained_on` and it can never be scored on G-ret again; an eval of the whole agent on test companies (s-12) must run without it or with the zero-shot model.
+- **ONNX.** `rerank export` traces the model with the TorchScript exporter (opset 17, dynamic batch and length), saves the fast tokenizer's `tokenizer.json`, and writes `reranker.json`: base model, `trained_on`, hyperparameters, the SHA-256 of `model.onnx`, and the largest |ONNX − torch| score over 64 check pairs. Serving needs only `onnxruntime` and `tokenizers` (core dependencies); torch and transformers are the optional `train` extra. `load_reranker` refuses a model whose digest differs from its manifest.
+- **Serving and failure.** `sec-agent api serve` and `sec-agent mcp` take `--reranker DIR` (or `SEC_RERANKER_DIR`); a directory that does not load stops the server at start. Per call: the breaker (`llm.breaker`, 3 failures in a row open it for 30 s, one trial call closes it) is asked first; the scorer runs on one worker thread with a 2 s timeout (`--rerank-timeout`); a call that finds the worker still busy (for instance with a call that timed out) falls back at once rather than queueing. A timeout, crash, or wrong-shaped or non-finite scores count as failures. On any fallback `search_filings` returns the hybrid order and sets `rerank_fallback` (`breaker_open`, `busy`, `timeout`, `error`); on success it sets `reranker` to the model name and each passage's `rerank_score`. Breaker state is per replica.
+- **Latency.** `rerank bench` times one call per question (its hybrid top 20) on CPU through ONNX Runtime and records `L1_rerank_p50` and `L1_rerank_p95` with the machine in the notes. The Space's CPU differs from the machine measured.
+- CLI: `sec-agent rerank cv --out R`, `rerank export --name N --out-dir D [--train]`, `rerank run --model D --system S --out R`, `rerank bench --model D [--record runs.csv]`. Exported models live in `models/` (git-ignored); their manifests are committed under `results/rerank/v1/`.
 
 ### Deterministic tools (built in s-08)
 
