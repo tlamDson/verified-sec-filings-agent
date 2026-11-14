@@ -46,7 +46,7 @@ _CALL_FILL = (
 _CALL = (
     r"(?:buy|sell|hold|accumulate|overweight|underweight|outperform|underperform)(?![^\W_]|-)"
     r"(?!\s+(?:of|obligations?|commitments?|orders?|prices?|agreements?|side|volumes?|harmless|"
-    r"true|back)(?![^\W_])|(?<=sell)\s+off(?![^\W_]))"
+    r"true)(?![^\W_]))"
 )
 """A call after a label: "**Recommendation:** Buy", "- Verdict: buy", "Bottom line - buy",
 "Rating -- Overweight", "Recommendation | it's a buy"."""

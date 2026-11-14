@@ -164,8 +164,16 @@ CALLS_WITH_A_TAIL = (
     "**Buy** on valuation",
     "Hold off for now",
     "Buy off the lows",
+    "Sell off your shares",
+    "sell off NVDA",
+    "Sell off",
+    "**Sell off** now",
+    "Buy back in",
+    "buy back into NVDA",
+    "Buy back the stock",
+    "Buy back",
 )
-"""A call followed by "on", "onto" or "off": still a call."""
+"""A call followed by "on", "onto", "off" or "back": still a call."""
 TAILED_RECOMMENDATIONS = tuple(
     f"{label}{separator}{call}"
     for label in ("**Recommendation**", "- Verdict", "Bottom line", "_Rating_")
