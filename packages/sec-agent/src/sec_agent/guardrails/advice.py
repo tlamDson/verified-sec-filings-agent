@@ -170,12 +170,19 @@ _CHOICE = re.compile(
 """A choice named in a question ("whether to buy, sell or hold"): never advice."""
 _PIECE = re.compile(r"(,|\s(?:and|or|nor)\s)", re.IGNORECASE)
 _DECLINED_THING = re.compile(
-    r"^\W*(?:(?:such\s+as|including|like|any|specific|personali[sz]ed|individual|investment|"
-    r"financial|stock)\s+)*(?:price\s+targets?|forecasts?|predictions?|projections?|"
+    r"^\W*(?:(?:such\s+as|including|like|any|you|an?|the|your|its|their|buy|sell|hold|specific|personali[sz]ed|"
+    r"individual|investment|financial|stock)\s+)*(?:price\s+targets?|forecasts?|predictions?|projections?|"
     r"recommendations?|ratings?|opinions?|advice|guidance|prices)\b",
     re.IGNORECASE,
 )
 """A piece of a decline's object that names what is declined ("price targets")."""
+_DECLINE_LEAD = re.compile(
+    r"^\W*(?:(?:i\s+)?(?:can['’]?t|cannot|won['’]t|will\s+not|do\s+not|don['’]t)\s+)?"  # noqa: RUF001
+    r"(?:(?:provide|give|offer|make|share|predict|forecast)\s+)(?:you\s+)?",
+    re.IGNORECASE,
+)
+"""A further verb of the same decline ("or give a price target"): the thing it names is
+read like the first one."""
 _QUESTION = re.compile(r"\b(?:whether|if|what|which|when|how)\b", re.IGNORECASE)
 
 
@@ -215,8 +222,16 @@ def _after_decline(tail: str) -> str | None:
         if in_question and joint == "or":
             continue
         in_question = _QUESTION.search(piece) is not None
-        if in_question or not piece.strip() or _DECLINED_THING.match(piece):
+        if in_question or not piece.strip() or _names_declined_thing(piece):
             continue
         if (name := _clause_rule(piece)) is not None:
             return name
     return None
+
+
+def _names_declined_thing(piece: str) -> bool:
+    """The piece only names what the decline refuses ("a price target", "give price
+    targets"); a number in it ("a price target of $300") is a figure given, so it is read."""
+    return _DECLINED_THING.match(_DECLINE_LEAD.sub("", piece)) is not None and not re.search(
+        r"\d", piece
+    )
