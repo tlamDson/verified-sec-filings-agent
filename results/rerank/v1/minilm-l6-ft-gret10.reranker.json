@@ -2,18 +2,7 @@
   "name": "minilm-l6-ft-gret10",
   "base_model": "cross-encoder/ms-marco-MiniLM-L6-v2",
   "max_length": 512,
-  "trained_on": [
-    "COP",
-    "CVX",
-    "HD",
-    "INTU",
-    "LOW",
-    "PANW",
-    "PEP",
-    "PM",
-    "V",
-    "WFC"
-  ],
+  "trained_on": ["COP", "CVX", "HD", "INTU", "LOW", "PANW", "PEP", "PM", "V", "WFC"],
   "onnx_sha256": "0fb440a28b525042e17dab7b1ed2011b0a54909440e5b3121832ff9578e9d8f6",
   "training": {
     "epochs": 2,
