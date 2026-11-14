@@ -183,6 +183,10 @@ _DECLINE_LEAD = re.compile(
 )
 """A further verb of the same decline ("or give a price target"): the thing it names is
 read like the first one."""
+_COMPLEMENT = re.compile(r"^(?:to|on|for|about|regarding|of|as\s+to)\b", re.IGNORECASE)
+"""What follows a declined thing as its own complement ("recommendations to buy AAPL now",
+"advice on NVDA"): it names the thing declined, so "buy now" there is not an order."""
+_COMPLEMENT_RULES: Rules = tuple(r for r in ADVICE_STATEMENT if r[0] != "buy_now")
 _QUESTION = re.compile(r"\b(?:whether|if|what|which|when|how)\b", re.IGNORECASE)
 
 
@@ -231,7 +235,16 @@ def _after_decline(tail: str) -> str | None:
 
 def _names_declined_thing(piece: str) -> bool:
     """The piece only names what the decline refuses ("a price target", "give price
-    targets"); a number in it ("a price target of $300") is a figure given, so it is read."""
-    return _DECLINED_THING.match(_DECLINE_LEAD.sub("", piece)) is not None and not re.search(
-        r"\d", piece
-    )
+    targets", "recommendations to buy AAPL now"). A number in it ("a price target of $300")
+    is a figure given, and anything after the named thing that is not its own complement
+    ("a price target you should buy NVDA") is read as advice."""
+    named = _DECLINE_LEAD.sub("", piece)
+    thing = _DECLINED_THING.match(named)
+    if thing is None or re.search(r"\d", piece):
+        return False
+    rest = named[thing.end() :].strip()
+    if not rest:
+        return True
+    if _COMPLEMENT.match(rest):
+        return first_match(rest, _COMPLEMENT_RULES) is None
+    return _clause_rule(rest) is None

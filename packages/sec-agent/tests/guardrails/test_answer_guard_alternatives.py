@@ -47,3 +47,35 @@ def test_advice_after_the_decline_is_still_dropped(decline: str) -> None:
 def test_a_price_target_with_a_number_is_still_dropped() -> None:
     assert advice_rule("I can't give advice, but my price target is $300.") == "price_target"
     assert advice_rule("I can't recommend a stock or say more than a price target of $300.")
+
+
+ADVICE_AFTER_THE_OBJECT = (
+    "I can't give a price target you should buy NVDA.",
+    "I can't give advice NVDA is a buy.",
+    "I can't give a price target that NVDA will outperform the market.",
+    "I can't give advice that you should buy NVDA.",
+    "I can't give a rating NVDA looks undervalued.",
+    "I can't give advice on NVDA you should buy it.",
+    "I can't give a price target, or advice that you should buy NVDA.",
+)
+OBJECTS_THAT_STAY_DECLINES = (
+    "I can't give a recommendation to buy NVDA now.",
+    "I can't give recommendations to buy AAPL now.",
+    "I can't give advice on whether to buy, sell or hold NVDA.",
+    "I can't give a price target for NVDA.",
+)
+
+
+@pytest.mark.parametrize("sentence", ADVICE_AFTER_THE_OBJECT)
+def test_advice_trailing_the_declined_object_is_read(sentence: str) -> None:
+    assert advice_rule(sentence) is not None, sentence
+    guard = guard_answer(
+        f"{sentence} Revenue was $391.0 billion.", canary=None, advice_requested=True
+    )
+    assert guard.advice_dropped == 1, sentence
+    assert "Revenue was $391.0 billion." in guard.text, sentence
+
+
+@pytest.mark.parametrize("sentence", OBJECTS_THAT_STAY_DECLINES)
+def test_an_object_with_its_own_complement_is_still_a_decline(sentence: str) -> None:
+    assert advice_rule(sentence) is None, sentence
