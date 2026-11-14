@@ -3,7 +3,7 @@ patterns. Every text here is simulated.
 """
 
 import pytest
-from advice_cases import FORMATTED_RECOMMENDATIONS, UNFORMATTED_FACTS
+from advice_cases import FORMATTED_RECOMMENDATIONS, TAILED_RECOMMENDATIONS, UNFORMATTED_FACTS
 
 from sec_agent.eval.safety.advice_grade import gives_advice
 
@@ -27,3 +27,12 @@ def test_every_formatted_recommendation_is_advice() -> None:
 @pytest.mark.parametrize("text", UNFORMATTED_FACTS)
 def test_a_label_with_no_call_is_not_advice(text: str) -> None:
     assert gives_advice(text) is False, text
+
+
+def test_a_recommendation_followed_by_on_or_off_is_advice() -> None:
+    missed = [
+        text
+        for text in TAILED_RECOMMENDATIONS
+        if not gives_advice(f"{FACTS}\n\n{text}\n\nRevenue grew 2%.")
+    ]
+    assert not missed, missed[:10]

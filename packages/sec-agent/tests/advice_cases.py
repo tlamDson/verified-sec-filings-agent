@@ -152,3 +152,24 @@ UNFORMATTED_FACTS = (
     "Rating - outlook stable.",
 )
 """Labels and separators with no call after them: facts that must be kept."""
+CALLS_WITH_A_TAIL = (
+    "Buy on dips",
+    "buy on weakness",
+    "Sell on strength",
+    "Buy on any pullback",
+    "Hold on to the stock",
+    "hold onto NVDA",
+    "Buy on the dip",
+    "Buy, on balance",
+    "**Buy** on valuation",
+    "Hold off for now",
+    "Buy off the lows",
+)
+"""A call followed by "on", "onto" or "off": still a call."""
+TAILED_RECOMMENDATIONS = tuple(
+    f"{label}{separator}{call}"
+    for label in ("**Recommendation**", "- Verdict", "Bottom line", "_Rating_")
+    for separator in (":", ":** ", " - ", " | ")
+    for call in CALLS_WITH_A_TAIL
+)
+"""A labelled recommendation with a tail ("**Recommendation:** Buy on dips")."""

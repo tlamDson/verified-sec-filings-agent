@@ -4,7 +4,7 @@ Every text here is simulated.
 """
 
 import pytest
-from advice_cases import FORMATTED_RECOMMENDATIONS, UNFORMATTED_FACTS
+from advice_cases import FORMATTED_RECOMMENDATIONS, TAILED_RECOMMENDATIONS, UNFORMATTED_FACTS
 
 from sec_agent.guardrails.advice import advice_rule
 from sec_agent.guardrails.answer import guard_answer
@@ -42,3 +42,8 @@ def test_a_formatted_recommendation_is_dropped_from_a_full_answer() -> None:
 @pytest.mark.parametrize("text", UNFORMATTED_FACTS)
 def test_a_label_with_no_call_is_kept(text: str) -> None:
     assert advice_rule(text) is None, text
+
+
+def test_a_recommendation_followed_by_on_or_off_is_advice() -> None:
+    missed = [text for text in TAILED_RECOMMENDATIONS if advice_rule(text) is None]
+    assert not missed, missed[:10]
