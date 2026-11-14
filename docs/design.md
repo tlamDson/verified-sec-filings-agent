@@ -1,8 +1,8 @@
 # System design: Verified SEC Filings Research Agent
 
-Version 0 (scaffold). This document is written before most of the system exists. It records the intended design and the reasons for it; later PRs update it as parts are built and measured.
+Final version for the first release. It records the design as built, the reasons for it, and where the built system differs from the first plan. Measured results are in [README.md](README.md#results) and in `runs.csv`; the section [Results](#results) says how to read them.
 
-**About numbers in this document.** Measured results appear only in `runs.csv` and are quoted from there. No row exists yet, so this version contains no measured results. Every figure below is a **planning estimate** (marked _est._) or a fixed external limit (marked _limit_), with the arithmetic shown so it can be checked and replaced by a measurement later.
+**About numbers in this document.** Measured results appear only in `runs.csv` and are quoted from there; the README results block is generated from it. A figure marked **_est._** is a planning estimate made before the system existed, with its arithmetic shown, and is never a result. A figure marked **_limit_** is a fixed external limit.
 
 ## Problem
 
@@ -340,6 +340,24 @@ sentences ──► pass (shown as written) │ trimmed (failed sentences droppe
 - **Decision.** A sentence passes when all its mentions traced and its citations are valid; a sentence with none is not checked and never dropped. All pass: the draft is shown. Otherwise the failed sentences are dropped and a note says so; the answer is blocked instead when more than `max_dropped_share` of the checked sentences failed (default half), when nothing would be left, or with `on_failure="block"`. A blocked turn ends with status `blocked`, reason `untraced_figures`, a fixed notice, and the evidence, like degraded mode.
 - **In the turn.** `Answer.text` is what the user was shown, `Answer.draft` what the model wrote, `Answer.faithfulness` the report: every mention, its status and the result field it traced to (`fact.value`, `rows[1].rank`, `passages[0].text`). The conversation history keeps the shown text, so a later turn never sees a dropped figure. `AgentConfig(faithfulness=None)` turns the check off: the "agent without checker" baseline of N2. `FaithfulnessReport.faithful` is N2 for one answer.
 
+### Eval gate and G1 (built in s-16)
+
+Code: `sec_agent.eval.gate`. The CI gate is the deterministic part of the eval: every committed result is scored again by the code of the pull request, with no model, database or network, and compared with `results/gate/baseline.json`. CI runs it in `Python checks` after the tests (`uv run sec-agent eval gate`, about 3 s), then its mutations (`uv run sec-agent eval mutations`, about 15 s).
+
+```
+committed results ──► N1 grader │ A1 checks + s-10 checker │ R1 metrics │ S1 regrade │ J1 kappa ──► metrics + input digests
+                                                                                         │ compare with baseline.json
+                                              same inputs: any change is drift │ new inputs: drop > max_drop is a regression
+```
+
+- **Families.** N1 (b0, b1, b2 on the 300 test questions), A1 (rag, agent on 50 scenarios), R1 (recall@5, nDCG@10, MRR@10 of bm25, vector, hybrid and both reranked runs), S1 (each rate of `none` and `guarded`), J1 (kappa, TPR, TNR of the codex judge). Each family's inputs (golden file and results files) are hashed with line endings normalised.
+- **Same inputs.** When a family's input digest equals the baseline's, only the code changed, so every number must come out exactly as before, in either direction: a grader that turns lenient is as wrong as one that turns strict. A deliberate grader change runs `sec-agent eval gate --update` and commits the new baseline in the same pull request, so the change shows in the diff.
+- **New inputs** (a night run committed new results): a number may get worse by at most its `max_drop` (N1 0.02, A1 0.04, R1 0.01, S1 0.02, J1 0.05; S1 indirect success and false refusal count upward), and must cover at least as many items (a short run never passes as a better one). These thresholds are design choices, not measured.
+- **Breakdowns.** N1 errors by kind and A1 failed checks by kind (zero kinds included) are watched for drift only: a check that stops failing anything (A1 `status`, `tool`) can leave the pass rate unchanged when the same scenarios fail other checks.
+- **N1 probes.** Trap replies built by code from the first 5 test questions of each type (exact, rounded within tolerance, 2% off, other fiscal period of the same year, other unit, no period, a draft JSON followed by the final one, right and wrong peer ticker), each with the grade it must get. They are not model output and never reported as accuracy; they cover rules no recorded answer exercises (no recorded reply has the right year and the wrong fiscal period).
+- **G1 mutations.** `eval.gate.mutations` lists 10 one-line regressions as exact source replacements (E1 fiscal period ignored, value tolerance tenfold, any peer ticker, first JSON reply graded, A1 status unchecked, A1 tool call unchecked, checker rounding unbounded, recall@5 on the top 10, S1 marker unchecked, raw agreement as kappa). Each is applied to a copy of the package put first on `PYTHONPATH`, the gate runs in a fresh interpreter, and a mutation counts as blocked only when the gate exits 1 (a finding), not on a crash. A snippet that no longer occurs exactly once is reported `stale`, never run. Without the gate none is blocked (the plan's 0/10 baseline, by definition); `--record` writes the `G1` row.
+- **Limits.** The gate sees only what committed results exercise: a mutation in the agent, tools or retrieval that changes model behaviour shows only after a night run regenerates results. Unit tests still run in the same CI job.
+
 ### Guardrails (built in s-13)
 
 Code: `sec_agent.guardrails` (the checks), `sec_agent.agent.guarding` (where a turn runs them), `sec_agent.golden.gred` (G-red) and `sec_agent.eval.safety` (S1). Every check is code; no model is asked. `AgentConfig(guardrails=None)` turns them all off: the S1 baseline, never the product.
@@ -470,6 +488,42 @@ Code: `sec_agent.simusers`, and `sec-agent api cohorts` in `sec_agent.api`. Ever
 - **Dashboard.** `sec-agent api cohorts --from D --to D` prints `cohort_counts` as two columns, real and simulated, never summed; the users row reads `accounts` and a note says the simulated column is test traffic.
 - **Not here.** Concurrent sessions (the driver plays them one at a time; load is s-20's), a web page for the dashboard, and G-num answer checks in the rating criteria.
 
+### Load and chaos (built in s-20)
+
+Code: `sec_agent.chaos`, `infra/load/`. Runs on Docker on the owner's machine, never on the free hosts. Every model in it is simulated and every request comes from a simulated account, so its numbers are labelled simulated and say nothing about answer quality.
+
+```
+k6 (200 VU, sim:load-NNN) ──► nginx (round robin, skip a dead replica 10 s) ──► api-1 │ api-2 │ api-3
+                                                                                  │ LLM_PROVIDERS, in order
+                                                                                  ▼
+                                                     llm-a ──► llm-b   (sec-agent chaos fake-llm, PUT /admin/mode)
+worker-1 container: sec-agent chaos kill-worker ──► 3 x sec-agent worker on one raw cache ──► kill one mid-job
+```
+
+- **Simulated model.** `sec-agent chaos fake-llm` answers like an OpenAI-compatible provider: a turn's first call asks `get_fact` for one fact, so the load reaches the tools and Postgres; a call holding a tool result gets a fixed reply with no number in it. `PUT /admin/mode` switches it to 429 with `Retry-After`; `GET /admin/state` counts calls served and refused.
+- **Replica kill.** k6 asks a first question and a follow-up on the same thread, so a conversation continues on whichever replica nginx picks. A turn fails unless its stream ends with an `answer` event. nginx retries a request on the next replica only when the connection was refused or timed out; a POST already sent is never replayed, so turns in flight on the killed replica count as failed. The follow-up of every conversation runs on the same thread even when its first turn failed: `resume_failed` counts all follow-ups and `interrupted_resume_failed` the follow-ups of interrupted conversations, which is the recovery the plan's check asks for ("conversations resume"). Both have a k6 threshold.
+- **Provider 429.** With llm-a limited, the router opens llm-a's breaker for `Retry-After` and fails over to llm-b; with both limited no model answers and turns end `degraded` with the deterministic cards. The same sequence runs in-process in the tests over the real router.
+- **Worker kill.** `sec-agent chaos kill-worker` starts N `sec-agent worker --owner-tag chaos-i` processes on a queued ingest, waits until one of them holds a job (the lease owner `host:pid:tag` names it), and kills that process and the pid its owner names (a Windows venv launcher runs the interpreter as a child, so the two differ). It waits until no job is queued or running and reports the killed job's final status and attempts and the seconds from the kill to an empty queue. `sec-agent chaos integrity` then counts, for the snapshot: jobs by outcome, done jobs that took more than one attempt, fact rows beyond the first for a version key (counted with a GROUP BY, not taken from the unique constraint), and companies with fewer rows than their ingest wrote.
+- **SEC traffic.** The token bucket is per process, so the chaos re-ingest reads the raw cache that a single worker filled first, at most 10 requests per second; the three workers send nothing to SEC.
+- **Records.** `sec-agent chaos load-rows` turns k6's summary export into `LOAD.*` rows (turn error rate, resume error rate and interrupted-conversation resume error rate with Wilson intervals, degraded share of completed turns, turn p50 and p95), cohort `simulated`; `kill-worker --record` writes `CHAOS.*` rows (duplicate facts, jobs redone, jobs unfinished, recovery seconds), cohort `none`. `infra/load/chaos.sh` runs the whole sequence and leaves the rows in `infra/load/results/`.
+- **Acceptance check.** `load-rows` then applies the plan's check in code (`sec_agent.chaos.acceptance`). The turn, resume and interrupted-resume error rates must each be under 5%, the limit the k6 thresholds also hold; the plan names none. A run with no follow-up fails, because it cannot show that conversations resume. On a failure it exits 1 after recording the rows. `chaos.sh` exits non-zero when k6 fails (99 when a threshold was crossed) or the check fails, after the rows of that run are written.
+- **Not here.** A global LLM semaphore and the answer cache (see Web app and API), load against the free hosts, and any quality measure under load.
+
+## Results
+
+Every measured number lives in `runs.csv`, one row per number, validated by `sec_agent.runs`. `sec-agent report sync` prints the latest row for each metric, system, split and cohort into the README, and `sec-agent report sync --check` (run by a test) fails when the README or `docs/bullets.md` is out of date. This document does not copy numbers, so it cannot drift from them.
+
+How to read the rows:
+
+- **Splits.** Companies are split before any question is written; the numbers on the README are on the `test` split (10 companies). The one step that uses test-company labels is the reranker, scored by leave-one-company-out cross-validation, and the model that is served is fine-tuned on all ten, so it can no longer be scored on those questions.
+- **Intervals and tests.** Fractions carry Wilson 95% intervals; retrieval metrics a bootstrap over companies; paired comparisons use McNemar's exact test (answers) or a paired bootstrap (retrieval). Many tests are run: a single small `p` is not a finding on its own.
+- **Local model.** Every LLM number was produced with the one local Qwen (cost cap $0), so absolute accuracies describe that model, not a frontier model. b0, b1 and b2 use the same model.
+- **Synthetic and simulated data.** G-red (S1) is synthetic with simulated filing passages. Load and simulated-user rows, when they exist, come from simulated accounts and carry cohort `simulated`; they never count as users and never mix with `real`.
+- **Grader labels.** The J1 labels were written by LLM raters, not by people, so J1 shows agreement between graders and those raters, not against human judgment.
+- **Superseded rows.** A re-run adds a row and the older one stays in the file for history; the README shows the latest. Rows whose notes say a subset or a superseded setup are not the headline.
+
+Not measured when this version was written: load and chaos rows (`LOAD`, `CHAOS`), user rows (`U1`, real or simulated), cold-start latency, and local-model throughput. Those capacity figures in this document remain _est._
+
 ## Failure modes
 
 | Failure                                         | Effect                              | Mitigation                                                                                                  |
@@ -516,7 +570,7 @@ Every component must be justified by a metric or a requirement. Deliberately lef
 
 ## Open items
 
-- Measure local Qwen throughput on the first eval night and replace the eval-cost estimate.
+- Measure local Qwen throughput and replace the eval-cost estimate (no row yet).
 - Choose the production LLM provider by measuring free quotas.
 - Check FinanceBench answers (licence checked in s-06) before using G-public.
 - Confirm free-tier database size limits against measured index size.
