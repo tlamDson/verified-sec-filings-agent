@@ -80,6 +80,7 @@ class TurnNodes:
             tools=self._tools.schemas(),
             tool_choice="none" if last_call else "auto",
             max_tokens=self._config.max_answer_tokens,
+            role="answer" if last_call else "tool_choice",
         )
         try:
             result = self._router.complete(request)
