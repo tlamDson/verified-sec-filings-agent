@@ -1,9 +1,11 @@
-"""Baselines for N1. b0: the LLM alone, no tools, no retrieval. b1: the LLM over passages
-retrieved from the filings (text RAG only, no XBRL tool).
+"""Systems for N1. b0: the LLM alone, no tools, no retrieval. b1: the LLM over passages
+retrieved from the filings (text RAG only, no XBRL tool). b2: the full agent (tools and
+checker), asked through `agent_model.AgentChatModel`.
 
-A baseline only builds the prompt; the chat model is passed in. In both baselines the
-numbers come from the model: that is what they measure, against the agent (b2) whose
-numbers come from tools. Retrieved text is fenced and marked as data, not instructions.
+A system only builds the prompt; the chat model is passed in. In b0 and b1 the numbers
+come from the model: that is what they measure, against b2 whose numbers come from tools,
+since its checker withholds a reply line whose value no tool returned. Retrieved text is
+fenced and marked as data, not instructions.
 """
 
 from collections.abc import Sequence
@@ -16,9 +18,7 @@ from sec_agent.golden.gnum.models import NumQuestion
 _FROZEN = ConfigDict(frozen=True, extra="forbid")
 DEFAULT_PASSAGES = 5
 
-ANSWER_FORMAT = """\
-You answer questions about the SEC filings of US public companies.
-Periods are the company's own fiscal years and quarters, not calendar years.
+REPLY_FORMAT = """\
 End your reply with exactly one line of JSON and nothing after it, in one of these forms:
 {"answer": "number", "value": 123.45, "unit": "USD", "fiscal_year": 2024, \
 "fiscal_period": "FY", "period_end": "2024-01-28"}
@@ -29,6 +29,10 @@ for percentages, the number of percent (12.5 for 12.5%).
 - unit: one of "USD", "USD/shares", "shares", "percent".
 - fiscal_period: one of "FY", "Q1", "Q2", "Q3", "Q4"; period_end: the last day of the period.
 - Use "company" when the question asks which company; "not_found" when you cannot answer."""
+ANSWER_FORMAT = (
+    "You answer questions about the SEC filings of US public companies.\n"
+    "Periods are the company's own fiscal years and quarters, not calendar years.\n" + REPLY_FORMAT
+)
 
 PASSAGE_RULES = """
 Use only the passages from the filings given below. Each passage is inside \
@@ -101,3 +105,14 @@ class B1:
             Message(role="system", content=ANSWER_FORMAT + PASSAGE_RULES),
             Message(role="user", content=user),
         ]
+
+
+class B2:
+    """The agent: one user turn of the question and the reply format. The agent keeps its
+    own system prompt (product rules, tools); the reply line it ends with goes through the
+    faithfulness checker like every other sentence before it is recorded."""
+
+    name = "b2"
+
+    def prompt(self, question: NumQuestion) -> list[Message]:
+        return [Message(role="user", content=f"{question.question}\n\n{REPLY_FORMAT}")]
