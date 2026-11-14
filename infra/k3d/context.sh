@@ -5,20 +5,21 @@ CTX="k3d-sec-agent"
 
 kube() { kubectl --context "$CTX" "$@"; }
 
-# Stops unless the context exists and its API server is on this machine (k3d publishes it on
-# 0.0.0.0, 127.0.0.1, localhost or host.docker.internal).
+# Stops unless the context exists and the cluster it selects has its API server on this
+# machine (k3d publishes it on 0.0.0.0, 127.0.0.1, localhost or host.docker.internal).
+# `--minify --context` resolves the server through the context itself, so a local cluster
+# that only shares the context's name cannot pass for it. The whole URL must match: scheme,
+# local host, numeric port, nothing after but an optional slash.
+LOCAL_SERVER='^https://(0\.0\.0\.0|127\.0\.0\.1|localhost|host\.docker\.internal):[0-9]+/?$'
+
 require_context() {
   local server
-  server="$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$CTX\")].cluster.server}")"
-  if [ -z "$server" ]; then
-    echo "no kube context $CTX: run infra/k3d/up.sh to create the cluster" >&2
+  if ! server="$(kubectl config view --minify --context "$CTX"     -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null)" || [ -z "$server" ]; then
+    echo "no usable kube context $CTX: run infra/k3d/up.sh to create the cluster" >&2
     exit 1
   fi
-  case "$server" in
-    https://0.0.0.0:* | https://127.0.0.1:* | https://localhost:* | https://host.docker.internal:*) ;;
-    *)
-      echo "context $CTX points at $server, not a local k3d cluster: refusing" >&2
-      exit 1
-      ;;
-  esac
+  if ! [[ "$server" =~ $LOCAL_SERVER ]]; then
+    echo "context $CTX points at $server, not a local k3d cluster: refusing" >&2
+    exit 1
+  fi
 }
