@@ -69,7 +69,7 @@ _LABELLED = re.compile(
     r"(?:strong\s+)?(?:buy|sell|hold|accumulate|overweight|underweight|outperform|"
     r"underperform)(?![^\W_]|-)"
     r"(?!\s+(?:of|obligations?|commitments?|orders?|prices?|agreements?|side|volumes?|harmless|"
-    r"on|off|true|back)(?![^\W_]))"
+    r"true|back)(?![^\W_])|(?<=sell)\s+off(?![^\W_]))"
 )
 """A call behind a label, markdown or a separator ("**recommendation:** buy", "bottom line -
 buy", "rating -- overweight"): read on the whole text, since the segments split at the colon
