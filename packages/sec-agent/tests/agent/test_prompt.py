@@ -27,3 +27,12 @@ def test_the_prompt_states_the_rules_an_answer_must_follow() -> None:
         "[",  # citation keys in brackets
     ):
         assert phrase in PROMPT, phrase
+
+
+def test_a_canary_is_appended_after_the_rules() -> None:
+    """The canary is a secret the model must never write: seeing it means the prompt
+    leaked, or an instruction injected into a passage was followed."""
+    with_canary = system_prompt(dt.date(2026, 11, 13), canary="cnry-00000000000000aa")
+    assert with_canary.startswith(PROMPT)
+    assert "cnry-00000000000000aa" in with_canary
+    assert "cnry-" not in PROMPT

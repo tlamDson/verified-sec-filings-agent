@@ -40,10 +40,10 @@ def test_a_numeric_question_is_answered_from_a_tool_result(facts_ctx: FactsConte
     assert loads(evidence.result)["fact"]["period_end"] == "2024-09-28"
 
     first, second = model.requests
-    assert first.messages == [
-        {"role": "system", "content": system_prompt(ASKED_ON)},
-        {"role": "user", "content": QUESTION},
-    ]
+    prompt, asked = first.messages
+    assert prompt["role"] == "system"
+    assert (prompt["content"] or "").startswith(system_prompt(ASKED_ON)), "rules, then canary"
+    assert asked == {"role": "user", "content": QUESTION}
     assert [t["function"]["name"] for t in first.tools] == [
         "get_fact",
         "compute_ratio",
