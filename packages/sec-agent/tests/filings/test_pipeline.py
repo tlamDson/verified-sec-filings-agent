@@ -14,8 +14,8 @@ SMALL = ChunkConfig(max_tokens=30)
 # Digest of every chunk the default configuration makes from sim-10k.htm. When parser or
 # chunker output changes on purpose, bump PARSER_VERSION (so a new index_version is built
 # beside the old one instead of silently mixing into it) and record the new digest here.
-PINNED_VERSION = "chunks-p2-t400-"
-PINNED_DIGEST = "8ccfe7f2f0793331656b02f46f8912fa8956686088e06be87a0da83451a28d56"
+PINNED_VERSION = "chunks-p3-t400-"
+PINNED_DIGEST = "fd5a19a954a5043d1c2a0ae29f11c1a5d8c0de4fa93a1e9dc20ac780735ca5d1"
 
 
 def _digest(indexed: IndexedFiling) -> str:
@@ -99,3 +99,22 @@ def test_exhibits_are_ignored_when_the_10k_answers_every_item(
     exhibit = ExhibitDocument(url="https://www.sec.gov/x.htm", html=read_fixture("sim-ex13.htm"))
     alone = index_filing(read_fixture("sim-10k.htm"), filing_10k, ChunkConfig())
     assert index_filing(read_fixture("sim-10k.htm"), filing_10k, ChunkConfig(), (exhibit,)) == alone
+
+
+def test_a_part_continued_in_a_second_exhibit_keeps_both_pieces(
+    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
+) -> None:
+    folder = filing_10k.document_url.rsplit("/", 1)[0]
+    first = ExhibitDocument(
+        url=f"{folder}/simb-ex13.htm",
+        html=b"<div>Financial Review</div><p>Simulated net income rose on simulated fees.</p>",
+    )
+    second = ExhibitDocument(
+        url=f"{folder}/simb-ex13_2.htm",
+        html=b"<p>Simulated deposit costs rose faster than simulated loan yields.</p>"
+        b"<div>Controls and Procedures</div><p>Simulated controls.</p>",
+    )
+    indexed = index_filing(read_fixture("sim-10k-ibr.htm"), filing_10k, SMALL, (first, second))
+    mdna = {s.key: s for s in indexed.sections}["mdna"]
+    assert "simulated fees" in mdna.text
+    assert "simulated loan yields" in mdna.text

@@ -12,6 +12,11 @@ optionally followed by "(continued)". Reports repeat a part's title at page tops
 consecutive headings of the same part join into one run and are left out of its text.
 The table of contents repeats every title too; the longest run of a part wins, which
 skips it. Business is never taken from an annual report: a 10-K always writes Item 1.
+
+A report filed as several exhibits (EX-13.1, EX-13.2) is one report cut into files: the
+documents are read in sequence order as one run of blocks, so a part that continues into
+the next file, with or without its title repeated, keeps every piece. A section cites the
+document its heading is in.
 """
 
 import re
@@ -68,10 +73,22 @@ _Part = SectionKey | Literal["other"]
 class _Run:
     key: _Part
     heading: str
+    heading_index: int
     body: tuple[str, ...]
 
 
 def find_annual_report_sections(blocks: Sequence[str], source_url: str) -> list[Section]:
+    """Sections of one annual-report document."""
+    return find_annual_report_documents([(source_url, blocks)])
+
+
+def find_annual_report_documents(
+    documents: Sequence[tuple[str, Sequence[str]]],
+) -> list[Section]:
+    """Sections of a report filed as one or more documents, given as (url, blocks) in
+    sequence order."""
+    blocks = [block for _, doc_blocks in documents for block in doc_blocks]
+    owners = [url for url, doc_blocks in documents for _ in doc_blocks]
     best: dict[SectionKey, tuple[int, Section]] = {}
     for run in _runs(blocks):
         if run.key == "other":
@@ -83,7 +100,7 @@ def find_annual_report_sections(blocks: Sequence[str], source_url: str) -> list[
             heading=run.heading,
             text=text,
             token_count=count_tokens(text),
-            source_url=source_url,
+            source_url=owners[run.heading_index],
         )
         if section.token_count >= MIN_SECTION_TOKENS and (
             run.key not in best or len(text) > best[run.key][0]
@@ -95,9 +112,9 @@ def find_annual_report_sections(blocks: Sequence[str], source_url: str) -> list[
 def _runs(blocks: Sequence[str]) -> list[_Run]:
     runs: list[_Run] = []
     key: _Part | None = None
-    heading = ""
+    heading, start = "", 0
     body: list[str] = []
-    for block in blocks:
+    for index, block in enumerate(blocks):
         part = _heading_part(block)
         if part is None:
             if key is not None:
@@ -106,10 +123,10 @@ def _runs(blocks: Sequence[str]) -> list[_Run]:
         if part == key and part != "other":
             continue  # the part's title repeated at a page top
         if key is not None:
-            runs.append(_Run(key, heading, tuple(body)))
-        key, heading, body = part, block, []
+            runs.append(_Run(key, heading, start, tuple(body)))
+        key, heading, start, body = part, block, index, []
     if key is not None:
-        runs.append(_Run(key, heading, tuple(body)))
+        runs.append(_Run(key, heading, start, tuple(body)))
     return runs
 
 

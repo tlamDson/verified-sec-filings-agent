@@ -7,7 +7,10 @@ title at page tops.
 
 from collections.abc import Callable
 
-from sec_agent.filings.annual_report import find_annual_report_sections
+from sec_agent.filings.annual_report import (
+    find_annual_report_documents,
+    find_annual_report_sections,
+)
 from sec_agent.filings.html_text import html_blocks
 
 URL = "https://www.sec.gov/Archives/edgar/data/9999999999/999999999925000011/simb-ex13.htm"
@@ -62,3 +65,33 @@ def test_a_title_inside_a_sentence_is_not_a_heading() -> None:
 
 def test_a_report_without_those_parts_gives_no_sections() -> None:
     assert find_annual_report_sections(["Letter to Shareholders", FILLER], URL) == []
+
+
+URL_2 = URL.replace("simb-ex13.htm", "simb-ex13_2.htm")
+
+
+def test_a_report_split_over_several_exhibits_is_read_as_one_report() -> None:
+    first = ["Financial Review", "Overview", FILLER]
+    # EX-13.2 picks up mid-review, without repeating the title, then starts Risk Factors.
+    second = [
+        "Net interest income fell on simulated deposit costs.",
+        "Regulatory Matters",
+        "The company remains under a simulated asset cap.",
+        "Risk Factors",
+        "Simulated rate changes could reduce simulated income.",
+        "Controls and Procedures",
+        "Simulated controls were evaluated.",
+    ]
+    sections = find_annual_report_documents([(URL, first), (URL_2, second)])
+    by_key = {s.key: s for s in sections}
+    assert by_key["mdna"].text == "\n".join([*first[1:], *second[:3]])
+    assert by_key["mdna"].source_url == URL  # where the part starts
+    assert by_key["risk_factors"].text == second[4]
+    assert by_key["risk_factors"].source_url == URL_2
+
+
+def test_one_document_reads_the_same_alone_or_as_a_one_document_report(
+    read_fixture: Callable[[str], bytes],
+) -> None:
+    blocks = html_blocks(read_fixture("sim-ex13.htm"))
+    assert find_annual_report_documents([(URL, blocks)]) == find_annual_report_sections(blocks, URL)
