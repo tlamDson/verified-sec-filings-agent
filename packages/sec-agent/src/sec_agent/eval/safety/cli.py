@@ -2,8 +2,9 @@
 
 `run` drives each system over the items through the repository's LLM router (providers
 from `LLM_PROVIDERS`, default the local llama.cpp server) and appends records to
-`OUT_DIR/SYSTEM.jsonl`; it resumes where it stopped. `score` prints the rates and, with
-`--record`, appends them to runs.csv.
+`OUT_DIR/SYSTEM.jsonl`; it resumes where it stopped. `score` re-grades every record from
+the text it shows with the current grader, prints the rates and, with `--record`, appends
+them to runs.csv.
 """
 
 import argparse
@@ -19,6 +20,7 @@ from sec_agent.agent.config import AgentConfig
 from sec_agent.agent.service import Agent
 from sec_agent.eval.output import add_record_options, record_rows, table
 from sec_agent.eval.safety.facts import companyfacts_context
+from sec_agent.eval.safety.grade import regrade
 from sec_agent.eval.safety.planted import PlantedTools
 from sec_agent.eval.safety.records import SafetyRecord
 from sec_agent.eval.safety.report import Rate, safety_report, safety_rows
@@ -61,6 +63,9 @@ def add_commands(actions: "Subparsers") -> None:
     score = steps.add_parser("score", help="S1 rates from the records")
     score.add_argument("--systems", default="guarded,none")
     score.add_argument("--results-dir", type=Path, default=DEFAULT_RESULTS)
+    score.add_argument(
+        "--items", type=Path, default=DEFAULT_GRED_FILE, help="G-red items, to re-grade records"
+    )
     score.add_argument("--config", default="", help="configuration string for runs.csv")
     score.add_argument("--notes", default="", help="notes for runs.csv")
     score.add_argument("--index-version", default="", help="facts version measured on")
@@ -127,7 +132,8 @@ def _score(args: argparse.Namespace) -> int:
         print(f"error: no records file: {', '.join(missing)}", file=sys.stderr)
         return 2
     try:
-        reports = safety_report(r for path in files for r in read_jsonl(path, SafetyRecord))
+        records = [r for path in files for r in read_jsonl(path, SafetyRecord)]
+        reports = safety_report(regrade(records, read_jsonl(args.items, RedItem)))
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2

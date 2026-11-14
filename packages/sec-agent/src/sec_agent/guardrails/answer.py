@@ -10,13 +10,13 @@ from dataclasses import dataclass
 from typing import Literal
 
 from sec_agent.faithfulness.sentences import split_sentences
+from sec_agent.guardrails.advice import advice_rule
 from sec_agent.guardrails.canary import leaks
 from sec_agent.guardrails.notices import (
     ADVICE_DECLINED_TEXT,
     ADVICE_DISCLAIMER,
     CANARY_BLOCKED_TEXT,
 )
-from sec_agent.guardrails.patterns import ADVICE_STATEMENT, first_match
 
 _DISCLAIMED = "not investment advice"
 
@@ -40,7 +40,7 @@ def guard_answer(
     dropped = 0
     for sentence in split_sentences(text):
         piece = text[sentence.start : sentence.end]
-        if first_match(piece, ADVICE_STATEMENT) is None:
+        if advice_rule(piece) is None:
             kept.append(piece)
         else:
             dropped += 1
