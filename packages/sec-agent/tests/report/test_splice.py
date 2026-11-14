@@ -1,6 +1,7 @@
 """Replace the text between the results markers and nothing else."""
 
 import pytest
+
 from sec_agent.report.splice import MarkersMissingError, splice_block
 
 START = "<!-- results:start -->"

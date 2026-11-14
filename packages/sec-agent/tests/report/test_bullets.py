@@ -2,6 +2,7 @@
 
 import pytest
 from report_kit import bullet_rows
+
 from sec_agent.report.bullets import MissingRunError, render_bullets
 
 

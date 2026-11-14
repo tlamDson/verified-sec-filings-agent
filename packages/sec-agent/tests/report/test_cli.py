@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from report_kit import bullet_rows, run
+
 from sec_agent.cli import main
 from sec_agent.runs import append_run
 

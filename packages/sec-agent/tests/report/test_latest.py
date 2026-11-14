@@ -1,6 +1,7 @@
 """A re-run of a measurement replaces the earlier row for the same key."""
 
 from report_kit import run
+
 from sec_agent.report.latest import latest_rows
 
 

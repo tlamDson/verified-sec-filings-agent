@@ -19,6 +19,7 @@ from sec_agent.jobs import cli as jobs_cli
 from sec_agent.mcp_server import cli as mcp_cli
 from sec_agent.observability import cli as traces_cli
 from sec_agent.observability.setup import TracingConfigError, trace_settings_from_env, tracing
+from sec_agent.report import cli as report_cli
 from sec_agent.rerank import cli as rerank_cli
 from sec_agent.retrieval import cli as retrieval_cli
 from sec_agent.simusers import cli as sim_cli
@@ -45,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     sim_cli.add_commands(subparsers)
     chaos_cli.add_commands(subparsers)
     rerank_cli.add_commands(subparsers)
+    report_cli.add_commands(subparsers)
     return parser
 
 
