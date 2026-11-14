@@ -1,4 +1,5 @@
-"""`sec-agent eval numeric` (and `eval retrieval run|score` from `eval.retrieval_cli`)."""
+"""`sec-agent eval numeric` (`eval retrieval run|score` from `eval.retrieval_cli`, `eval
+safety run|score` from `eval.safety.cli`)."""
 
 import argparse
 import sys
@@ -11,6 +12,7 @@ from sec_agent.eval.numeric.report import NumericReport, SystemAccuracy, numeric
 from sec_agent.eval.numeric.runner import AnswerRecord
 from sec_agent.eval.output import add_record_options, record_rows, table
 from sec_agent.eval.records import numeric_rows
+from sec_agent.eval.safety import cli as safety_cli
 from sec_agent.golden.gnum.models import NumQuestion
 from sec_agent.golden.jsonl import read_jsonl
 
@@ -40,6 +42,7 @@ def add_commands(subparsers: "Subparsers") -> None:
     numeric.set_defaults(run=_numeric)
 
     retrieval_cli.add_commands(actions)
+    safety_cli.add_commands(actions)
 
 
 def _numeric(args: argparse.Namespace) -> int:
