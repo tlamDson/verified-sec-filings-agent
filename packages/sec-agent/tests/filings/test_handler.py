@@ -8,6 +8,7 @@ import pytest
 from pydantic import JsonValue
 
 from sec_agent.edgar.errors import EdgarNotFoundError, EdgarUnavailableError
+from sec_agent.filings.exhibits import filing_index_url
 from sec_agent.filings.handler import make_filing_handler
 from sec_agent.filings.index_version import ChunkConfig, index_version
 from sec_agent.filings.models import FILING_SECTIONS_KIND, FilingJob, FilingRef, IndexedFiling
@@ -146,3 +147,79 @@ def test_worker_drains_filing_jobs_into_postgres_exactly_once(
         ("10-Q", ["mdna", "risk_factors"]),
     ]
     assert filings == (2,)
+
+
+def _ibr_documents(read_fixture: Callable[[str], bytes], filing: FilingRef) -> dict[str, bytes]:
+    folder = filing_index_url(filing).rsplit("/", 1)[0]
+    return {
+        filing.document_url: read_fixture("sim-10k-ibr.htm"),
+        filing_index_url(filing): read_fixture("sim-filing-index.htm"),
+        f"{folder}/simb-ex13.htm": read_fixture("sim-ex13.htm"),
+        f"{folder}/simb-ex13_2.htm": b"<html><body><p>Glossary of simulated terms.</p></body></html>",
+    }
+
+
+def test_incorporated_items_are_read_from_the_exhibit_13_documents(
+    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
+) -> None:
+    documents = _ibr_documents(read_fixture, filing_10k)
+    fetched: list[str] = []
+
+    def fetch(url: str) -> bytes:
+        fetched.append(url)
+        return documents[url]
+
+    store = FakeStore()
+    make_filing_handler(fetch, store, CONFIG)(_job(_payload(filing_10k)))
+    assert fetched == list(documents)  # primary, index, then each EX-13 in sequence order
+    (indexed,) = store.stored
+    by_key = {s.key: s for s in indexed.sections}
+    assert by_key["mdna"].source_url == fetched[2]
+    assert by_key["risk_factors"].source_url == fetched[2]
+    assert by_key["business"].source_url is None
+    assert any("simulated asset cap" in c.text for c in indexed.chunks if c.section == "mdna")
+
+
+def test_a_10k_with_its_own_text_fetches_only_its_primary_document(
+    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
+) -> None:
+    fetched: list[str] = []
+
+    def fetch(url: str) -> bytes:
+        fetched.append(url)
+        return read_fixture("sim-10k.htm")
+
+    make_filing_handler(fetch, FakeStore(), CONFIG)(_job(_payload(filing_10k)))
+    assert fetched == [filing_10k.document_url]
+
+
+def test_a_missing_filing_index_keeps_the_primary_sections(
+    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
+) -> None:
+    def fetch(url: str) -> bytes:
+        if url == filing_10k.document_url:
+            return read_fixture("sim-10k-ibr.htm")
+        raise EdgarNotFoundError(url)
+
+    store = FakeStore()
+    make_filing_handler(fetch, store, CONFIG)(_job(_payload(filing_10k)))
+    (indexed,) = store.stored
+    assert [s.key for s in indexed.sections] == ["business", "risk_factors", "mdna", "market_risk"]
+    assert all(s.source_url is None for s in indexed.sections)
+
+
+def test_a_missing_exhibit_document_is_skipped(
+    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
+) -> None:
+    documents = _ibr_documents(read_fixture, filing_10k)
+    missing = list(documents)[3]
+
+    def fetch(url: str) -> bytes:
+        if url == missing:
+            raise EdgarNotFoundError(url)
+        return documents[url]
+
+    store = FakeStore()
+    make_filing_handler(fetch, store, CONFIG)(_job(_payload(filing_10k)))
+    (indexed,) = store.stored
+    assert {s.key: s for s in indexed.sections}["mdna"].item == "Exhibit 13"

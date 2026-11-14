@@ -263,3 +263,22 @@ def test_bad_sizes_are_refused(
 ) -> None:
     with pytest.raises(ValueError, match="must be"):
         search(conn, QUERY, space, embedder=embedder, k=k, candidates=candidates)
+
+
+def test_a_hit_from_an_exhibit_section_cites_the_exhibit_document(
+    conn: Conn, space: EmbeddingSpace, embedder: HashEmbedder
+) -> None:
+    (first,) = search(conn, QUERY, space, embedder=embedder, k=1)
+    exhibit = "https://www.sec.gov/Archives/edgar/data/9999999999/sim-ex13.htm"
+    conn.execute(
+        b"UPDATE filing_sections SET source_url = %s"
+        b" WHERE index_version = %s AND accession = %s AND section = %s",
+        (exhibit, VERSION, first.accession, first.section),
+    )
+    (again,) = search(conn, QUERY, space, embedder=embedder, k=1)
+    assert (again.accession, again.section, again.ordinal) == (
+        first.accession,
+        first.section,
+        first.ordinal,
+    )
+    assert again.source_url == exhibit
