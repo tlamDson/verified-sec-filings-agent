@@ -3889,3 +3889,5 @@
 {"qid": "q099", "docid": "0000072971-24-000064/risk_factors/0", "grade": 0, "text_sha256": "bce2bb3f28ba6c97f1a5a58953e2a837a04a881feba956312c72085ee3f2afa2", "labeled_at": "2026-11-14T15:45:00+00:00"}
 {"qid": "q099", "docid": "0000072971-20-000217/risk_factors/0", "grade": 0, "text_sha256": "55048095bf0698bb5b44169b7cb99483dc1bbfbad4213b5c7e2f10749a147d4f", "labeled_at": "2026-11-14T15:45:00+00:00"}
 {"qid": "q099", "docid": "0000072971-25-000066/risk_factors/0", "grade": 0, "text_sha256": "e8b53c61f5450cd77623cad5cf23f108823da63a25dbb8a4c31742eca7707e53", "labeled_at": "2026-11-14T15:45:00+00:00"}
+{"qid": "q019", "docid": "0000093410-24-000040/mdna/6", "grade": 0, "text_sha256": "bbded9c810d6af9861bc97e155bc6a6e9610eaa6263b1b53cbc0f330bac40412", "labeled_at": "2026-11-14T20:05:00+00:00"}
+{"qid": "q056", "docid": "0001327567-23-000006/risk_factors/16", "grade": 1, "text_sha256": "e5e233e8c2445b6cdda46ba61331f44ab582b8f28ba1f9e8f3ec8e6f8358d25c", "labeled_at": "2026-11-14T20:05:00+00:00"}
