@@ -51,4 +51,6 @@ def test_build_over_committed_results_has_five_to_ten_samples(tmp_path: Path) ->
     assert main(["demo", "build", *args, "--out", str(out)]) == 0
     page = (out / "index.html").read_text("utf-8")
     assert 5 <= page.count('<article class="sample"') <= 10
-    assert page.count('<li class="passage"') >= 3
+    articles = page.split('<article class="sample"')[1:]
+    with_passages = [a for a in articles if '<li class="passage"' in a]
+    assert len(with_passages) >= 5

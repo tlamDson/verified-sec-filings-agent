@@ -108,7 +108,7 @@ def pick_samples(
     scenarios: Sequence[Scenario],
     transcripts: Sequence[Transcript],
     limit: int = 10,
-    cited_first: int = 3,
+    cited_first: int = 5,
 ) -> list[Sample]:
     """Up to `limit` samples of the agent: first up to `cited_first` that cite filing
     passages, then the least-shown category each time, each in scenario order."""
