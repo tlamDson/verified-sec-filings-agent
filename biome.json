@@ -14,7 +14,8 @@
       "!**/.venv",
       "!**/*.py",
       "!**/tests/fixtures",
-      "!infra/hf-space/README.md"
+      "!infra/hf-space/README.md",
+      "!infra/helm/*/templates"
     ]
   },
   "formatter": {

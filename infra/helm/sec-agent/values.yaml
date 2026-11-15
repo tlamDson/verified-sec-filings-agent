@@ -1,0 +1,94 @@
+# Values for the optional k3d deployment (s-x1). infra/k3d/up.sh installs it.
+# Nothing here is a secret: passwords, the API token secret and the SEC contact live in a
+# Secret made outside the chart (up.sh makes it from .env) and named by secretName.
+
+# Name of the Secret with keys PGPASSWORD, API_AUTH_SECRET and SEC_USER_AGENT. Required.
+secretName: ""
+
+# One image for API, worker, init job and simulated models: infra/load/Dockerfile, built
+# locally and imported into k3d (`k3d image import`), so it is never pulled.
+image:
+  repository: sec-agent-load
+  tag: local
+  pullPolicy: IfNotPresent
+
+# Facts index version every API replica is pinned to.
+factsVersion: v1
+
+# LLM providers, in failover order. The defaults are the two simulated models below: no
+# provider is called, nothing can bill.
+llm:
+  providers:
+    - name: llm-a
+      base_url: http://fake-llm-a:8081/v1
+      model: fake-llm-sim
+      timeout_seconds: 30
+    - name: llm-b
+      base_url: http://fake-llm-b:8081/v1
+      model: fake-llm-sim
+      timeout_seconds: 30
+
+api:
+  # false installs everything but the API, so facts can be ingested before a replica starts
+  # (a replica refuses to start while its facts version is missing).
+  enabled: true
+  replicas: 2 # used only when autoscaling is off
+  port: 8000
+  dailyQuestions: 100000
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+    scaleDownStabilizationSeconds: 120
+  resources:
+    requests:
+      cpu: 250m
+      memory: 384Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  ingress:
+    enabled: true
+    className: traefik
+    host: ""
+
+worker:
+  # The EDGAR token bucket is per process: two workers would send up to 20 requests per
+  # second to SEC. The chart refuses more than one.
+  replicas: 1
+  lease: 60
+  heartbeat: 20
+  poll: 2
+  rawCacheSize: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# Simulated OpenAI-compatible models (`sec-agent chaos fake-llm`), labelled simulated.
+fakeLlm:
+  enabled: true
+  names: [fake-llm-a, fake-llm-b]
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+postgres:
+  image: paradedb/paradedb:0.26.3-pg17
+  storage: 5Gi
+  # ConfigMap holding infra/postgres/init (up.sh makes it); run on the first start only.
+  initConfigMap: sec-agent-pg-init
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi

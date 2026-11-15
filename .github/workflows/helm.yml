@@ -1,0 +1,53 @@
+# Checks the optional Helm chart (s-x1): lint, render with a placeholder Secret name, and
+# validate the rendered objects against the Kubernetes schemas. No cluster is started.
+name: Helm
+
+on:
+  pull_request:
+    paths:
+      - "infra/helm/**"
+      - "infra/k3d/**"
+      - ".github/workflows/helm.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "infra/helm/**"
+      - "infra/k3d/**"
+      - ".github/workflows/helm.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  chart:
+    name: Helm chart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install helm and kubeconform
+        run: |
+          curl -fsSL https://get.helm.sh/helm-v3.16.4-linux-amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin --strip-components=1 linux-amd64/helm
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin kubeconform
+      - name: Lint
+        run: helm lint infra/helm/sec-agent --set secretName=ci-placeholder
+      - name: Render and validate
+        run: |
+          for api in true false; do
+            helm template sec-agent infra/helm/sec-agent --set secretName=ci-placeholder \
+              --set api.enabled=$api \
+              | kubeconform -strict -summary
+          done
+      - name: More than one worker is refused
+        run: |
+          if helm template sec-agent infra/helm/sec-agent --set secretName=x --set worker.replicas=2; then
+            echo "chart accepted two workers" >&2
+            exit 1
+          fi
+      - name: A missing secretName is refused
+        run: |
+          if helm template sec-agent infra/helm/sec-agent; then
+            echo "chart rendered without secretName" >&2
+            exit 1
+          fi

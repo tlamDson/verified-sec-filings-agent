@@ -1,0 +1,8 @@
+sec-agent {{ .Chart.Version }} in namespace {{ .Release.Namespace }}.
+{{- if .Values.api.enabled }}
+API: http://127.0.0.1:8090/healthz (Traefik through the k3d load balancer).
+Replicas and CPU: kubectl get hpa {{ .Release.Name }}-api -n {{ .Release.Namespace }} --watch
+{{- else }}
+The API is off (api.enabled=false): ingest facts {{ .Values.factsVersion }}, then upgrade with api.enabled=true.
+{{- end }}
+Models are simulated unless llm.providers was overridden.

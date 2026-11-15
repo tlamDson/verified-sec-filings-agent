@@ -1,0 +1,37 @@
+# Creates the queue, facts, agent and API tables once (every command is idempotent), after
+# install and before each upgrade, instead of every API replica racing on start.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-init
+  labels:
+    {{- include "sec-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: init
+  annotations:
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "sec-agent.labels" . | nindent 8 }}
+        app.kubernetes.io/component: init
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+      initContainers:
+        {{- include "sec-agent.waitForPostgres" . | nindent 8 }}
+      containers:
+        - name: init
+          image: {{ include "sec-agent.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - sec-agent jobs init && sec-agent xbrl init && sec-agent agent init && sec-agent api init
+          env:
+            {{- include "sec-agent.dbEnv" . | nindent 12 }}

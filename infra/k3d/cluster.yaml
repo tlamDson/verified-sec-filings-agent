@@ -1,0 +1,21 @@
+# Optional local Kubernetes cluster (s-x1): k3s in Docker, one server and two agents, so the
+# API replicas spread over nodes. Traefik (ingress) and metrics-server (for the HPA) ship
+# with k3s and are kept. The ingress is published on 127.0.0.1 only.
+#   k3d cluster create --config infra/k3d/cluster.yaml   (infra/k3d/up.sh does this)
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: sec-agent
+servers: 1
+agents: 2
+image: rancher/k3s:v1.31.5-k3s1
+ports:
+  - port: 127.0.0.1:8090:80
+    nodeFilters:
+      - loadbalancer
+options:
+  k3d:
+    wait: true
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: false # the scripts pass --context

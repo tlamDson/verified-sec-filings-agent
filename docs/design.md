@@ -509,6 +509,26 @@ worker-1 container: sec-agent chaos kill-worker ──► 3 x sec-agent worker o
 - **Acceptance check.** `load-rows` then applies the plan's check in code (`sec_agent.chaos.acceptance`). The turn, resume and interrupted-resume error rates must each be under 5%, the limit the k6 thresholds also hold; the plan names none. A run with no follow-up fails, because it cannot show that conversations resume. On a failure it exits 1 after recording the rows. `chaos.sh` exits non-zero when k6 fails (99 when a threshold was crossed) or the check fails, after the rows of that run are written.
 - **Not here.** A global LLM semaphore and the answer cache (see Web app and API), load against the free hosts, and any quality measure under load.
 
+### Kubernetes on k3d (optional, built in s-x1)
+
+Code: `infra/k3d/`, `infra/helm/sec-agent/`, `.github/workflows/helm.yml`. A local cluster on the owner's machine that runs the same image as the load stack; it is never deployed to a host and is not part of the core (see Non-goals).
+
+```
+k3d (1 server, 2 agents) ─ Traefik on 127.0.0.1:8090 ─► Service api ─► api pods (HPA 2-5 on CPU, PDB minAvailable 1)
+                                                                        │ LLM_PROVIDERS ─► fake-llm-a ─► fake-llm-b (simulated)
+init Job (post-install, pre-upgrade): jobs, xbrl, agent, api init       ▼
+worker (1 replica, Recreate, raw cache PVC) ─────────────────────► postgres StatefulSet (ParadeDB pg17, PVC)
+```
+
+- **Install order.** `infra/k3d/up.sh` creates the cluster, builds `infra/load/Dockerfile` and imports it (never pulled), makes the Postgres init ConfigMap from `infra/postgres/init` and a Secret from `.env` (`PGPASSWORD`, `API_AUTH_SECRET`, `SEC_USER_AGENT`), installs the chart with `api.enabled=false`, ingests the facts with the worker, waits for an empty queue, checks the snapshot with `sec-agent chaos integrity`, then turns the API on. The API goes last because a replica refuses to start while its facts version is missing.
+- **Secrets.** The chart makes no Secret and fails to render without `secretName`, so no password, token or contact is in the chart or its values.
+- **Kube context.** The scripts never use the current context. Every `kubectl` and `helm` call names the `k3d-sec-agent` context (`infra/k3d/context.sh`). Before the first call they check that this context exists and that its API server is on this machine (0.0.0.0, 127.0.0.1, localhost or host.docker.internal), so the Secret made from `.env` cannot reach another cluster. `k3d` adds the context without switching to it. `up.sh` writes the secret values to a temporary directory that only the current user can read, and deletes it on exit, so no value appears on a command line.
+- **One worker.** The EDGAR token bucket is per process, so two worker pods could send 20 requests per second to SEC. The chart refuses `worker.replicas` above 1 and rolls the worker with `Recreate`, so two never overlap. Scaling ingest out would need a token bucket shared through Postgres; it is not needed for the snapshot size.
+- **API scaling.** Replicas are stateless (threads are checkpointed in Postgres), so the HPA may add or remove any of them. It targets 70% of the CPU request, scales down at most one pod a minute after a two-minute window, and a PodDisruptionBudget keeps one replica through a node drain. Pods spread over nodes by hostname.
+- **Models.** The default providers are the two simulated models (`sec-agent chaos fake-llm`); nothing in the cluster can bill.
+- **HPA under load.** `infra/k3d/hpa-watch.sh` runs the s-20 k6 script in a pod against the API service and logs the HPA every 15 s to `infra/k3d/results/hpa.log`. The traffic is simulated accounts asking simulated models; the replica counts are observations of the autoscaler and are not `runs.csv` numbers.
+- **CI.** The `Helm chart` job lints the chart, renders it with the API on and off, validates the objects with kubeconform, and checks that two workers and a missing `secretName` are refused. It is not a required check; no cluster runs in CI.
+
 ## Results
 
 Every measured number lives in `runs.csv`, one row per number, validated by `sec_agent.runs`. `sec-agent report sync` prints the latest row for each metric, system, split and cohort into the README, and `sec-agent report sync --check` (run by a test) fails when the README or `docs/bullets.md` is out of date. This document does not copy numbers, so it cannot drift from them.
