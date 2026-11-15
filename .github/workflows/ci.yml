@@ -32,6 +32,10 @@ jobs:
         run: uv run pyright
       - name: Tests
         run: uv run pytest -q
+      - name: Eval gate
+        run: uv run sec-agent eval gate
+      - name: Eval gate mutations
+        run: uv run sec-agent eval mutations
 
   web:
     name: Web checks

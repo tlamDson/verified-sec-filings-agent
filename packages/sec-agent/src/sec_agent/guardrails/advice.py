@@ -30,6 +30,27 @@ _MOVE = (
 )
 _STOCK = r"(?<![-\w])(?:stock|shares?|share\s+price|stock\s+price)\b(?!-)"
 
+_LABEL = r"(?<![^\W_])(?:recommendations?|verdicts?|ratings?|advice|call|bottom\s+line)(?![^\W_])"
+"""A label. "_" is markdown here, not a letter: `\b` would not see "_Recommendation_"."""
+_LABEL_MARK = (
+    r"(?:(?:[*_~`]|</[a-z]{1,6}>){0,6}\s*[:|=>/\-–—→]|(?:[*_~`]|</[a-z]{1,6}>){1,6}|"  # noqa: RUF001
+    r"\s+(?:is|would\s+be|should\s+be|remains|stays)\s+)"
+)
+"""What joins a label to its call: closing markdown ("**", "_", "~~"), a colon, a dash, an
+arrow, "=", "|" (a table cell), or "is". A bare space does not ("advice to buy" in a decline
+is not a call)."""
+_CALL_FILL = (
+    r"(?:<[^<>]{1,8}>|[\s*_`\"'|>~#:/=\[\]()\-–—→])*(?:to\s+)?"  # noqa: RUF001
+    r"(?:(?:it['’]?s|it\s+is|this\s+is|that['’]?s)\s+)?(?:(?:an?|the)\s+)?(?:strong\s+)?"  # noqa: RUF001
+)
+_CALL = (
+    r"(?:buy|sell|hold|accumulate|overweight|underweight|outperform|underperform)(?![^\W_]|-)"
+    r"(?!\s+(?:of|obligations?|commitments?|orders?|prices?|agreements?|side|volumes?|harmless|"
+    r"true)(?![^\W_]))"
+)
+"""A call after a label: "**Recommendation:** Buy", "- Verdict: buy", "Bottom line - buy",
+"Rating -- Overweight", "Recommendation | it's a buy"."""
+
 ADVICE_STATEMENT: Rules = (
     rule(
         "you_should_trade",
@@ -69,12 +90,7 @@ ADVICE_STATEMENT: Rules = (
         r"|\b(?:is|remains|stays|rated|rate\s+it)\s+(?:still\s+)?an?\s+(?:strong\s+)?",
         r"(?:buy|sell|hold)\b(?![-\w])",
     ),
-    rule(
-        "labelled_call",
-        r"\b(?:recommendation|verdict|rating|advice|call|bottom\s+line)",
-        r"(?:\s*\*{0,2}\s*:\s*\*{0,2}|\s+(?:is|would\s+be))\s*(?:to\s+|an?\s+)?(?:strong\s+)?",
-        r"(?:buy|sell|hold|accumulate|overweight|underweight|outperform)\b(?![-\w])",
-    ),
+    rule("labelled_call", _LABEL, _LABEL_MARK, _CALL_FILL, _CALL),
     rule(
         "good_investment",
         r"\b(?:is|looks|seems|remains|makes)\s+(?:like\s+)?(?:an?\s+)?(?:very\s+)?(?:good|great|",

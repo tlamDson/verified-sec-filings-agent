@@ -98,3 +98,86 @@ DECLINES_WITH_LISTS = (
     "I can't give recommendations to buy AAPL now.",
     "I cannot provide price targets and forecasts or say whether the stock will rise.",
 )
+LABELS = (
+    "Recommendation",
+    "**Recommendation**",
+    "- **Verdict**",
+    "> Rating",
+    "## Bottom line",
+    "1. Final recommendation",
+    "Our verdict",
+    "| Recommendation",
+    "_Recommendation_",
+    "<b>Recommendation</b>",
+    "__Verdict__",
+    "***Bottom line***",
+    "~~Rating~~",
+    "**_Recommendation_**",
+)
+SEPARATORS = (":", ": ", ":** ", " - ", " -- ", " — ", " → ", " -> ", " = ", " | ")
+CALLS = (
+    "Buy",
+    "**Buy**",
+    "buy",
+    "SELL",
+    "Hold",
+    "Strong Buy",
+    "Overweight",
+    "Underweight",
+    "Outperform",
+    "a buy",
+    "it's a buy",
+    "Buy (high conviction)",
+    "buy NVDA",
+    "Hold the stock",
+    "_Buy_",
+    "__sell__",
+    "*Hold*",
+    "`buy`",
+    "<b>Buy</b>",
+    "_it's a buy_",
+)
+FORMATTED_RECOMMENDATIONS = tuple(
+    f"{label}{separator}{call}" for label in LABELS for separator in SEPARATORS for call in CALLS
+)
+"""A recommendation behind a label, markdown or a separator ("**Recommendation:** Buy",
+"- Verdict: buy", "Bottom line - buy", "Recommendation -- Overweight")."""
+UNFORMATTED_FACTS = (
+    "The recommendation: sell-side analysts cover the stock.",
+    "Rating: A+ from the agency, unchanged.",
+    "Bottom line - revenue was $391.0 billion.",
+    "Verdict: the court held that the claim failed.",
+    "Recommendation: see the risk factors in Item 1A.",
+    "The earnings call: management said revenue grew.",
+    "Rating - outlook stable.",
+)
+"""Labels and separators with no call after them: facts that must be kept."""
+CALLS_WITH_A_TAIL = (
+    "Buy on dips",
+    "buy on weakness",
+    "Sell on strength",
+    "Buy on any pullback",
+    "Hold on to the stock",
+    "hold onto NVDA",
+    "Buy on the dip",
+    "Buy, on balance",
+    "**Buy** on valuation",
+    "Hold off for now",
+    "Buy off the lows",
+    "Sell off your shares",
+    "sell off NVDA",
+    "Sell off",
+    "**Sell off** now",
+    "Buy back in",
+    "buy back into NVDA",
+    "Buy back the stock",
+    "Buy back",
+)
+"""A call followed by "on", "onto", "off" or "back": still a call."""
+TAILED_RECOMMENDATIONS = tuple(
+    f"{label}{separator}{call}"
+    for label in ("**Recommendation**", "- Verdict", "Bottom line", "_Rating_")
+    for separator in (":", ":** ", " - ", " | ")
+    for call in CALLS_WITH_A_TAIL
+)
+"""A labelled recommendation with a tail ("**Recommendation:** Buy on dips")."""

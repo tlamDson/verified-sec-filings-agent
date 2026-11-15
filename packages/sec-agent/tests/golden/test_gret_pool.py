@@ -6,8 +6,15 @@ from pathlib import Path
 import pytest
 from golden_data import GOLDEN_FIXTURES, split_company
 
-from sec_agent.golden.gret.models import ChunkRef, ChunkText, RetQuestion, RunHit
-from sec_agent.golden.gret.pool import attach_text, build_pool
+from sec_agent.golden.gret.models import (
+    ChunkRef,
+    ChunkText,
+    PoolEntry,
+    PoolItem,
+    RetQuestion,
+    RunHit,
+)
+from sec_agent.golden.gret.pool import attach_text, build_pool, extend_pool
 from sec_agent.golden.gret.questions import load_questions
 from sec_agent.golden.gret.trec import parse_run
 from sec_agent.golden.split import CompanySplit
@@ -155,3 +162,70 @@ def test_attach_text_adds_the_chunk_text_and_its_hash(questions: list[RetQuestio
     assert items[0].text == f"text of {items[0].docid}"
     with pytest.raises(ValueError, match="missing"):
         attach_text(pool, {}, questions[:1], index_version="v1")
+
+
+def _item(entry: PoolEntry, version: str = "v1") -> PoolItem:
+    return PoolItem(
+        **entry.model_dump(),
+        ticker="SIMW",
+        index_version=version,
+        text=f"text of {entry.chunk.docid}",
+        text_sha256="a" * 64,
+    )
+
+
+def test_extending_keeps_every_previous_item_and_adds_the_new_runs_top_k(
+    questions: list[RetQuestion],
+) -> None:
+    previous = [_item(e) for e in build_pool(questions, _hits(), depth=2, seed=7)]
+    new_hit = parse_run(f"q-002 Q0 {ACC}/mdna/9 1 3.0 hybrid\n")
+    fresh = build_pool(questions, [*_hits(), *new_hit], depth=2, seed=7)
+    in_index = [e.chunk for e in fresh] + [i.chunk for i in previous]
+    pool, dropped = extend_pool(previous, fresh, questions, seed=7, in_index=in_index)
+    assert dropped == []
+    assert {(e.qid, e.chunk.docid) for e in pool} == {(i.qid, i.docid) for i in previous} | {
+        ("q-002", f"{ACC}/mdna/9")
+    }
+    assert len(pool) == len({(e.qid, e.chunk.docid) for e in pool})  # each chunk once per question
+    # Same seeded order as a fresh pool: questions in file order, chunks by seeded key.
+    assert [e.qid for e in pool] == sorted(e.qid for e in pool)
+    again, _ = extend_pool(previous, fresh, questions, seed=7, in_index=in_index)
+    assert again == pool
+
+
+def test_a_previous_item_the_new_runs_missed_keeps_its_systems_and_rank(
+    questions: list[RetQuestion],
+) -> None:
+    previous = [_item(e) for e in build_pool(questions, _hits(), depth=3, seed=7)]
+    fresh = build_pool(questions, _hits(), depth=1, seed=7)
+    in_index = [i.chunk for i in previous]
+    pool, _ = extend_pool(previous, fresh, questions, seed=7, in_index=in_index)
+    by_key = {(e.qid, e.chunk.docid): e for e in pool}
+    for item in previous:
+        kept = by_key[(item.qid, item.docid)]
+        if all((f.qid, f.chunk) != (item.qid, item.chunk) for f in fresh):
+            assert (kept.systems, kept.best_rank) == (item.systems, item.best_rank)
+
+
+def test_previous_items_no_longer_in_the_index_are_dropped_and_reported(
+    questions: list[RetQuestion],
+) -> None:
+    previous = [_item(e) for e in build_pool(questions, _hits(), depth=3, seed=7)]
+    fresh = build_pool(questions, _hits(), depth=1, seed=7)
+    gone = next(i for i in previous if all(f.chunk != i.chunk for f in fresh))
+    in_index = [i.chunk for i in previous if i.chunk != gone.chunk]
+    pool, dropped = extend_pool(previous, fresh, questions, seed=7, in_index=in_index)
+    assert gone.docid not in {e.chunk.docid for e in pool}
+    assert [(d.qid, d.chunk) for d in dropped] == [
+        (i.qid, i.chunk) for i in previous if i.chunk == gone.chunk
+    ]
+
+
+def test_extending_refuses_a_previous_pool_with_unknown_questions(
+    questions: list[RetQuestion],
+) -> None:
+    stray = _item(build_pool(questions, _hits(), depth=1, seed=7)[0]).model_copy(
+        update={"qid": "q-404"}
+    )
+    with pytest.raises(ValueError, match="q-404"):
+        extend_pool([stray], [], questions, seed=7, in_index=[stray.chunk])

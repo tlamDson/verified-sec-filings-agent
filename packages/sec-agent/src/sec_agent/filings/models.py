@@ -42,6 +42,15 @@ class FilingRef(BaseModel):
         return archive_url(self.cik, self.accession, self.primary_document)
 
 
+class SourceDocument(BaseModel):
+    """Where one document's text starts inside a section's text."""
+
+    model_config = _FROZEN
+
+    start: int = Field(ge=0)
+    url: str
+
+
 class Section(BaseModel):
     """One item of a filing. `text` is its body without the heading; lines are blocks."""
 
@@ -52,6 +61,21 @@ class Section(BaseModel):
     heading: str  # the heading as the filing writes it
     text: str
     token_count: int = Field(ge=0)
+    source_url: str | None = None
+    """The document the text came from, when it is not the filing's primary document
+    (an Exhibit 13 annual report incorporated by reference)."""
+    documents: tuple[SourceDocument, ...] = ()
+    """For text taken from exhibits: where each document's text starts, in order. A part of
+    a report split over several exhibits spans more than one; empty for the primary document."""
+
+
+class ExhibitDocument(BaseModel):
+    """One HTML exhibit of a filing, fetched for the text a 10-K incorporates by reference."""
+
+    model_config = _FROZEN
+
+    url: str
+    html: bytes
 
 
 class Chunk(BaseModel):
@@ -75,6 +99,9 @@ class Chunk(BaseModel):
     token_count: int = Field(gt=0)
     text: str = Field(min_length=1)
     text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_url: str | None = None
+    """The document this chunk's text came from, when it is not the primary document. A
+    chunk never crosses from one document into the next."""
 
 
 class IndexedFiling(BaseModel):

@@ -123,3 +123,13 @@ def test_session_shows_question_and_text_but_never_systems_or_ranks() -> None:
     assert "bm25" not in screen
     assert "hybrid" not in screen
     assert "rank" not in screen.lower()
+
+
+def test_a_label_for_newer_text_does_not_hide_the_label_for_the_older_text() -> None:
+    # Two index versions pool the same docid with different text (a re-chunked filing):
+    # each pool keeps the label given for its own text.
+    old, new = _item("q-001", 0, sha="a"), _item("q-001", 0, sha="b")
+    labels = [_label(old, 1), _label(new, 2, minute=5)]
+    assert pending_items([old], labels) == []
+    assert qrels_lines([old], labels) == [f"q-001 0 {old.docid} 1"]
+    assert qrels_lines([new], labels) == [f"q-001 0 {new.docid} 2"]

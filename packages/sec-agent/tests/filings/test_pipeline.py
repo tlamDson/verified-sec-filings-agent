@@ -5,7 +5,7 @@ import json
 from collections.abc import Callable
 
 from sec_agent.filings.index_version import ChunkConfig, index_version
-from sec_agent.filings.models import FilingRef, IndexedFiling
+from sec_agent.filings.models import ExhibitDocument, FilingRef, IndexedFiling
 from sec_agent.filings.pipeline import index_filing
 from sec_agent.filings.tokens import count_tokens
 
@@ -14,8 +14,8 @@ SMALL = ChunkConfig(max_tokens=30)
 # Digest of every chunk the default configuration makes from sim-10k.htm. When parser or
 # chunker output changes on purpose, bump PARSER_VERSION (so a new index_version is built
 # beside the old one instead of silently mixing into it) and record the new digest here.
-PINNED_VERSION = "chunks-p1-t400-"
-PINNED_DIGEST = "a4592aec953005d8beb084232368713728132773d3a01898310f3093cca55891"
+PINNED_VERSION = "chunks-p3-t400-"
+PINNED_DIGEST = "d62d7198f3fad75cadb5a83bf35e5c7f61bcbdb3d0d4685d926de80ba6d88648"
 
 
 def _digest(indexed: IndexedFiling) -> str:
@@ -76,3 +76,79 @@ def test_output_is_pinned_to_the_parser_version(
     indexed = index_filing(read_fixture("sim-10k.htm"), filing_10k, ChunkConfig())
     assert indexed.index_version.startswith(PINNED_VERSION)
     assert _digest(indexed) == PINNED_DIGEST, "parser output changed: bump PARSER_VERSION"
+
+
+def test_exhibit_13_text_is_chunked_under_the_10k_items_it_answers(
+    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
+) -> None:
+    url = filing_10k.document_url.rsplit("/", 1)[0] + "/simb-ex13.htm"
+    exhibit = ExhibitDocument(url=url, html=read_fixture("sim-ex13.htm"))
+    indexed = index_filing(read_fixture("sim-10k-ibr.htm"), filing_10k, SMALL, (exhibit,))
+    by_key = {s.key: s for s in indexed.sections}
+    assert by_key["mdna"].source_url == url
+    mdna_chunks = [c for c in indexed.chunks if c.section == "mdna"]
+    assert len(mdna_chunks) > 1
+    for chunk in mdna_chunks:
+        assert by_key["mdna"].text[chunk.char_start : chunk.char_end] == chunk.text
+    assert any("simulated asset cap" in c.text for c in mdna_chunks)
+
+
+def test_exhibits_are_ignored_when_the_10k_answers_every_item(
+    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
+) -> None:
+    exhibit = ExhibitDocument(url="https://www.sec.gov/x.htm", html=read_fixture("sim-ex13.htm"))
+    alone = index_filing(read_fixture("sim-10k.htm"), filing_10k, ChunkConfig())
+    assert index_filing(read_fixture("sim-10k.htm"), filing_10k, ChunkConfig(), (exhibit,)) == alone
+
+
+def test_a_part_continued_in_a_second_exhibit_keeps_both_pieces(
+    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
+) -> None:
+    folder = filing_10k.document_url.rsplit("/", 1)[0]
+    first = ExhibitDocument(
+        url=f"{folder}/simb-ex13.htm",
+        html=b"<div>Financial Review</div><p>Simulated net income rose on simulated fees.</p>",
+    )
+    second = ExhibitDocument(
+        url=f"{folder}/simb-ex13_2.htm",
+        html=b"<p>Simulated deposit costs rose faster than simulated loan yields.</p>"
+        b"<div>Controls and Procedures</div><p>Simulated controls.</p>",
+    )
+    indexed = index_filing(read_fixture("sim-10k-ibr.htm"), filing_10k, SMALL, (first, second))
+    mdna = {s.key: s for s in indexed.sections}["mdna"]
+    assert "simulated fees" in mdna.text
+    assert "simulated loan yields" in mdna.text
+
+
+def test_chunks_of_a_split_part_cite_the_exhibit_their_text_is_in(
+    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
+) -> None:
+    folder = filing_10k.document_url.rsplit("/", 1)[0]
+    first = ExhibitDocument(
+        url=f"{folder}/simb-ex13.htm",
+        html=b"<div>Financial Review</div><p>Simulated net income rose on simulated fees.</p>",
+    )
+    second = ExhibitDocument(
+        url=f"{folder}/simb-ex13_2.htm",
+        html=b"<p>Simulated deposit costs rose faster than simulated loan yields.</p>"
+        b"<div>Controls and Procedures</div><p>Simulated controls.</p>",
+    )
+    config = ChunkConfig(max_tokens=400)
+    indexed = index_filing(read_fixture("sim-10k-ibr.htm"), filing_10k, config, (first, second))
+    mdna = {s.key: s for s in indexed.sections}["mdna"]
+    chunks = [c for c in indexed.chunks if c.section == "mdna"]
+    assert [c.ordinal for c in chunks] == list(range(len(chunks)))
+    for chunk in chunks:
+        assert mdna.text[chunk.char_start : chunk.char_end] == chunk.text
+        assert not ("simulated fees" in chunk.text and "loan yields" in chunk.text)
+    fees = [c.source_url for c in chunks if "simulated fees" in c.text]
+    yields = [c.source_url for c in chunks if "loan yields" in c.text]
+    assert fees == [first.url]
+    assert yields == [second.url]
+
+
+def test_chunks_of_the_primary_document_carry_no_source_of_their_own(
+    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
+) -> None:
+    indexed = index_filing(read_fixture("sim-10k.htm"), filing_10k, SMALL)
+    assert {c.source_url for c in indexed.chunks} == {None}

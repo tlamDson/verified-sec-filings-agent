@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from sec_agent.golden.gret.chunks import PostgresChunkText
 from sec_agent.golden.gret.labels import pending_items, qrels_lines
 from sec_agent.golden.gret.models import Label, PoolItem
-from sec_agent.golden.gret.pool import DEFAULT_DEPTH, attach_text, build_pool
+from sec_agent.golden.gret.pool import DEFAULT_DEPTH, attach_text, build_pool, extend_pool
 from sec_agent.golden.gret.questions import TARGET_QUESTIONS, load_questions
 from sec_agent.golden.gret.session import label_session
 from sec_agent.golden.gret.trec import parse_run, qrels_text
@@ -43,6 +43,13 @@ def add_commands(
     pool.add_argument("--depth", type=int, default=DEFAULT_DEPTH, help="top k per system (20)")
     pool.add_argument("--seed", type=int, default=POOL_SEED)
     pool.add_argument("--out", type=Path, default=DEFAULT_POOL)
+    pool.add_argument(
+        "--extend",
+        type=Path,
+        metavar="POOL",
+        help="keep every chunk of this earlier pool that the index still has, and add the "
+        "runs' top k as new (pending) items",
+    )
     pool.set_defaults(run=_pool)
 
     label = actions.add_parser("label", help="label pooled chunks 0/1/2, blind")
@@ -63,10 +70,32 @@ def _pool(args: argparse.Namespace) -> int:
     questions = load_questions(args.questions, read_split(args.split_file))
     hits = [hit for path in args.runs for hit in parse_run(Path(path).read_text("utf-8"))]
     entries = build_pool(questions, hits, depth=args.depth, seed=args.seed)
+    previous: list[PoolItem] = []
+    if args.extend is not None:
+        if not Path(args.extend).is_file():
+            print(f"error: no pool to extend at {args.extend}", file=sys.stderr)
+            return 2
+        previous = read_jsonl(args.extend, PoolItem)
     if (url := database_url_or_error(args)) is None:
         return 2
+    refs = [e.chunk for e in entries] + [i.chunk for i in previous]
     with PostgresChunkText.connect(url) as source:
-        texts = source.fetch(index_version=args.index_version, refs=[e.chunk for e in entries])
+        texts = source.fetch(index_version=args.index_version, refs=refs)
+    if args.extend is not None:
+        fresh_count = len(entries)
+        try:
+            entries, dropped = extend_pool(
+                previous, entries, questions, seed=args.seed, in_index=texts
+            )
+        except ValueError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        kept = len(previous) - len(dropped)
+        print(
+            f"extended {args.extend}: kept {kept} previously pooled chunks, "
+            f"added {len(entries) - kept} new (of {fresh_count} in the runs' top "
+            f"{args.depth}), dropped {len(dropped)} no longer in {args.index_version}"
+        )
     try:
         items = attach_text(entries, texts, questions, index_version=args.index_version)
     except ValueError as error:
