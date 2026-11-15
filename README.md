@@ -2,6 +2,8 @@
 
 A research agent over public SEC filings (10-K, 10-Q, XBRL) where every number in an answer is traced to its source. Numbers come from deterministic tools, text comes from hybrid retrieval with citations, and an output checker blocks figures it cannot trace.
 
+**Live demo:** <https://tlamdson.github.io/verified-sec-filings-agent/>, a static page with the eval results from `runs.csv` and sample agent answers with their cited passages, built by `.github/workflows/pages.yml` on `main` (no model or API call at view time).
+
 ## Results
 
 Measured on the local Qwen model (free, no paid API) and a seeded sample of S&P 100 companies; the design, the sampling and what each metric means are in [docs/design.md](docs/design.md). The block below is generated: `uv run sec-agent report sync` rewrites it from [runs.csv](runs.csv), and a test fails when it drifts.

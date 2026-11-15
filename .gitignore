@@ -30,3 +30,7 @@ crash.log
 
 # Reranker models (exported ONNX, fold checkpoints): large, rebuilt by `sec-agent rerank`
 models/
+
+# demo site build output
+/site/
+/_site/
