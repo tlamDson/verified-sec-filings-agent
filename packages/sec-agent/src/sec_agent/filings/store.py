@@ -24,13 +24,14 @@ VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
 """
 _INSERT_SECTION = b"""
 INSERT INTO filing_sections (index_version, accession, section, item, heading, text,
-                             token_count)
-VALUES (%s, %s, %s, %s, %s, %s, %s)
+                             token_count, source_url)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
 """
 _INSERT_CHUNK = b"""
 INSERT INTO chunks (index_version, accession, section, ordinal, cik, form, filing_date,
-                    report_date, char_start, char_end, token_count, text, text_sha256)
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    report_date, char_start, char_end, token_count, text, text_sha256,
+                    source_url)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 """
 
 
@@ -84,7 +85,16 @@ class PostgresChunkStore:
             cur.executemany(
                 _INSERT_SECTION,
                 [
-                    (version, filing.accession, s.key, s.item, s.heading, s.text, s.token_count)
+                    (
+                        version,
+                        filing.accession,
+                        s.key,
+                        s.item,
+                        s.heading,
+                        s.text,
+                        s.token_count,
+                        s.source_url or filing.document_url,
+                    )
                     for s in indexed.sections
                 ],
             )
@@ -105,6 +115,7 @@ class PostgresChunkStore:
                         c.token_count,
                         c.text,
                         c.text_sha256,
+                        c.source_url,
                     )
                     for c in indexed.chunks
                 ],

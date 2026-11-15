@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from sec_agent.golden.gret.labels import current_labels, pending_items
+from sec_agent.golden.gret.labels import label_for, labels_by_text, pending_items
 from sec_agent.golden.gret.models import Label, PoolItem, RetQuestion
 
 
@@ -57,14 +57,14 @@ def training_pairs(
         raise ValueError(
             f"{len(pending)} pooled chunks of the training companies have no current label"
         )
-    current = current_labels(all_labels)
+    current = labels_by_text(all_labels)
     return [
         TrainPair(
             qid=item.qid,
             ticker=by_id[item.qid].ticker,
             query=by_id[item.qid].question,
             passage=item.text,
-            label=current[(item.qid, item.docid)].grade / 2,
+            label=_grade(label_for(item, current)) / 2,
         )
         for item in chosen
     ]
@@ -77,3 +77,9 @@ def pool_texts(pool: Iterable[PoolItem]) -> dict[str, str]:
         if texts.setdefault(item.docid, item.text) != item.text:
             raise ValueError(f"pool has two texts for {item.docid}: mixed index versions?")
     return texts
+
+
+def _grade(label: Label | None) -> int:
+    if label is None:  # pending_items above guarantees a label for every chosen item
+        raise ValueError("pooled chunk has no current label")
+    return label.grade

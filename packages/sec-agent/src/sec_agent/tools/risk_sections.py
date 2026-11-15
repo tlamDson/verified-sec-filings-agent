@@ -16,7 +16,8 @@ from sec_agent.edgar.urls import normalize_cik
 from sec_agent.filings.models import FilingForm
 
 _ANNUAL_RISK_SECTIONS = b"""
-SELECT fi.accession, fi.form, fi.filing_date, fi.report_date, fi.source_url, s.text,
+SELECT fi.accession, fi.form, fi.filing_date, fi.report_date,
+       coalesce(s.source_url, fi.source_url) AS source_url, s.text,
        (SELECT max(f.fiscal_year) FROM facts f
         WHERE f.index_version = %(facts_version)s AND f.cik = %(cik)s
           AND f.fiscal_period = 'FY' AND f.period_end = fi.report_date) AS xbrl_fiscal_year
