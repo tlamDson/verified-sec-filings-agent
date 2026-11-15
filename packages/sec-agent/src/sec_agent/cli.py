@@ -12,6 +12,7 @@ from sec_agent import __version__
 from sec_agent.agent import cli as agent_cli
 from sec_agent.api import cli as api_cli
 from sec_agent.chaos import cli as chaos_cli
+from sec_agent.demo import cli as demo_cli
 from sec_agent.eval import cli as eval_cli
 from sec_agent.filings import cli as filings_cli
 from sec_agent.golden import cli as golden_cli
@@ -47,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     chaos_cli.add_commands(subparsers)
     rerank_cli.add_commands(subparsers)
     report_cli.add_commands(subparsers)
+    demo_cli.add_commands(subparsers)
     return parser
 
 
