@@ -161,3 +161,11 @@ uv run sec-agent api cohorts --from YYYY-MM-DD --to YYYY-MM-DD   # real and simu
 The driver's daily budget is a share of the production LLM quota (`--share`, at most half, the default), at a planning estimate (not a measurement) of model calls per question (`--calls-per-question`). Run it on a schedule, mostly at night, or point `--base-url` at a staging app on a local model.
 
 Rules for contributors and coding agents: [AGENTS.md](AGENTS.md). Design: [docs/design.md](docs/design.md).
+
+## Contributing
+
+The test, lint and git flow rules are in `CLAUDE.md` and `docs/design.md`. Please read the [code of conduct](.github/CODE_OF_CONDUCT.md) before contributing.
+
+## Licence
+
+MIT. See [`LICENSE`](LICENSE).
