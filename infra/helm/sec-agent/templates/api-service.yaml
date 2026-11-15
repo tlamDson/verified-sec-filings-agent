@@ -1,0 +1,16 @@
+{{- if .Values.api.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-api
+  labels:
+    {{- include "sec-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  selector:
+    {{- include "sec-agent.selector" (dict "root" . "component" "api") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.api.port }}
+      targetPort: http
+{{- end }}

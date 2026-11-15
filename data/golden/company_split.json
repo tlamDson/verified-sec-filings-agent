@@ -1,0 +1,456 @@
+{
+  "seed": 20261113,
+  "universe_sha256": "211c095c2b4b038cc0fd485f905a056d5a0ee9e90fb69f351c30f64209af4cf7",
+  "companies": [
+    {
+      "ticker": "ABT",
+      "name": "Abbott Laboratories",
+      "sector": "Health Care",
+      "cik": 1800,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "AMT",
+      "name": "American Tower",
+      "sector": "Real Estate",
+      "cik": 1053507,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "AMZN",
+      "name": "Amazon",
+      "sector": "Consumer Discretionary",
+      "cik": 1018724,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "BA",
+      "name": "Boeing",
+      "sector": "Industrials",
+      "cik": 12927,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "BAC",
+      "name": "Bank of America",
+      "sector": "Financials",
+      "cik": 70858,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "BNY",
+      "name": "BNY Mellon",
+      "sector": "Financials",
+      "cik": 1390777,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "BRK.B",
+      "name": "Berkshire Hathaway (Class B)",
+      "sector": "Financials",
+      "cik": 1067983,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "CMCSA",
+      "name": "Comcast",
+      "sector": "Communication Services",
+      "cik": 1166691,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "COP",
+      "name": "ConocoPhillips",
+      "sector": "Energy",
+      "cik": 1163165,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "test"
+    },
+    {
+      "ticker": "CVS",
+      "name": "CVS Health",
+      "sector": "Health Care",
+      "cik": 64803,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "CVX",
+      "name": "Chevron Corporation",
+      "sector": "Energy",
+      "cik": 93410,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "test"
+    },
+    {
+      "ticker": "DUK",
+      "name": "Duke Energy",
+      "sector": "Utilities",
+      "cik": 1326160,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "dev"
+    },
+    {
+      "ticker": "GD",
+      "name": "General Dynamics",
+      "sector": "Industrials",
+      "cik": 40533,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "GM",
+      "name": "General Motors",
+      "sector": "Consumer Discretionary",
+      "cik": 1467858,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "HD",
+      "name": "Home Depot",
+      "sector": "Consumer Discretionary",
+      "cik": 354950,
+      "fiscal_year_end": "0131",
+      "excluded": "",
+      "split": "test"
+    },
+    {
+      "ticker": "INTU",
+      "name": "Intuit",
+      "sector": "Information Technology",
+      "cik": 896878,
+      "fiscal_year_end": "0731",
+      "excluded": "",
+      "split": "test"
+    },
+    {
+      "ticker": "ISRG",
+      "name": "Intuitive Surgical",
+      "sector": "Health Care",
+      "cik": 1035267,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "dev"
+    },
+    {
+      "ticker": "JNJ",
+      "name": "Johnson & Johnson",
+      "sector": "Health Care",
+      "cik": 200406,
+      "fiscal_year_end": "0103",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "KO",
+      "name": "Coca-Cola Company (The)",
+      "sector": "Consumer Staples",
+      "cik": 21344,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "LIN",
+      "name": "Linde plc",
+      "sector": "Materials",
+      "cik": 1707925,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "LMT",
+      "name": "Lockheed Martin",
+      "sector": "Industrials",
+      "cik": 936468,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "LOW",
+      "name": "Lowe's",
+      "sector": "Consumer Discretionary",
+      "cik": 60667,
+      "fiscal_year_end": "0131",
+      "excluded": "",
+      "split": "test"
+    },
+    {
+      "ticker": "LRCX",
+      "name": "Lam Research",
+      "sector": "Information Technology",
+      "cik": 707549,
+      "fiscal_year_end": "0627",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "MA",
+      "name": "Mastercard",
+      "sector": "Financials",
+      "cik": 1141391,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "MCD",
+      "name": "McDonald's",
+      "sector": "Consumer Discretionary",
+      "cik": 63908,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "META",
+      "name": "Meta Platforms",
+      "sector": "Communication Services",
+      "cik": 1326801,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "MO",
+      "name": "Altria",
+      "sector": "Consumer Staples",
+      "cik": 764180,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "dev"
+    },
+    {
+      "ticker": "MSFT",
+      "name": "Microsoft",
+      "sector": "Information Technology",
+      "cik": 789019,
+      "fiscal_year_end": "0630",
+      "excluded": "",
+      "split": "dev"
+    },
+    {
+      "ticker": "NEE",
+      "name": "NextEra Energy",
+      "sector": "Utilities",
+      "cik": 753308,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "dev"
+    },
+    {
+      "ticker": "NFLX",
+      "name": "Netflix, Inc.",
+      "sector": "Communication Services",
+      "cik": 1065280,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "PANW",
+      "name": "Palo Alto Networks",
+      "sector": "Information Technology",
+      "cik": 1327567,
+      "fiscal_year_end": "0731",
+      "excluded": "",
+      "split": "test"
+    },
+    {
+      "ticker": "PEP",
+      "name": "PepsiCo",
+      "sector": "Consumer Staples",
+      "cik": 77476,
+      "fiscal_year_end": "1226",
+      "excluded": "",
+      "split": "test"
+    },
+    {
+      "ticker": "PG",
+      "name": "Procter & Gamble",
+      "sector": "Consumer Staples",
+      "cik": 80424,
+      "fiscal_year_end": "0630",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "PLTR",
+      "name": "Palantir Technologies",
+      "sector": "Information Technology",
+      "cik": 1321655,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "PM",
+      "name": "Philip Morris International",
+      "sector": "Consumer Staples",
+      "cik": 1413329,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "test"
+    },
+    {
+      "ticker": "RTX",
+      "name": "RTX Corporation",
+      "sector": "Industrials",
+      "cik": 101829,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "dev"
+    },
+    {
+      "ticker": "SO",
+      "name": "Southern Company",
+      "sector": "Utilities",
+      "cik": 92122,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "T",
+      "name": "AT&T",
+      "sector": "Communication Services",
+      "cik": 732717,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "TMO",
+      "name": "Thermo Fisher Scientific",
+      "sector": "Health Care",
+      "cik": 97745,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "dev"
+    },
+    {
+      "ticker": "TMUS",
+      "name": "T-Mobile US",
+      "sector": "Communication Services",
+      "cik": 1283699,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "TSLA",
+      "name": "Tesla, Inc.",
+      "sector": "Consumer Discretionary",
+      "cik": 1318605,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "TXN",
+      "name": "Texas Instruments",
+      "sector": "Information Technology",
+      "cik": 97476,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "dev"
+    },
+    {
+      "ticker": "UNH",
+      "name": "UnitedHealth Group",
+      "sector": "Health Care",
+      "cik": 731766,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "UNP",
+      "name": "Union Pacific Corporation",
+      "sector": "Industrials",
+      "cik": 100885,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "UPS",
+      "name": "United Parcel Service",
+      "sector": "Industrials",
+      "cik": 1090727,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "dev"
+    },
+    {
+      "ticker": "V",
+      "name": "Visa Inc.",
+      "sector": "Financials",
+      "cik": 1403161,
+      "fiscal_year_end": "0930",
+      "excluded": "",
+      "split": "test"
+    },
+    {
+      "ticker": "VZ",
+      "name": "Verizon",
+      "sector": "Communication Services",
+      "cik": 732712,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    },
+    {
+      "ticker": "WFC",
+      "name": "Wells Fargo",
+      "sector": "Financials",
+      "cik": 72971,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "test"
+    },
+    {
+      "ticker": "WMT",
+      "name": "Walmart",
+      "sector": "Consumer Staples",
+      "cik": 104169,
+      "fiscal_year_end": "0131",
+      "excluded": "",
+      "split": "dev"
+    },
+    {
+      "ticker": "XOM",
+      "name": "ExxonMobil",
+      "sector": "Energy",
+      "cik": 2115436,
+      "fiscal_year_end": "1231",
+      "excluded": "",
+      "split": "train"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "verified-sec-filings-agent",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "typecheck": "pnpm --filter web typecheck",
+    "test": "pnpm --filter web test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.4"
+  }
+}

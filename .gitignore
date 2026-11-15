@@ -7,5 +7,30 @@ node_modules/
 .env.*
 !.env.example
 data/raw/
+data/traces/
 .worktrees/
 .claude/worktrees/
+
+# Python tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Web build output
+*.tsbuildinfo
+coverage/
+out/
+next-env.d.ts
+
+# Terraform (the provider lock file .terraform.lock.hcl is committed)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Reranker models (exported ONNX, fold checkpoints): large, rebuilt by `sec-agent rerank`
+models/
+
+# demo site build output
+/site/
+/_site/

@@ -1,0 +1,15 @@
+{{- if .Values.api.enabled }}
+# A node drain never takes the last API replica.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}-api
+  labels:
+    {{- include "sec-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "sec-agent.selector" (dict "root" . "component" "api") | nindent 6 }}
+{{- end }}
