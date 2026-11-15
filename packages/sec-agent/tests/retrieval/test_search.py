@@ -282,3 +282,23 @@ def test_a_hit_from_an_exhibit_section_cites_the_exhibit_document(
         first.ordinal,
     )
     assert again.source_url == exhibit
+
+
+def test_a_hit_cites_the_document_its_chunk_came_from_over_the_section_document(
+    conn: Conn, space: EmbeddingSpace, embedder: HashEmbedder
+) -> None:
+    (first,) = search(conn, QUERY, space, embedder=embedder, k=1)
+    folder = "https://www.sec.gov/Archives/edgar/data/9999999999/"
+    key = (VERSION, first.accession, first.section)
+    conn.execute(
+        b"UPDATE filing_sections SET source_url = %s"
+        b" WHERE index_version = %s AND accession = %s AND section = %s",
+        (folder + "sim-ex13.htm", *key),
+    )
+    conn.execute(
+        b"UPDATE chunks SET source_url = %s"
+        b" WHERE index_version = %s AND accession = %s AND section = %s AND ordinal = %s",
+        (folder + "sim-ex13_2.htm", *key, first.ordinal),
+    )
+    (again,) = search(conn, QUERY, space, embedder=embedder, k=1)
+    assert again.source_url == folder + "sim-ex13_2.htm"

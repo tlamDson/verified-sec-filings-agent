@@ -16,7 +16,8 @@ skips it. Business is never taken from an annual report: a 10-K always writes It
 A report filed as several exhibits (EX-13.1, EX-13.2) is one report cut into files: the
 documents are read in sequence order as one run of blocks, so a part that continues into
 the next file, with or without its title repeated, keeps every piece. A section cites the
-document its heading is in.
+document its heading is in and records where each document's text starts, so that every
+chunk cites the document its own text came from.
 """
 
 import re
@@ -24,7 +25,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from sec_agent.filings.models import Section, SectionKey
+from sec_agent.filings.models import Section, SectionKey, SourceDocument
 from sec_agent.filings.sections import (
     MARKET_RISK_TITLE,
     MDNA_TITLE,
@@ -74,7 +75,7 @@ class _Run:
     key: _Part
     heading: str
     heading_index: int
-    body: tuple[str, ...]
+    body: tuple[int, ...]  # indices of the body blocks
 
 
 def find_annual_report_sections(blocks: Sequence[str], source_url: str) -> list[Section]:
@@ -93,7 +94,7 @@ def find_annual_report_documents(
     for run in _runs(blocks):
         if run.key == "other":
             continue
-        text = "\n".join(run.body)
+        text = "\n".join(blocks[i] for i in run.body)
         section = Section(
             key=run.key,
             item=EXHIBIT_ITEM,
@@ -101,6 +102,7 @@ def find_annual_report_documents(
             text=text,
             token_count=count_tokens(text),
             source_url=owners[run.heading_index],
+            documents=_documents(run, blocks, owners),
         )
         if section.token_count >= MIN_SECTION_TOKENS and (
             run.key not in best or len(text) > best[run.key][0]
@@ -109,16 +111,29 @@ def find_annual_report_documents(
     return [best[key][1] for key in _KEY_ORDER if key in best]
 
 
+def _documents(
+    run: _Run, blocks: Sequence[str], owners: Sequence[str]
+) -> tuple[SourceDocument, ...]:
+    """Where each document's text starts in the run's text (its blocks joined by newlines)."""
+    documents: list[SourceDocument] = []
+    offset = 0
+    for i in run.body:
+        if not documents or documents[-1].url != owners[i]:
+            documents.append(SourceDocument(start=offset, url=owners[i]))
+        offset += len(blocks[i]) + 1
+    return tuple(documents)
+
+
 def _runs(blocks: Sequence[str]) -> list[_Run]:
     runs: list[_Run] = []
     key: _Part | None = None
     heading, start = "", 0
-    body: list[str] = []
+    body: list[int] = []
     for index, block in enumerate(blocks):
         part = _heading_part(block)
         if part is None:
             if key is not None:
-                body.append(block)
+                body.append(index)
             continue
         if part == key and part != "other":
             continue  # the part's title repeated at a page top

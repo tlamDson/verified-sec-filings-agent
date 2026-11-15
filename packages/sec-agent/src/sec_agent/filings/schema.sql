@@ -58,3 +58,8 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 
 CREATE INDEX IF NOT EXISTS chunks_by_company ON chunks (index_version, cik, report_date);
+
+-- The document a chunk's text came from. A section of a report split over several
+-- exhibits spans more than one document, and its chunks never cross between them. NULL
+-- on rows written before parser 3; readers fall back to the section's source_url.
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS source_url text;

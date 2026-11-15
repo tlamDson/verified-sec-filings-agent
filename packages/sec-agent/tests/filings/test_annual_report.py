@@ -90,6 +90,20 @@ def test_a_report_split_over_several_exhibits_is_read_as_one_report() -> None:
     assert by_key["risk_factors"].source_url == URL_2
 
 
+def test_a_part_split_over_two_exhibits_records_where_each_document_starts() -> None:
+    first = ["Financial Review", "Overview", FILLER]
+    second = [FILLER.replace("topic", "continued topic"), "Controls and Procedures", "Done."]
+    (mdna,) = find_annual_report_documents([(URL, first), (URL_2, second)])
+    starts = [(d.start, d.url) for d in mdna.documents]
+    assert starts == [(0, URL), (len("\n".join(first[1:])) + 1, URL_2)]
+    assert mdna.text[starts[1][0] :] == second[0]
+
+
+def test_a_part_in_one_exhibit_records_that_one_document() -> None:
+    (mdna,) = find_annual_report_documents([(URL, ["Financial Review", FILLER])])
+    assert [(d.start, d.url) for d in mdna.documents] == [(0, URL)]
+
+
 def test_one_document_reads_the_same_alone_or_as_a_one_document_report(
     read_fixture: Callable[[str], bytes],
 ) -> None:

@@ -128,6 +128,39 @@ def test_each_section_records_the_document_its_text_came_from(
     ]
 
 
+def test_each_chunk_records_the_document_its_text_came_from(
+    store: PostgresChunkStore,
+    chunk_db: str,
+    read_fixture: Callable[[str], bytes],
+    filing_10k: FilingRef,
+) -> None:
+    url = filing_10k.document_url.rsplit("/", 1)[0] + "/simb-ex13.htm"
+    exhibit = ExhibitDocument(url=url, html=read_fixture("sim-ex13.htm"))
+    store.replace(
+        index_filing(read_fixture("sim-10k-ibr.htm"), filing_10k, ChunkConfig(), (exhibit,))
+    )
+    with psycopg.connect(chunk_db) as conn:
+        rows = conn.execute("SELECT DISTINCT section, source_url FROM chunks").fetchall()
+    # NULL: the chunk's text is from the section's own document (the primary one here).
+    assert sorted(rows, key=lambda r: r[0]) == [
+        ("business", None),
+        ("market_risk", None),
+        ("mdna", url),
+        ("risk_factors", url),
+    ]
+
+
+def test_apply_schema_adds_the_chunk_source_column_to_an_older_table(chunk_db: str) -> None:
+    with psycopg.connect(chunk_db, autocommit=True) as conn:
+        conn.execute("ALTER TABLE chunks DROP COLUMN source_url")
+        apply_schema(conn)
+        row = conn.execute(
+            "SELECT count(*) FROM information_schema.columns"
+            " WHERE table_name = 'chunks' AND column_name = 'source_url'"
+        ).fetchone()
+    assert row == (1,)
+
+
 def test_apply_schema_adds_the_section_source_column_to_an_older_table(chunk_db: str) -> None:
     with psycopg.connect(chunk_db, autocommit=True) as conn:
         conn.execute("ALTER TABLE filing_sections DROP COLUMN source_url")

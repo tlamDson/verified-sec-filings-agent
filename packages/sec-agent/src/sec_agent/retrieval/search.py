@@ -55,7 +55,7 @@ WITH {arms}, fused AS ({fuse})
 SELECT f.score, f.dense_rank, f.lexical_rank, f.distance, f.bm25,
        c.index_version, c.accession, c.section, c.ordinal, c.cik, c.form, c.filing_date,
        c.report_date, c.char_start, c.char_end, c.text,
-       coalesce(s.source_url, fi.source_url) AS source_url
+       coalesce(c.source_url, s.source_url, fi.source_url) AS source_url
 FROM fused f
 JOIN chunks c ON c.index_version = %(version)s AND c.accession = f.accession
              AND c.section = f.section AND c.ordinal = f.ordinal

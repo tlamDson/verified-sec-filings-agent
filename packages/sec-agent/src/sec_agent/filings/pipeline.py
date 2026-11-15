@@ -38,9 +38,23 @@ def _sections(html: bytes, filing: FilingRef, exhibits: Sequence[ExhibitDocument
     return merge_sections(primary, find_annual_report_documents(report), filing.form)
 
 
+def _spans(section: Section, max_tokens: int) -> list[tuple[int, int, str | None]]:
+    """Chunk spans with the document each one's text came from. A section split over
+    several exhibits is chunked one document at a time, so no chunk crosses into the next
+    document and each cites the file its own text is in."""
+    if not section.documents:
+        return [(s, e, None) for s, e in chunk_spans(section.text, max_tokens)]
+    ends = [d.start for d in section.documents[1:]] + [len(section.text)]
+    return [
+        (doc.start + s, doc.start + e, doc.url)
+        for doc, end in zip(section.documents, ends, strict=True)
+        for s, e in chunk_spans(section.text[doc.start : end], max_tokens)
+    ]
+
+
 def _chunks(section: Section, filing: FilingRef, version: str, config: ChunkConfig) -> list[Chunk]:
     chunks: list[Chunk] = []
-    for ordinal, (start, end) in enumerate(chunk_spans(section.text, config.max_tokens)):
+    for ordinal, (start, end, source_url) in enumerate(_spans(section, config.max_tokens)):
         text = section.text[start:end]
         chunks.append(
             Chunk(
@@ -57,6 +71,7 @@ def _chunks(section: Section, filing: FilingRef, version: str, config: ChunkConf
                 token_count=count_tokens(text),
                 text=text,
                 text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+                source_url=source_url,
             )
         )
     return chunks

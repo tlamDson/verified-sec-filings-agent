@@ -29,8 +29,9 @@ VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
 """
 _INSERT_CHUNK = b"""
 INSERT INTO chunks (index_version, accession, section, ordinal, cik, form, filing_date,
-                    report_date, char_start, char_end, token_count, text, text_sha256)
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    report_date, char_start, char_end, token_count, text, text_sha256,
+                    source_url)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 """
 
 
@@ -114,6 +115,7 @@ class PostgresChunkStore:
                         c.token_count,
                         c.text,
                         c.text_sha256,
+                        c.source_url,
                     )
                     for c in indexed.chunks
                 ],
