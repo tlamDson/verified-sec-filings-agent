@@ -83,8 +83,8 @@ class PostgresApiStore:
         return None if row is None else int(row[0])
 
     def refund_question(self, identity: Identity, day: dt.date) -> None:
-        with self._lock:
-            self._conn.execute(_REFUND, (identity.user_id, day))
+        with self._pool.connection() as conn:
+            conn.execute(_REFUND, (identity.user_id, day))
 
     def questions_used(self, user_id: str, day: dt.date) -> int:
         with self._pool.connection() as conn:
