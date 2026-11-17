@@ -10,6 +10,7 @@ import pytest
 from faithfulness_kit import (
     ASKED_ON,
     SIM_ACCESSION,
+    labelled_ahead_evidence,
     passage_citation,
     restated_evidence,
     risk_diff_evidence,
@@ -302,3 +303,23 @@ def test_a_well_formed_key_and_a_bare_accession_still_cite() -> None:
     for key in (passage_citation(0), SIM_ACCESSION):
         report = check_answer(f"It sells widgets [{key}].", [passages], asked_on=ASKED_ON)
         assert [c.status for s in report.sentences for c in s.citations] == ["valid"]
+
+
+@pytest.mark.parametrize(
+    ("text", "status"),
+    [
+        ("SIM Widgets' revenue for fiscal 2023 was $1.25 billion.", "wrong_period"),
+        ("SIM Widgets' FY2023 revenue was $1.25 billion.", "wrong_period"),
+        ("SIM Widgets' revenue for fiscal 2024 was $1.25 billion.", "traced"),
+        ("SIM Widgets' revenue for calendar 2023 was $1.25 billion.", "traced"),
+        ("SIM Widgets' revenue was $1.25 billion.", "traced"),
+    ],
+)
+def test_a_named_fiscal_year_must_be_the_fiscal_year_of_the_fact(text: str, status: str) -> None:
+    """A fact labelled fiscal 2024 is not fiscal 2023's just because it ended in 2023."""
+    assert _statuses(text, [labelled_ahead_evidence()]) == [status]
+
+
+def test_a_date_of_the_year_still_traces_a_figure_when_no_fiscal_year_is_named() -> None:
+    text = "SIM Widgets' revenue for the year ended December 31, 2023 was $1.25 billion."
+    assert _statuses(text, [labelled_ahead_evidence()]) == ["traced", "traced"]
