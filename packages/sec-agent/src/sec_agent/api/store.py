@@ -65,6 +65,11 @@ class ApiStore(Protocol):
         None, counting nothing, when the day already holds `limit` questions."""
         ...
 
+    def refund_question(self, identity: Identity, day: dt.date) -> None:
+        """Give back one question counted on `day` (UTC) for a turn that failed; the count
+        never goes below zero."""
+        ...
+
     def questions_used(self, user_id: str, day: dt.date) -> int: ...
 
     def record_turn(self, record: TurnRecord) -> None:
@@ -99,6 +104,11 @@ class MemoryApiStore:
                 return None
             self._questions[key] = used + 1
             return used + 1
+
+    def refund_question(self, identity: Identity, day: dt.date) -> None:
+        key = (identity.user_id, day)
+        with self._lock:
+            self._questions[key] = max(self._questions.get(key, 0) - 1, 0)
 
     def questions_used(self, user_id: str, day: dt.date) -> int:
         with self._lock:

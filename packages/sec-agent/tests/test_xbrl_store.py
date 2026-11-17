@@ -138,3 +138,49 @@ def test_two_companies_do_not_mix(store: PostgresFactStore, apple: Normalized) -
     store.write(index_version="v1", cik=1045810, entity_name="NVIDIA CORP", normalized=nvidia)
     assert store.count(index_version="v1", cik=APPLE_CIK) == len(apple.facts)
     assert store.count(index_version="v1", cik=1045810) == len(nvidia.facts)
+
+
+def test_refresh_deletes_facts_absent_from_the_new_snapshot(
+    store: PostgresFactStore, apple: Normalized
+) -> None:
+    _write(store, apple)
+    dropped, kept = apple.facts[0], apple.facts[1:]
+    _write(store, Normalized(facts=kept, report=apple.report))
+    assert store.count(index_version="v1", cik=APPLE_CIK) == len(kept)
+    stored = store.versions(index_version="v1", cik=APPLE_CIK, concept=dropped.concept)
+    assert dropped.version_key not in {f.version_key for f in stored}
+
+
+def test_refresh_drops_an_instant_fact_and_keeps_the_rest(
+    store: PostgresFactStore, apple: Normalized
+) -> None:
+    instants = [f for f in apple.facts if f.period_start is None]
+    assert instants
+    dropped = instants[0]
+    kept = [f for f in apple.facts if f.version_key != dropped.version_key]
+    _write(store, apple)
+    _write(store, Normalized(facts=kept, report=apple.report))
+    stored = store.versions(index_version="v1", cik=APPLE_CIK)
+    assert sorted(f.version_key for f in stored) == sorted(f.version_key for f in kept)
+
+
+def test_refresh_removes_a_dropped_fact_from_latest(
+    store: PostgresFactStore, apple: Normalized
+) -> None:
+    _write(store, apple)
+    kept = [f for f in apple.facts if f.concept != "net_income"]
+    _write(store, Normalized(facts=kept, report=apple.report))
+    assert store.latest(index_version="v1", cik=APPLE_CIK, concept="net_income") == []
+
+
+def test_refresh_leaves_other_companies_and_index_versions_alone(
+    store: PostgresFactStore, apple: Normalized
+) -> None:
+    nvidia = normalize(parse_companyfacts(NVIDIA.read_bytes()))
+    _write(store, apple, "v1")
+    _write(store, apple, "v2")
+    store.write(index_version="v1", cik=1045810, entity_name="NVIDIA CORP", normalized=nvidia)
+    _write(store, Normalized(facts=apple.facts[1:], report=apple.report), "v1")
+    assert store.count(index_version="v1", cik=APPLE_CIK) == len(apple.facts) - 1
+    assert store.count(index_version="v2", cik=APPLE_CIK) == len(apple.facts)
+    assert store.count(index_version="v1", cik=1045810) == len(nvidia.facts)

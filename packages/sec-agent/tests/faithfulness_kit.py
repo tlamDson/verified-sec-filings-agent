@@ -171,3 +171,49 @@ def restated_evidence(*, call_id: str = "f9") -> Evidence:
         result=result.model_dump_json(),
         ok=True,
     )
+
+
+def labelled_ahead_evidence(*, call_id: str = "f8") -> Evidence:
+    """A simulated get_fact result labelled fiscal 2024 whose year ended in calendar 2023."""
+    fact = FactValue(
+        cik=SIM_COMPANY.cik,
+        concept="revenue",
+        label="Revenue",
+        value=Decimal("1250000000"),
+        unit="USD",
+        period_kind="annual",
+        period_start=dt.date(2023, 2, 1),
+        period_end=dt.date(2023, 12, 31),
+        fiscal_year=2024,
+        fiscal_period="FY",
+        accession=SIM_ACCESSION,
+        form="10-K",
+        filed=dt.date(2024, 2, 20),
+        taxonomy="us-gaap",
+        tag="Revenues",
+        filing_url="https://www.sec.gov/Archives/edgar/data/9999999999/sim-index.htm",
+        restated=False,
+        original_value=Decimal("1250000000"),
+        original_accession=SIM_ACCESSION,
+        original_filed=dt.date(2024, 2, 20),
+        versions=1,
+    )
+    result = GetFactResult(
+        status="found",
+        company=SIM_COMPANY,
+        concept="revenue",
+        label="Revenue",
+        unit="USD",
+        fiscal_year=2024,
+        fiscal_period="FY",
+        period_kind="annual",
+        index_version="sim-index",
+        fact=fact,
+    )
+    return Evidence(
+        call_id=call_id,
+        name="get_fact",
+        arguments='{"company": "SIMW", "concept": "revenue", "fiscal_year": 2024}',
+        result=result.model_dump_json(),
+        ok=True,
+    )

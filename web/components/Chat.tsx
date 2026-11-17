@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, type KeyboardEvent, useReducer, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useReducer, useState } from "react";
 import { chatReducer, initialChat } from "@/lib/chat/state";
 import type { Cohort, SendFeedback, SendQuestion, Usage } from "@/lib/chat/types";
 import { CitationPanel } from "./CitationPanel";
@@ -11,6 +11,9 @@ const EXAMPLES = [
   "NVDA vs AMD gross margin over the last 3 years",
   "What new risks did Microsoft add in its latest 10-K?",
 ];
+
+/** The longest delay setTimeout accepts; a later reset is re-checked when this one fires. */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 /** The chat page: questions on the left, the sources of the turn in focus on the right. */
 export function Chat({
@@ -32,6 +35,30 @@ export function Chat({
   const [question, setQuestion] = useState("");
   const [focus, setFocus] = useState<{ turn: number; key: string } | null>(null);
   const closed = state.busy || state.limit !== null;
+  const resetsAt = state.limit?.resetsAt;
+
+  // Reopen the chat when the daily limit resets, without a reload.
+  useEffect(() => {
+    if (resetsAt === undefined) {
+      return;
+    }
+    const target = Date.parse(resetsAt);
+    if (Number.isNaN(target)) {
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout>;
+    // A timer can fire a millisecond early, or be capped; wait again until the time is reached.
+    const arm = () => {
+      const left = target - Date.now();
+      if (left <= 0) {
+        dispatch({ type: "clock", now: Date.now() });
+        return;
+      }
+      timer = setTimeout(arm, Math.min(left, MAX_TIMEOUT_MS));
+    };
+    arm();
+    return () => clearTimeout(timer);
+  }, [resetsAt]);
 
   async function ask(text: string) {
     const trimmed = text.trim();

@@ -50,4 +50,14 @@ describe("signApiToken", () => {
       /API_AUTH_SECRET/,
     );
   });
+
+  it("refuses the placeholder secret from .env.example", () => {
+    expect(() =>
+      signApiToken(
+        { id: "github:42", cohort: "real" },
+        "change-me-to-a-random-secret-of-32-or-more-characters",
+        NOW_SECONDS,
+      ),
+    ).toThrow(/API_AUTH_SECRET/);
+  });
 });

@@ -130,3 +130,34 @@ def test_terraform_is_checked_on_pull_requests(repo_root: Path) -> None:
     for command in ("terraform fmt -check", "terraform init -backend=false", "terraform validate"):
         assert command in run, command
     assert "terraform apply" not in run
+
+
+def _deploy_steps(repo_root: Path) -> list[dict[str, Any]]:
+    return list(_workflow(repo_root)["jobs"]["deploy"]["steps"])
+
+
+def test_missing_token_or_space_writes_a_notice_and_does_not_fail(repo_root: Path) -> None:
+    check = next(s for s in _deploy_steps(repo_root) if s.get("name") == "Check settings")
+    run = check["run"]
+    assert check.get("id")
+    assert "::notice::" in run
+    assert "HF_TOKEN" in run.split("::notice::")[1]
+    assert "HF_SPACE" in run.split("::notice::")[1]
+    assert "configured=false" in run
+    assert "configured=true" in run
+    assert "GITHUB_OUTPUT" in run
+    # An unset variable is not an error; a malformed HF_SPACE still is.
+    assert "set the repository variable HF_SPACE" not in run
+    assert "::error::" in run
+
+
+def test_every_deploy_step_after_the_check_is_skipped_when_unconfigured(
+    repo_root: Path,
+) -> None:
+    steps = _deploy_steps(repo_root)
+    check = next(s for s in steps if s.get("name") == "Check settings")
+    expected = f"steps.{check['id']}.outputs.configured == 'true'"
+    after = steps[steps.index(check) + 1 :]
+    assert len(after) >= 4
+    for step in after:
+        assert expected in str(step.get("if", "")), step.get("name")

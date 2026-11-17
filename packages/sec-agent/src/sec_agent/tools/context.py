@@ -1,10 +1,8 @@
 """What the tools read from, pinned for one request: a facts snapshot, or a text index."""
 
 from dataclasses import dataclass
-from typing import Any
 
-import psycopg
-
+from sec_agent.pg_pool import Connections
 from sec_agent.rerank.service import Reranker
 from sec_agent.retrieval.embedder import Embedder
 from sec_agent.retrieval.models import EmbeddingSpace
@@ -30,7 +28,8 @@ class TextContext:
     reorders its top candidates, or keeps their order when the reranker fails."""
 
     companies: CompanyDirectory
-    conn: psycopg.Connection[Any]
+    conn: Connections
+    """A pool in the servers, so a connection the server closed is replaced."""
     space: EmbeddingSpace
     sections: RiskSectionSource
     facts_version: str

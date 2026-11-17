@@ -34,7 +34,12 @@ export interface ChatState {
   limit: { message: string; resetsAt: string } | null;
 }
 
-export type ChatAction = ChatEvent | { type: "asked"; question: string } | { type: "ended" };
+export type ChatAction =
+  | ChatEvent
+  | { type: "asked"; question: string }
+  | { type: "ended" }
+  /** The time now in milliseconds since the epoch; lets a held daily-limit refusal lapse. */
+  | { type: "clock"; now: number };
 
 const STREAM_ENDED: ErrorEvent = {
   code: "stream_ended",
@@ -90,6 +95,19 @@ function failed(state: ChatState, error: ErrorEvent): ChatState {
   };
 }
 
+/** The state with its daily-limit refusal dropped once its reset time has passed. */
+function lapsed(state: ChatState, now: number): ChatState {
+  if (state.limit === null || !(Date.parse(state.limit.resetsAt) <= now)) {
+    return state;
+  }
+  return { ...state, limit: null, usage: null };
+}
+
+/** A turn's usage replaces the shown one; a refusal is dropped when it shows quota left. */
+function withUsage(state: ChatState, usage: Usage): ChatState {
+  return { ...state, usage, limit: usage.used < usage.limit ? null : state.limit };
+}
+
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case "asked": {
@@ -109,13 +127,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, busy: true, turns: [...state.turns, turn] };
     }
     case "turn":
-      return { ...state, usage: action.data.usage };
+      return withUsage(state, action.data.usage);
     case "evidence":
       return updatePending(state, (turn) => withEvidence(turn, action.data));
     case "answer":
       return { ...updatePending(state, (turn) => withAnswer(turn, action.data)), busy: false };
     case "error":
       return failed(state, action.data);
+    case "clock":
+      return lapsed(state, action.now);
     case "ended":
       return state.turns.at(-1)?.phase === "pending" ? failed(state, STREAM_ENDED) : state;
   }

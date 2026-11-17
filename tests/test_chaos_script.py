@@ -4,11 +4,13 @@ The script must inject its faults while k6 runs (kill one API replica, then rate
 simulated model, then restore them), fail when k6 fails (a crossed threshold exits 99) or
 when the acceptance check in `sec-agent chaos load-rows` fails, and still record the rows of
 a failed run. The stub k6 run, like the real one, lasts until the fault timeline is over: it
-ends after the fourth `/admin/mode` call, or exits 97 when that never comes."""
+ends after the fourth `/admin/mode` call, or exits 97 when that never comes within
+`K6_STUB_BUDGET` seconds of wall-clock time (default 20)."""
 
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -20,7 +22,8 @@ echo "$(basename "$0") $*" >> "$STUB_LOG"
 if [ "$(basename "$0")" = docker ]; then
   case " $* " in
     *" run --rm k6 "*)
-      for _ in $(seq 400); do
+      deadline=$((SECONDS + ${K6_STUB_BUDGET:-20}))
+      while [ "$SECONDS" -lt "$deadline" ]; do
         if [ "$(grep -c /admin/mode "$STUB_LOG")" -ge 4 ]; then
           echo "k6 end" >> "$STUB_LOG"
           exit "${K6_EXIT:-0}"
@@ -141,3 +144,24 @@ def test_a_failed_k6_run_is_reported_even_when_the_check_also_fails(
 ) -> None:
     code, _calls = _run(repo_root, tmp_path, k6=99, load_rows=1)
     assert code == 99
+
+
+def test_the_stub_k6_gives_up_on_a_wall_clock_budget(tmp_path: Path) -> None:
+    """The 'timeline never ran' path must end on time, not after N forks: on Windows 400
+    polls of `grep` plus `sleep` take over 40 s, so it used to outlast the 60 s timeout."""
+    stub = tmp_path / "docker"
+    stub.write_bytes(STUB.encode("utf-8"))
+    stub.chmod(0o755)
+    log = tmp_path / "calls.log"
+    env = {**os.environ, "STUB_LOG": str(log), "K6_STUB_BUDGET": "1"}
+    assert BASH is not None
+    started = time.monotonic()
+    done = subprocess.run(
+        [BASH, str(stub), "compose", "run", "--rm", "k6"],
+        env=env,
+        capture_output=True,
+        timeout=60,
+        check=False,
+    )
+    assert done.returncode == 97
+    assert time.monotonic() - started < 10
