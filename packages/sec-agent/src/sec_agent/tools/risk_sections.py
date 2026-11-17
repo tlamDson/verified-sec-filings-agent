@@ -6,14 +6,14 @@ report date only when they do not.
 """
 
 import datetime as dt
-from typing import Any, Protocol
+from typing import Protocol
 
-import psycopg
 from psycopg.rows import dict_row
 from pydantic import BaseModel, ConfigDict
 
 from sec_agent.edgar.urls import normalize_cik
 from sec_agent.filings.models import FilingForm
+from sec_agent.pg_pool import Connections, lease
 
 _ANNUAL_RISK_SECTIONS = b"""
 SELECT fi.accession, fi.form, fi.filing_date, fi.report_date,
@@ -50,8 +50,8 @@ class RiskSectionSource(Protocol):
 
 
 class PostgresRiskSections:
-    def __init__(self, conn: psycopg.Connection[Any]) -> None:
-        self._conn = conn
+    def __init__(self, conns: Connections) -> None:
+        self._conns = conns
 
     def annual_risk_sections(
         self, *, cik: int, text_version: str, facts_version: str
@@ -62,6 +62,6 @@ class PostgresRiskSections:
             "text_version": text_version,
             "facts_version": facts_version,
         }
-        with self._conn.cursor(row_factory=dict_row) as cur:
+        with lease(self._conns) as conn, conn.cursor(row_factory=dict_row) as cur:
             rows = cur.execute(_ANNUAL_RISK_SECTIONS, params).fetchall()
         return [RiskSection.model_validate(r) for r in rows]
