@@ -31,7 +31,9 @@ class FactWriter(Protocol):
     def write(
         self, *, index_version: str, cik: int, entity_name: str, normalized: Normalized
     ) -> int:
-        """Upsert every fact and the ingest record in one transaction; return facts written."""
+        """Replace the company's facts with this snapshot and record the ingest in one
+        transaction: upsert every fact, delete stored ones absent from it; return facts written.
+        """
         ...
 
 
@@ -69,8 +71,17 @@ class PostgresFactStore:
             "facts_written": len(rows),
             "report": Jsonb(normalized.report.model_dump()),
         }
+        keys = {
+            **company,
+            "concepts": [f.concept for f in normalized.facts],
+            "units": [f.unit for f in normalized.facts],
+            "period_starts": [f.period_start for f in normalized.facts],
+            "period_ends": [f.period_end for f in normalized.facts],
+            "accessions": [f.accession for f in normalized.facts],
+        }
         with self._conn.transaction(), self._conn.cursor() as cur:
             cur.execute(sql.LOCK_COMPANY, company)
+            cur.execute(sql.DELETE_ABSENT_FACTS, keys)
             cur.executemany(sql.UPSERT_FACT, rows)
             cur.execute(sql.UPSERT_INGEST, ingest)
         return len(rows)
