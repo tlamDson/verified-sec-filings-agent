@@ -65,16 +65,21 @@ class Scan(BaseModel):
     citations: tuple[CitationMention, ...]
     years: frozenset[int]
     """Every year the sentence names: fiscal years, bare years, the years of its dates."""
+    fiscal_years: frozenset[int] = frozenset()
+    """The years the sentence names as fiscal years (FY2023, fiscal 2023); a subset of `years`."""
 
 
 def scan(text: str, *, offset: int = 0) -> Scan:
     masked = list(text)
     citations = _citations(text, masked, offset)
     years: set[int] = set()
+    fiscal_years: set[int] = set()
     dates = _dates(text, masked, offset, years)
     for match in p.FISCAL_YEAR.finditer(_joined(masked)):
         raw = match["year"] or match["long"]
-        years.add(int(raw) + 2000 if len(raw) == 2 else int(raw))
+        year = int(raw) + 2000 if len(raw) == 2 else int(raw)
+        years.add(year)
+        fiscal_years.add(year)
         _mask(masked, match)
     for pattern in p.NOT_FIGURES:
         for match in pattern.finditer(_joined(masked)):
@@ -83,7 +88,13 @@ def scan(text: str, *, offset: int = 0) -> Scan:
         years.add(int(match["year"]))
         _mask(masked, match)
     numbers = _numbers(text, _joined(masked), offset)
-    return Scan(numbers=numbers, dates=dates, citations=citations, years=frozenset(years))
+    return Scan(
+        numbers=numbers,
+        dates=dates,
+        citations=citations,
+        years=frozenset(years),
+        fiscal_years=frozenset(fiscal_years),
+    )
 
 
 def _joined(masked: list[str]) -> str:
