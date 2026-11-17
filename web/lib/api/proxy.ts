@@ -4,7 +4,7 @@
 // needs. Server only.
 
 import type { ApiIdentity } from "@/lib/auth/identity";
-import { signApiToken } from "./token";
+import { isUsableSecret, signApiToken } from "./token";
 
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -20,7 +20,6 @@ export interface ForwardRequest {
 }
 
 const PASSED_HEADERS = ["content-type", "retry-after"];
-const MIN_SECRET_CHARS = 32;
 
 function refuse(status: number, code: string, message: string): Response {
   return Response.json({ error: { code, message } }, { status });
@@ -31,7 +30,7 @@ export async function forwardToApi(request: ForwardRequest): Promise<Response> {
     return refuse(401, "unauthorized", "Sign in to ask a question.");
   }
   const secret = request.env.API_AUTH_SECRET?.trim() ?? "";
-  if (secret.length < MIN_SECRET_CHARS) {
+  if (!isUsableSecret(secret)) {
     return refuse(500, "not_configured", "The web app is missing API_AUTH_SECRET.");
   }
   const base = request.env.API_BASE_URL?.trim() ?? "";

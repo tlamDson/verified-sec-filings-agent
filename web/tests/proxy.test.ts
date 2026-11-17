@@ -121,4 +121,17 @@ describe("forwardToApi", () => {
     });
     expect(seen).toEqual([]);
   });
+
+  it("answers 500 for the placeholder secret from .env.example, without calling the API", async () => {
+    const { result, seen } = forward(new Response("unused"), {
+      env: {
+        API_BASE_URL: ENV.API_BASE_URL,
+        API_AUTH_SECRET: "change-me-to-a-random-secret-of-32-or-more-characters",
+      },
+    });
+    const response = await result;
+    expect(response.status).toBe(500);
+    expect((await response.json()).error.code).toBe("not_configured");
+    expect(seen).toEqual([]);
+  });
 });
