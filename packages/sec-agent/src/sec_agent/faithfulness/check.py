@@ -74,6 +74,7 @@ def _check(
     found = scan(piece, offset=start)
     ctx = SentenceContext(
         years=found.years,
+        fiscal_years=found.fiscal_years,
         dates=frozenset(d.date for d in found.dates if d.date is not None),
         citations=frozenset(c.key for c in found.citations),
         per_share=p.PER_SHARE_CUE.search(piece) is not None,
