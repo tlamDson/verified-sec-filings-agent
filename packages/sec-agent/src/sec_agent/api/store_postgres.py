@@ -24,6 +24,10 @@ ON CONFLICT (user_id, day) DO UPDATE SET questions = api_usage.questions + 1
 WHERE api_usage.questions < %(limit)s
 RETURNING questions
 """
+_REFUND = """
+UPDATE api_usage SET questions = questions - 1
+WHERE user_id = %s AND day = %s AND questions > 0
+"""
 _USED = "SELECT questions FROM api_usage WHERE user_id = %s AND day = %s"
 _RECORD_TURN = """
 INSERT INTO api_turns (user_id, cohort, thread_id, turn, asked_at, status, degraded)
@@ -81,6 +85,10 @@ class PostgresApiStore:
         with self._lock:
             row = self._conn.execute(_CHARGE, params).fetchone()
         return None if row is None else int(row[0])
+
+    def refund_question(self, identity: Identity, day: dt.date) -> None:
+        with self._lock:
+            self._conn.execute(_REFUND, (identity.user_id, day))
 
     def questions_used(self, user_id: str, day: dt.date) -> int:
         with self._lock:
