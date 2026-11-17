@@ -78,12 +78,25 @@ class TurnStreamer:
         try:
             yield from self._turn(request)
         except ConversationConflictError:
+            self._refund(request)
             yield _error("conversation_conflict")
         except AgentError:
             yield _error("invalid_request")
         except Exception:  # the status line is already sent: the stream must end in an event
             _LOG.exception("turn failed")
+            self._refund(request)
             yield _error("internal_error")
+
+    def _refund(self, request: TurnRequest) -> None:
+        """The turn gave no answer through no fault of the user: give the question back.
+
+        The day is the UTC day of `asked_at`, the one the question was charged on."""
+        try:
+            self._store.refund_question(
+                request.identity, request.asked_at.astimezone(dt.UTC).date()
+            )
+        except Exception:  # a failed refund must not hide the error event from the user
+            _LOG.exception("refund failed")
 
     def _turn(self, request: TurnRequest) -> Iterator[bytes]:
         answer: Answer | None = None
