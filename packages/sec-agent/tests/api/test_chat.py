@@ -13,7 +13,7 @@ from api_kit import OTHER, REAL, SIM, THREAD, TODAY, api_of, event, events
 from llm_fakes import ScriptedProvider, call, calls, says
 
 from sec_agent.agent.answer import Answer, Evidence
-from sec_agent.agent.errors import ConversationConflictError
+from sec_agent.agent.errors import ConversationConflictError, InvalidQuestionError
 from sec_agent.agent.notices import DEGRADED_TEXT
 from sec_agent.faithfulness.notices import BLOCKED_TEXT
 from sec_agent.llm.errors import ProviderUnavailableError
@@ -219,3 +219,40 @@ def test_an_unexpected_failure_ends_the_stream_with_an_error_that_tells_nothing(
     error = event(response, "error")
     assert error["code"] == "internal_error"
     assert "secret detail" not in str(error)
+
+
+class _RejectingAgent:
+    def steps(
+        self, thread_id: str, question: str, *, asked_on: dt.date
+    ) -> Iterator[Evidence | Answer]:
+        raise InvalidQuestionError("SIMULATED: too long")
+        yield
+
+
+def test_a_turn_that_ends_in_a_conflict_does_not_use_up_a_daily_question(
+    facts_ctx: FactsContext,
+) -> None:
+    api = api_of(facts_ctx, agent=_ConflictingAgent())
+    api.chat(QUESTION)
+    assert api.store.questions_used(REAL.user_id, TODAY) == 0
+
+
+def test_a_turn_that_fails_unexpectedly_does_not_use_up_a_daily_question(
+    facts_ctx: FactsContext,
+) -> None:
+    api = api_of(facts_ctx, agent=_BrokenAgent())
+    api.chat(QUESTION)
+    assert api.store.questions_used(REAL.user_id, TODAY) == 0
+
+
+def test_a_question_the_agent_rejects_still_counts(facts_ctx: FactsContext) -> None:
+    api = api_of(facts_ctx, agent=_RejectingAgent())
+    response = api.chat(QUESTION)
+    assert event(response, "error")["code"] == "invalid_request"
+    assert api.store.questions_used(REAL.user_id, TODAY) == 1
+
+
+def test_an_answered_turn_keeps_its_question_counted(facts_ctx: FactsContext) -> None:
+    api = api_of(facts_ctx, ScriptedProvider("a", [says("SIMULATED answer.")]))
+    api.chat(QUESTION)
+    assert api.store.questions_used(REAL.user_id, TODAY) == 1

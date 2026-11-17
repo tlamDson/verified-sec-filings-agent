@@ -56,6 +56,27 @@ def test_each_user_and_each_day_has_its_own_count(store: ApiStore) -> None:
     assert store.questions_used("github:nobody", TODAY) == 0
 
 
+def test_a_refunded_question_is_given_back_to_that_user_and_day_only(store: ApiStore) -> None:
+    store.charge_question(REAL, TODAY, 5)
+    store.charge_question(REAL, TODAY, 5)
+    store.charge_question(OTHER, TODAY, 5)
+    store.charge_question(REAL, TOMORROW, 5)
+    store.refund_question(REAL, TODAY)
+    assert store.questions_used(REAL.user_id, TODAY) == 1
+    assert store.questions_used(OTHER.user_id, TODAY) == 1
+    assert store.questions_used(REAL.user_id, TOMORROW) == 1
+
+
+def test_a_refund_never_takes_the_count_below_zero(store: ApiStore) -> None:
+    store.refund_question(REAL, TODAY)
+    assert store.questions_used(REAL.user_id, TODAY) == 0
+    store.charge_question(REAL, TODAY, 5)
+    store.refund_question(REAL, TODAY)
+    store.refund_question(REAL, TODAY)
+    assert store.questions_used(REAL.user_id, TODAY) == 0
+    assert store.charge_question(REAL, TODAY, 5) == 1
+
+
 def test_replicas_racing_for_the_last_questions_never_pass_the_limit(api_db: str) -> None:
     with PostgresApiStore.connect(api_db) as a, PostgresApiStore.connect(api_db) as b:
 
