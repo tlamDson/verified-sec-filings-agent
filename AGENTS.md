@@ -11,6 +11,12 @@ Rules for every agent (Claude, Codex, or other) that writes or reviews code here
 - **SEC EDGAR only through the repository's rate-limited client** (10 requests per second, shared token bucket), with the User-Agent from the `SEC_USER_AGENT` environment variable. Never commit a real contact; `.env.example` holds a placeholder.
 - **Tests never call SEC, an LLM, or the network.** Use recorded fixtures.
 - Not investment advice: the product refuses advice and still shows historical numbers with a disclaimer.
+- **Labelling with LLM raters:** at most ~350 passages per rater batch, full reads required (a full read of 350 passages costs roughly 250-500k tokens; far less means skimming), and the provenance says "LLM, owner-reviewed", never human labels.
+- **New data sources:** before building evals on a source, sample each company for gaps such as "incorporated by reference" pointers (a 10-K can move MD&A into Exhibit 13).
+
+## Orchestrator rules
+
+This repo runs under the Conductor orchestrator (`D:\Desktop\Conductor\docs\authority.md` on the owner's machine). Approved work runs through to the end without "continue?" stops; by day report to the owner every 30 minutes, at night only on a blocker. Ask for every permission a task needs once, before starting. Releases use SemVer from the commit types (`feat:` minor, only `fix:` patch, breaking change major, minor while 0.x) and run the pipeline as a real user 2-3 times on real data before release.
 
 ## Code rules
 
