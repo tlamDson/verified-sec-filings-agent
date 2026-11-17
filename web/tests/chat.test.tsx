@@ -66,7 +66,7 @@ describe("Chat", () => {
       code: "daily_limit",
       message: "You have asked 20 of 20 questions today. The count resets at 00:00 UTC.",
       limit: 20,
-      resets_at: "2026-11-14T00:00:00Z",
+      resets_at: new Date(Date.now() + 86_400_000).toISOString(),
     };
     const { send } = playing([{ type: "error", data: refusal }]);
     render(<Chat threadId={THREAD} cohort="real" send={send} rate={rate} initialUsage={usage} />);
