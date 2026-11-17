@@ -4,6 +4,7 @@
 #
 # Repository settings:
 #   secret   HF_TOKEN        write token of the Space owner (the only required secret)
+#   (when HF_TOKEN or HF_SPACE is unset the run writes a notice and skips the deploy)
 #   variable HF_SPACE        owner/name of the Space, e.g. your-hf-user/sec-agent-api
 #   secrets  DATABASE_URL, API_AUTH_SECRET, LLM_PROVIDERS, SEC_USER_AGENT   copied to the
 #            Space when set; otherwise set them in the Space settings
@@ -39,12 +40,19 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check settings
+        id: settings
         run: |
-          test -n "$HF_TOKEN" || { echo "::error::set the repository secret HF_TOKEN"; exit 1; }
-          echo "$HF_SPACE" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$' \
-            || { echo "::error::set the repository variable HF_SPACE to owner/name"; exit 1; }
+          # Missing cloud config is not a failure: write a notice and skip the deploy steps.
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_SPACE" ]; then
+            echo "::notice::Deploy skipped: set the repository secret HF_TOKEN and the repository variable HF_SPACE (owner/name) to deploy the API."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$HF_SPACE" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$'             || { echo "::error::HF_SPACE must be owner/name"; exit 1; }
+          echo "configured=true" >> "$GITHUB_OUTPUT"
 
       - name: Stage the Space
+        if: steps.settings.outputs.configured == 'true'
         run: |
           mkdir -p space/packages
           cp infra/hf-space/Dockerfile infra/hf-space/README.md infra/hf-space/start.sh space/
@@ -54,6 +62,7 @@ jobs:
           find space -name '__pycache__' -prune -exec rm -rf {} +
 
       - name: Create the Space if it does not exist
+        if: steps.settings.outputs.configured == 'true'
         run: |
           owner="${HF_SPACE%%/*}"
           name="${HF_SPACE#*/}"
@@ -73,6 +82,7 @@ jobs:
           esac
 
       - name: Set the Space secrets and variables
+        if: steps.settings.outputs.configured == 'true'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           API_AUTH_SECRET: ${{ secrets.API_AUTH_SECRET }}
@@ -96,6 +106,7 @@ jobs:
           put "https://huggingface.co/api/spaces/$HF_SPACE/variables" FACTS_VERSION
 
       - name: Push the Space
+        if: steps.settings.outputs.configured == 'true'
         working-directory: space
         run: |
           git init -q -b main
