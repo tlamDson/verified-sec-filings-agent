@@ -4,7 +4,8 @@ The script must inject its faults while k6 runs (kill one API replica, then rate
 simulated model, then restore them), fail when k6 fails (a crossed threshold exits 99) or
 when the acceptance check in `sec-agent chaos load-rows` fails, and still record the rows of
 a failed run. The stub k6 run, like the real one, lasts until the fault timeline is over: it
-ends after the fourth `/admin/mode` call, or exits 97 when that never comes."""
+ends after the fourth `/admin/mode` call, or exits 97 when that never comes within
+`K6_STUB_BUDGET` seconds of wall-clock time (default 20)."""
 
 import os
 import shutil
@@ -21,7 +22,8 @@ echo "$(basename "$0") $*" >> "$STUB_LOG"
 if [ "$(basename "$0")" = docker ]; then
   case " $* " in
     *" run --rm k6 "*)
-      for _ in $(seq 400); do
+      deadline=$((SECONDS + ${K6_STUB_BUDGET:-20}))
+      while [ "$SECONDS" -lt "$deadline" ]; do
         if [ "$(grep -c /admin/mode "$STUB_LOG")" -ge 4 ]; then
           echo "k6 end" >> "$STUB_LOG"
           exit "${K6_EXIT:-0}"
