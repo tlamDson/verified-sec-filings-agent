@@ -19,7 +19,7 @@ from sec_agent.faithfulness.scan import DateMention, MentionUnit, NumberMention
 from sec_agent.faithfulness.sources import Figure, Sources, SourceUnit
 
 _ACCEPTS: dict[MentionUnit, frozenset[SourceUnit]] = {
-    "usd": frozenset({"USD", "USD/shares"}),
+    "usd": frozenset({"USD"}),
     "per_share": frozenset({"USD/shares"}),
     "percent": frozenset({"percent"}),
     "times": frozenset({"times"}),
@@ -39,6 +39,8 @@ class SentenceContext:
     years: frozenset[int]
     dates: frozenset[dt.date]
     citations: frozenset[str]
+    per_share: bool = False
+    """The sentence speaks of a share (per share, EPS, a share)."""
 
 
 def trace_number(mention: NumberMention, ctx: SentenceContext, sources: Sources) -> MentionCheck:
@@ -48,7 +50,7 @@ def trace_number(mention: NumberMention, ctx: SentenceContext, sources: Sources)
         gap = _gap(mention, figure.value)
         if gap is None:
             continue
-        if figure.unit not in _ACCEPTS[mention.unit]:
+        if not _unit_agrees(mention, figure, ctx):
             misses.setdefault("wrong_unit", figure.ref)
         elif not _in_period(figure, ctx):
             misses.setdefault("wrong_period", figure.ref)
@@ -89,6 +91,12 @@ def _gap(mention: NumberMention, value: Decimal) -> Decimal | None:
     """How far the shown figure is from `value`, or None when rounding cannot explain it."""
     gap = abs(mention.value - value) if mention.signed else abs(abs(mention.value) - abs(value))
     return gap if gap <= mention.tolerance else None
+
+
+def _unit_agrees(mention: NumberMention, figure: Figure, ctx: SentenceContext) -> bool:
+    if figure.unit in _ACCEPTS[mention.unit]:
+        return True
+    return mention.unit == "usd" and ctx.per_share and figure.unit == "USD/shares"
 
 
 def _in_period(figure: Figure, ctx: SentenceContext) -> bool:

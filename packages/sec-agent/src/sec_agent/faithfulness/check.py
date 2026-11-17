@@ -12,6 +12,7 @@ import re
 from collections.abc import Sequence
 
 from sec_agent.agent.answer import Evidence
+from sec_agent.faithfulness import patterns as p
 from sec_agent.faithfulness.config import FaithfulnessConfig
 from sec_agent.faithfulness.models import (
     CitationCheck,
@@ -75,6 +76,7 @@ def _check(
         years=found.years,
         dates=frozenset(d.date for d in found.dates if d.date is not None),
         citations=frozenset(c.key for c in found.citations),
+        per_share=p.PER_SHARE_CUE.search(piece) is not None,
     )
     mentions = sorted(
         [trace_number(n, ctx, sources) for n in found.numbers]

@@ -84,6 +84,17 @@ def test_a_figure_in_the_wrong_unit_is_rejected(facts_ctx: FactsContext) -> None
     assert _statuses("Its gross margin was 46.2%.", [margin]) == ["traced"]
 
 
+def test_a_dollar_total_is_not_traced_to_a_per_share_fact(facts_ctx: FactsContext) -> None:
+    """A plain "$X" is a total in dollars; USD/shares evidence only backs it when the sentence
+    speaks of a share."""
+    eps = run_tool(facts_ctx, "get_fact", company="AAPL", concept="eps_diluted", fiscal_year=2024)
+    assert _statuses("Apple's fiscal 2024 net income was $6.08.", [eps]) == ["wrong_unit"]
+    assert _statuses("Apple's fiscal 2024 revenue was $6.08 billion.", [eps]) == ["untraced"]
+    assert _statuses("Diluted EPS for fiscal 2024 was $6.08.", [eps]) == ["traced"]
+    assert _statuses("Apple earned $6.08 a share in fiscal 2024.", [eps]) == ["traced"]
+    assert _statuses("Apple's fiscal 2024 earnings were $6.08 per share.", [eps]) == ["traced"]
+
+
 def test_a_figure_for_another_period_than_the_sentence_names_is_rejected(
     revenue: Evidence,
 ) -> None:
