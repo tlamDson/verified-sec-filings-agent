@@ -126,6 +126,64 @@ describe("chatReducer", () => {
     expect(state.busy).toBe(false);
   });
 
+  describe("after a daily-limit refusal", () => {
+    const refusal = {
+      code: "daily_limit",
+      message: "You have asked 20 of 20 questions today. The count resets at 00:00 UTC.",
+      limit: 20,
+      resets_at: "2026-11-14T00:00:00Z",
+    };
+    const refused = () => run(initialChat(THREAD, usage), asked, { type: "error", data: refusal });
+    const resets = Date.parse(refusal.resets_at);
+
+    it("keeps the refusal before the reset time", () => {
+      const state = run(refused(), { type: "clock", now: resets - 1 });
+      expect(state.limit).not.toBeNull();
+      expect(state.usage?.used).toBe(20);
+    });
+
+    it("clears the refusal and the spent count once the reset time has passed", () => {
+      const state = run(refused(), { type: "clock", now: resets });
+      expect(state.limit).toBeNull();
+      expect(state.usage).toBeNull();
+      expect(state.turns).toEqual(refused().turns);
+    });
+
+    it("clears the refusal when a turn reports quota left", () => {
+      const fresh = { used: 1, limit: 20, resets_at: "2026-11-15T00:00:00Z" };
+      const state = run(refused(), {
+        type: "turn",
+        data: { ...turnEvent.data, usage: fresh },
+      } as ChatAction);
+      expect(state.limit).toBeNull();
+      expect(state.usage).toEqual(fresh);
+    });
+
+    it("keeps the refusal when the usage shown still has no quota left", () => {
+      const spent = { used: 20, limit: 20, resets_at: refusal.resets_at };
+      const state = run(refused(), {
+        type: "turn",
+        data: { ...turnEvent.data, usage: spent },
+      } as ChatAction);
+      expect(state.limit).not.toBeNull();
+    });
+
+    it("ignores the clock when no refusal is held", () => {
+      const state = initialChat(THREAD, usage);
+      expect(run(state, { type: "clock", now: resets })).toEqual(state);
+    });
+
+    it("keeps a refusal whose reset time is unknown", () => {
+      const state = run(
+        initialChat(THREAD),
+        asked,
+        { type: "error", data: { code: "daily_limit", message: "Limit." } },
+        { type: "clock", now: 0 },
+      );
+      expect(state.limit).not.toBeNull();
+    });
+  });
+
   it("numbers the turns of a conversation and only changes the one in flight", () => {
     const first = run(initialChat(THREAD), asked, ...answeredTurn);
     const second = run(first, { type: "asked", question: "And net income?" });

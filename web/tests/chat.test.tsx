@@ -78,6 +78,28 @@ describe("Chat", () => {
     expect((screen.getByRole("button", { name: "Ask" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("takes questions again once the reset time of a daily limit has passed", async () => {
+    const refusal = {
+      code: "daily_limit",
+      message: "You have asked 20 of 20 questions today. The count resets at 00:00 UTC.",
+      limit: 20,
+      resets_at: new Date(Date.now() + 300).toISOString(),
+    };
+    const { send, asked } = playing([{ type: "error", data: refusal }], answeredTurn);
+    render(<Chat threadId={THREAD} cohort="real" send={send} rate={rate} initialUsage={usage} />);
+    ask("One more?");
+    await waitFor(() =>
+      expect(screen.getAllByText(refusal.message).length).toBeGreaterThanOrEqual(1),
+    );
+    const button = () => screen.getByRole("button", { name: "Ask" }) as HTMLButtonElement;
+    expect(button().disabled).toBe(true);
+
+    await waitFor(() => expect(button().disabled).toBe(false), { timeout: 3000 });
+    ask("Apple revenue?");
+    expect(await screen.findByText(/Apple reported revenue of \$391,035 million/)).toBeTruthy();
+    expect(asked.map((entry) => entry.question)).toEqual(["One more?", "Apple revenue?"]);
+  });
+
   it("labels a simulated account as simulated", () => {
     const { send } = playing();
     const { unmount } = render(
