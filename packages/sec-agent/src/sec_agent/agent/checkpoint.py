@@ -17,10 +17,10 @@ from typing import cast
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import ChannelVersions, Checkpoint, CheckpointMetadata
 from langgraph.checkpoint.postgres import PostgresSaver
-from psycopg import Connection
-from psycopg.rows import DictRow, dict_row
+from psycopg.rows import dict_row
 
 from sec_agent.agent.errors import ConversationConflictError
+from sec_agent.pg_pool import Connections, lease, pooled
 
 _LOCK = "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))"
 _HEAD = """
@@ -33,11 +33,12 @@ LIMIT 1
 
 
 class FencedPostgresSaver(PostgresSaver):
-    """One connection per saver; calls from several threads take turns on it."""
+    """One pool per saver, so a connection the server closed is replaced; calls from
+    several threads take turns on it."""
 
-    def __init__(self, conn: Connection[DictRow]) -> None:
-        super().__init__(conn)
-        self._fence_conn = conn
+    def __init__(self, conns: Connections) -> None:
+        super().__init__(conns)
+        self._fence_conns = conns
         # Re-entrant, so `put` holds the connection across its check and the parent's write
         # while every other call on this saver waits outside the transaction.
         self.lock = cast(threading.Lock, threading.RLock())
@@ -53,21 +54,23 @@ class FencedPostgresSaver(PostgresSaver):
         thread_id = str(configurable["thread_id"])
         namespace = str(configurable.get("checkpoint_ns", ""))
         parent: str | None = configurable.get("checkpoint_id") or None
-        with self.lock, self._fence_conn.transaction():
-            self._fence_conn.execute(_LOCK, (f"checkpoint:{namespace}:{thread_id}",))
-            head = self._fence_conn.execute(
-                _HEAD, (checkpoint["id"], thread_id, namespace)
-            ).fetchone()
+        with self.lock, lease(self._fence_conns) as conn, conn.transaction():
+            conn.execute(_LOCK, (f"checkpoint:{namespace}:{thread_id}",))
+            head = conn.execute(_HEAD, (checkpoint["id"], thread_id, namespace)).fetchone()
             current: str | None = None if head is None else head["checkpoint_id"]
             if current != parent or (head is not None and not head["before_new"]):
                 raise ConversationConflictError(thread_id)
-            return super().put(config, checkpoint, metadata, new_versions)
+            # The parent's write joins this transaction: it runs on the leased connection.
+            # Every other call on this saver waits on `self.lock`, so none sees the swap.
+            self.conn = conn
+            try:
+                return super().put(config, checkpoint, metadata, new_versions)
+            finally:
+                self.conn = self._fence_conns
 
 
 @contextmanager
 def postgres_checkpointer(conninfo: str) -> Generator[FencedPostgresSaver]:
-    """A saver on its own connection. Call `setup()` once per database to create the tables."""
-    with Connection[DictRow].connect(
-        conninfo, autocommit=True, prepare_threshold=0, row_factory=dict_row
-    ) as conn:
-        yield FencedPostgresSaver(conn)
+    """A saver on its own pool. Call `setup()` once per database to create the tables."""
+    with pooled(conninfo, prepare_threshold=0, row_factory=dict_row) as pool:
+        yield FencedPostgresSaver(pool)

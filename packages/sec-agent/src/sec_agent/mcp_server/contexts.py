@@ -12,6 +12,7 @@ from typing import Any
 import psycopg
 
 from sec_agent.mcp_server.dispatch import ToolContexts
+from sec_agent.pg_pool import pooled
 from sec_agent.rerank.service import Reranker
 from sec_agent.retrieval.embedder import Embedder
 from sec_agent.retrieval.errors import SnapshotNotFoundError
@@ -45,20 +46,21 @@ def open_contexts(
     directory = CompanyDirectory.from_universe() if companies is None else companies
     with ExitStack() as stack:
         store = stack.enter_context(PostgresFactStore.connect(conninfo))
-        conn = stack.enter_context(psycopg.connect(conninfo, autocommit=True))
-        row = conn.execute(_HAS_FACTS, (facts_version,)).fetchone()
-        if row is None or not row[0]:
-            raise ServeConfigError(f"facts index version {facts_version!r} holds no facts")
+        pool = stack.enter_context(pooled(conninfo))
+        with pool.connection() as conn:
+            row = conn.execute(_HAS_FACTS, (facts_version,)).fetchone()
+            if row is None or not row[0]:
+                raise ServeConfigError(f"facts index version {facts_version!r} holds no facts")
+            pinned = _snapshot(conn, snapshot)
         facts = FactsContext(companies=directory, facts=store, index_version=facts_version)
-        pinned = _snapshot(conn, snapshot)
         text = (
             None
             if pinned is None
             else TextContext(
                 companies=directory,
-                conn=conn,
+                conn=pool,
                 space=pinned.embedding_space,
-                sections=PostgresRiskSections(conn),
+                sections=PostgresRiskSections(pool),
                 facts_version=facts_version,
                 embedder=embedder(pinned.spec),
                 reranker=reranker,

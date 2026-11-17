@@ -5,11 +5,11 @@ from collections.abc import Sequence
 from types import TracebackType
 from typing import Any, Protocol, Self
 
-import psycopg
-from psycopg.rows import DictRow, dict_row
+from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict
 
+from sec_agent.pg_pool import Pool, open_pool
 from sec_agent.xbrl import sql
 from sec_agent.xbrl.models import Fact, NormalizationReport
 from sec_agent.xbrl.normalize import Normalized
@@ -38,16 +38,17 @@ class FactWriter(Protocol):
 
 
 class PostgresFactStore:
-    def __init__(self, conn: psycopg.Connection[DictRow]) -> None:
-        self._conn = conn
+    """A pool lends each call a live connection, so one the server closed is replaced."""
+
+    def __init__(self, pool: Pool) -> None:
+        self._pool = pool
 
     @classmethod
     def connect(cls, conninfo: str) -> Self:
-        conn = psycopg.Connection[DictRow].connect(conninfo, autocommit=True, row_factory=dict_row)
-        return cls(conn)
+        return cls(open_pool(conninfo, row_factory=dict_row))
 
     def close(self) -> None:
-        self._conn.close()
+        self._pool.close()
 
     def __enter__(self) -> Self:
         return self
@@ -79,7 +80,7 @@ class PostgresFactStore:
             "period_ends": [f.period_end for f in normalized.facts],
             "accessions": [f.accession for f in normalized.facts],
         }
-        with self._conn.transaction(), self._conn.cursor() as cur:
+        with self._pool.connection() as conn, conn.transaction(), conn.cursor() as cur:
             cur.execute(sql.LOCK_COMPANY, company)
             cur.execute(sql.DELETE_ABSENT_FACTS, keys)
             cur.executemany(sql.UPSERT_FACT, rows)
@@ -87,20 +88,24 @@ class PostgresFactStore:
         return len(rows)
 
     def count(self, *, index_version: str, cik: int) -> int:
-        row = self._conn.execute(sql.COUNT, {"index_version": index_version, "cik": cik}).fetchone()
+        params = {"index_version": index_version, "cik": cik}
+        with self._pool.connection() as conn:
+            row = conn.execute(sql.COUNT, params).fetchone()
         return 0 if row is None else int(row["n"])
 
     def versions(self, *, index_version: str, cik: int, concept: str | None = None) -> list[Fact]:
         """Every stored version, ordered by concept, unit, period, then filing."""
         params = {"index_version": index_version, "cik": cik, "concept": concept}
-        return [Fact.model_validate(r) for r in self._conn.execute(sql.VERSIONS, params)]
+        with self._pool.connection() as conn:
+            return [Fact.model_validate(r) for r in conn.execute(sql.VERSIONS, params)]
 
     def latest(
         self, *, index_version: str, cik: int, concept: str | None = None
     ) -> list[LatestFact]:
         """One row per concept, unit and period: the latest filed version (E2)."""
         params = {"index_version": index_version, "cik": cik, "concept": concept}
-        return [_latest(r) for r in self._conn.execute(sql.LATEST, params)]
+        with self._pool.connection() as conn:
+            return [_latest(r) for r in conn.execute(sql.LATEST, params)]
 
     def lookup(
         self,
@@ -117,11 +122,13 @@ class PostgresFactStore:
             "concepts": list(concepts),
             "fiscal_years": list(fiscal_years),
         }
-        return [_latest(r) for r in self._conn.execute(sql.LOOKUP, params)]
+        with self._pool.connection() as conn:
+            return [_latest(r) for r in conn.execute(sql.LOOKUP, params)]
 
     def ingest_record(self, *, index_version: str, cik: int) -> IngestRecord | None:
         params = {"index_version": index_version, "cik": cik}
-        row = self._conn.execute(sql.GET_INGEST, params).fetchone()
+        with self._pool.connection() as conn:
+            row = conn.execute(sql.GET_INGEST, params).fetchone()
         return None if row is None else IngestRecord.model_validate(row)
 
 

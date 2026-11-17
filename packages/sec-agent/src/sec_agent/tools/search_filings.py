@@ -15,6 +15,7 @@ from typing import Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from sec_agent.filings.models import FilingForm, SectionKey
+from sec_agent.pg_pool import lease
 from sec_agent.rerank.service import FallbackReason
 from sec_agent.retrieval.models import Hit, SearchFilters, SearchMode
 from sec_agent.retrieval.search import search
@@ -95,15 +96,16 @@ def search_filings(ctx: TextContext, args: SearchFilingsArgs) -> SearchResult:
     )
     mode: SearchMode = "lexical" if ctx.embedder is None else "hybrid"
     reranker = ctx.reranker
-    hits = search(
-        ctx.conn,
-        args.query,
-        ctx.space,
-        embedder=ctx.embedder,
-        mode=mode,
-        filters=filters,
-        k=args.k if reranker is None else max(args.k, reranker.depth),
-    )
+    with lease(ctx.conn) as conn:
+        hits = search(
+            conn,
+            args.query,
+            ctx.space,
+            embedder=ctx.embedder,
+            mode=mode,
+            filters=filters,
+            k=args.k if reranker is None else max(args.k, reranker.depth),
+        )
     passages = [_passage(ctx, h) for h in hits]
     used: str | None = None
     fallback: FallbackReason | None = None

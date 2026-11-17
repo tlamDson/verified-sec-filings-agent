@@ -7,15 +7,13 @@ asked matches no row and is not kept.
 """
 
 import datetime as dt
-import threading
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Self
-
-import psycopg
+from typing import Self
 
 from sec_agent.api.identity import COHORTS, Cohort, Identity
 from sec_agent.api.store import CohortCounts, Feedback, TurnRecord
+from sec_agent.pg_pool import Pool, pooled
 
 _CHARGE = """
 INSERT INTO api_usage (user_id, cohort, day, questions)
@@ -62,18 +60,16 @@ _NO_COUNTS = CohortCounts(
 
 
 class PostgresApiStore:
-    """One connection; calls from several threads take turns."""
+    """A pool lends each call a live connection; calls from several threads take turns."""
 
-    def __init__(self, conn: psycopg.Connection[Any]) -> None:
-        self._conn = conn
-        self._lock = threading.Lock()
+    def __init__(self, pool: Pool) -> None:
+        self._pool = pool
 
     @classmethod
     @contextmanager
     def connect(cls, conninfo: str) -> Generator[Self]:
-        conn: psycopg.Connection[Any]
-        with psycopg.connect(conninfo, autocommit=True) as conn:
-            yield cls(conn)
+        with pooled(conninfo) as pool:
+            yield cls(pool)
 
     def charge_question(self, identity: Identity, day: dt.date, limit: int) -> int | None:
         params = {
@@ -82,31 +78,31 @@ class PostgresApiStore:
             "day": day,
             "limit": limit,
         }
-        with self._lock:
-            row = self._conn.execute(_CHARGE, params).fetchone()
+        with self._pool.connection() as conn:
+            row = conn.execute(_CHARGE, params).fetchone()
         return None if row is None else int(row[0])
 
     def refund_question(self, identity: Identity, day: dt.date) -> None:
-        with self._lock:
-            self._conn.execute(_REFUND, (identity.user_id, day))
+        with self._pool.connection() as conn:
+            conn.execute(_REFUND, (identity.user_id, day))
 
     def questions_used(self, user_id: str, day: dt.date) -> int:
-        with self._lock:
-            row = self._conn.execute(_USED, (user_id, day)).fetchone()
+        with self._pool.connection() as conn:
+            row = conn.execute(_USED, (user_id, day)).fetchone()
         return 0 if row is None else int(row[0])
 
     def record_turn(self, record: TurnRecord) -> None:
-        with self._lock:
-            self._conn.execute(_RECORD_TURN, record.model_dump())
+        with self._pool.connection() as conn:
+            conn.execute(_RECORD_TURN, record.model_dump())
 
     def save_feedback(self, feedback: Feedback) -> bool:
-        with self._lock:
-            return self._conn.execute(_SAVE_FEEDBACK, feedback.model_dump()).rowcount == 1
+        with self._pool.connection() as conn:
+            return conn.execute(_SAVE_FEEDBACK, feedback.model_dump()).rowcount == 1
 
     def cohort_counts(self, first_day: dt.date, last_day: dt.date) -> dict[Cohort, CohortCounts]:
         span = {"start": _midnight(first_day), "end": _midnight(last_day + dt.timedelta(days=1))}
-        with self._lock:
-            rows = self._conn.execute(_COUNTS, span).fetchall()
+        with self._pool.connection() as conn:
+            rows = conn.execute(_COUNTS, span).fetchall()
         found = {
             row[0]: CohortCounts(
                 users=row[1],
