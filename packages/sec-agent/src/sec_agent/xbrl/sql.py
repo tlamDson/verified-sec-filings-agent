@@ -23,6 +23,24 @@ ON CONFLICT ON CONSTRAINT facts_version_unique DO UPDATE SET
     frame = EXCLUDED.frame
 """
 
+# A refresh replaces the company's snapshot: versions the new snapshot no longer has (SEC
+# dropped them, or normalize() now rejects them) are deleted so they are never answered.
+# The incoming keys arrive as parallel arrays; coalesce makes the NULL start of an instant
+# compare equal, as the NULLS NOT DISTINCT version key does.
+DELETE_ABSENT_FACTS = b"""
+DELETE FROM facts f
+WHERE f.index_version = %(index_version)s AND f.cik = %(cik)s
+AND NOT EXISTS (
+    SELECT 1 FROM unnest(
+        %(concepts)s::text[], %(units)s::text[], %(period_starts)s::date[],
+        %(period_ends)s::date[], %(accessions)s::text[]
+    ) AS k(concept, unit, period_start, period_end, accession)
+    WHERE k.concept = f.concept AND k.unit = f.unit
+    AND coalesce(k.period_start, '-infinity'::date) = coalesce(f.period_start, '-infinity'::date)
+    AND k.period_end = f.period_end AND k.accession = f.accession
+)
+"""
+
 UPSERT_INGEST = b"""
 INSERT INTO xbrl_ingests (index_version, cik, entity_name, facts_written, report)
 VALUES (%(index_version)s, %(cik)s, %(entity_name)s, %(facts_written)s, %(report)s)
