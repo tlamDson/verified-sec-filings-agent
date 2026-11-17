@@ -3,12 +3,12 @@
 A figure traces to a tool value when rounding that value to the digits shown gives it
 (within `tolerance`), the units agree (E5), and the value's period is one the sentence
 names, or the sentence names none (E1). A fiscal year the sentence names (FY2023, fiscal
-2023) must be the fact's own fiscal year, not merely the year its period ended in.
-Without a written sign the magnitude is compared,
+2023) matches only the fact's own fiscal year, never the year its period ended in; bare
+years and dates still match as before. Without a written sign the magnitude is compared,
 since "fell 2.5%" states -2.5 in words. Among several matches the closest wins. A figure
 traces to filing text only through a passage the sentence cites, at the value the passage
-states (a bare table number also at the scale its heading states, see `sources`). A
-date traces when the evidence holds it or it is the day the question was asked.
+states (a bare table number also at the scale its heading states, see `sources`). A date
+traces when the evidence holds it or it is the day the question was asked.
 """
 
 import datetime as dt
@@ -108,12 +108,15 @@ def _in_period(figure: Figure, ctx: SentenceContext) -> bool:
         return True
     if figure.fiscal_year is None and figure.period_end is None:
         return True  # a count or a rank has no period of its own
+    years = ctx.years
     if ctx.fiscal_years and figure.fiscal_year is not None:
-        return figure.fiscal_year in ctx.fiscal_years
+        if figure.fiscal_year in ctx.fiscal_years:
+            return True
+        years = ctx.years - ctx.fiscal_years  # only the bare years and dates may still match
     end = figure.period_end
     return (
-        figure.fiscal_year in ctx.years
-        or (end is not None and (end.year in ctx.years or end in ctx.dates))
+        figure.fiscal_year in years
+        or (end is not None and (end.year in years or end in ctx.dates))
         or (figure.period_start is not None and figure.period_start in ctx.dates)
     )
 

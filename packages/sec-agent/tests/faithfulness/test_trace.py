@@ -4,7 +4,9 @@ Tool evidence comes from the real tools on the recorded Apple and NVIDIA facts; 
 and risk diffs are simulated. Every answer sentence is simulated model text.
 """
 
+import datetime as dt
 from collections.abc import Sequence
+from decimal import Decimal
 
 import pytest
 from faithfulness_kit import (
@@ -20,7 +22,10 @@ from faithfulness_kit import (
 
 from sec_agent.agent.answer import Evidence
 from sec_agent.faithfulness.check import check_answer
-from sec_agent.faithfulness.models import FaithfulnessReport, MentionCheck
+from sec_agent.faithfulness.models import FaithfulnessReport, MentionCheck, SourceRef
+from sec_agent.faithfulness.scan import scan
+from sec_agent.faithfulness.sources import Figure, Sources
+from sec_agent.faithfulness.trace import SentenceContext, trace_number
 from sec_agent.tools.context import FactsContext
 
 
@@ -323,3 +328,38 @@ def test_a_named_fiscal_year_must_be_the_fiscal_year_of_the_fact(text: str, stat
 def test_a_date_of_the_year_still_traces_a_figure_when_no_fiscal_year_is_named() -> None:
     text = "SIM Widgets' revenue for the year ended December 31, 2023 was $1.25 billion."
     assert _statuses(text, [labelled_ahead_evidence()]) == ["traced", "traced"]
+
+
+def test_a_bare_year_next_to_a_named_fiscal_year_still_names_a_period(
+    facts_ctx: FactsContext,
+) -> None:
+    growth = run_tool(
+        facts_ctx,
+        "compute_ratio",
+        "c2",
+        company="AAPL",
+        ratio="yoy_growth",
+        concept="revenue",
+        fiscal_year=2024,
+    )
+    text = "Revenue grew 2.0% to $391.0 billion in fiscal 2024 from $383.3 billion in 2023."
+    assert _statuses(text, [growth]) == ["traced", "traced", "traced"]
+
+
+def test_a_figure_without_a_fiscal_year_is_read_on_its_own_dates_when_a_fiscal_year_is_named() -> (
+    None
+):
+    figure = Figure(
+        value=Decimal("1250000000"),
+        unit="USD",
+        fiscal_year=None,
+        period_start=dt.date(2023, 1, 1),
+        period_end=dt.date(2023, 12, 31),
+        ref=SourceRef(call_id="x1", tool="get_fact", field="fact.value"),
+    )
+    found = scan("SIM Widgets' revenue was $1.25 billion in fiscal 2023 and in 2023.")
+    ctx = SentenceContext(
+        years=found.years, fiscal_years=found.fiscal_years, dates=frozenset(), citations=frozenset()
+    )
+    check = trace_number(found.numbers[0], ctx, Sources(figures=[figure]))
+    assert check.status == "traced"
