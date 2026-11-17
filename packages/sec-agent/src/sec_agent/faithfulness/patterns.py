@@ -90,5 +90,7 @@ SCALES = {
 PERCENT_AFTER = re.compile(r"\s?(?:%|percent\b|per\s?cent\b|percentage\s+points?\b|pp\b)", _I)
 TIMES_AFTER = re.compile(r"(?:x(?!\w)|\s?times\b)", _I)
 PER_SHARE_AFTER = re.compile(r"\s*(?:per|a|/)\s*(?:diluted\s+|basic\s+|common\s+)?share\b", _I)
+PER_SHARE_CUE = re.compile(r"\bEPS\b|\b(?:per|a|each)\s+(?:\w+\s+){0,2}share\b", _I)
+"""A sentence that speaks of a share: its plain "$X" may be a per-share figure."""
 SHARES_AFTER = re.compile(r"\s+(?:(?!per\b)[a-z]+\s+){0,2}shares?\b", _I)
 DOLLARS_AFTER = re.compile(r"\s+(?:dollars|usd)\b", _I)
