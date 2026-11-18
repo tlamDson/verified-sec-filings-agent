@@ -21,7 +21,11 @@ from sec_agent.agent.prompt import system_prompt
 from sec_agent.agent.state import AgentState
 from sec_agent.agent.tool_runner import ToolRunner, refusal
 from sec_agent.faithfulness.check import check_answer
-from sec_agent.guardrails.notices import ATTACK_REFUSED_TEXT, CANARY_BLOCKED_TEXT
+from sec_agent.guardrails.notices import (
+    ADVICE_DECLINED_TEXT,
+    ATTACK_REFUSED_TEXT,
+    CANARY_BLOCKED_TEXT,
+)
 from sec_agent.llm.errors import AllProvidersFailedError
 from sec_agent.llm.messages import ChatRequest, Message, assistant, system, tool_result, user
 from sec_agent.llm.router import LLMRouter
@@ -86,7 +90,7 @@ class TurnNodes:
             result = self._router.complete(request)
         except AllProvidersFailedError as error:
             calls.append(_record(None, None, 0, 0, error.attempts))
-            return _end(calls, "degraded", "llm_unavailable", DEGRADED_TEXT)
+            return self._degraded(state, calls, "llm_unavailable")
         completion = result.completion
         usage = completion.usage
         calls.append(
@@ -102,7 +106,7 @@ class TurnNodes:
         if self._guard.reply_leaks(message):  # its text and its tool calls alike
             return self._leak(state, calls)
         if completion.finish_reason == "length":  # cut off: it may end in half a number
-            return _end(calls, "degraded", "truncated_reply", DEGRADED_TEXT)
+            return self._degraded(state, calls, "truncated_reply")
         tool_calls = message.get("tool_calls")
         if tool_calls:
             if last_call:
@@ -115,7 +119,7 @@ class TurnNodes:
             return {"llm_calls": calls, "messages": [asked]}
         text = (message["content"] or "").strip()
         if not text:
-            return _end(calls, "degraded", "empty_reply", DEGRADED_TEXT)
+            return self._degraded(state, calls, "empty_reply")
         return self._checked(state, calls, text)
 
     def run_tools(self, state: AgentState) -> Update:
@@ -163,6 +167,15 @@ class TurnNodes:
             return {**_end(calls, "blocked", "untraced_figures", report.text), **checked}
         text, guard = self._guard.answer(state.get("guard"), report.text)
         return {**_end(calls, "answered", None, text), **checked, "guard": guard}
+
+    def _degraded(self, state: AgentState, calls: list[dict[str, Any]], reason: Reason) -> Update:
+        """The model wrote no answer. A question the screen took for advice gets the fixed
+        refusal and none of the figures or passages gathered for it (E9); any other keeps
+        its tool results under the degraded notice."""
+        guard = state.get("guard")
+        if guard is not None and guard["question"] == "advice":
+            return {**_end(calls, "degraded", reason, ADVICE_DECLINED_TEXT), "evidence": []}
+        return _end(calls, "degraded", reason, DEGRADED_TEXT)
 
     def _leak(self, state: AgentState, calls: list[dict[str, Any]]) -> Update:
         end = _end(calls, "blocked", "canary_leak", CANARY_BLOCKED_TEXT)
