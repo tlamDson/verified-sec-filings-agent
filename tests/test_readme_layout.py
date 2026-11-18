@@ -43,7 +43,7 @@ def test_readme_sections_are_in_order(repo_root: Path) -> None:
 def test_readme_top_has_pitch_badges_and_diagram_before_any_section(repo_root: Path) -> None:
     readme = _readme(repo_root)
     top = readme.split("\n## ", 1)[0]
-    assert top.startswith("# Verified SEC Filings Research Agent\n")
+    assert top.startswith("# Verified SEC Filings Agent\n")
     assert "actions/workflows/ci.yml/badge.svg" in top
     assert "License" in top
     assert "LICENSE" in top

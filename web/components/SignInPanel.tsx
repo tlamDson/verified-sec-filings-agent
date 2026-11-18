@@ -65,7 +65,7 @@ export function SignInPanel({
 }) {
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-5 px-4">
-      <h1 className="text-3xl font-semibold">Verified SEC Filings Research Agent</h1>
+      <h1 className="text-3xl font-semibold">Verified SEC Filings Agent</h1>
       <p>
         Ask about public 10-K and 10-Q filings. Every number in an answer is traced to an XBRL fact
         or a cited passage.

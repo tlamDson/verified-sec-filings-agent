@@ -57,3 +57,10 @@ def test_page_escapes_transcript_text_and_has_no_scripts_or_network() -> None:
 
 def test_page_is_deterministic() -> None:
     assert render_page(_rows(), _samples()) == render_page(_rows(), _samples())
+
+
+def test_page_title_and_heading_use_the_display_name() -> None:
+    page = render_page(_rows(), _samples())
+    assert "<title>Verified SEC Filings Agent</title>" in page
+    assert "<h1>Verified SEC Filings Agent</h1>" in page
+    assert "Research Agent" not in page

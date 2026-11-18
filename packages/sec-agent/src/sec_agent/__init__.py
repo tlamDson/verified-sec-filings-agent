@@ -1,4 +1,4 @@
-"""Verified SEC Filings Research Agent."""
+"""Verified SEC Filings Agent."""
 
 from importlib.metadata import version
 

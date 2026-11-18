@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Verified SEC Filings Research Agent",
+  title: "Verified SEC Filings Agent",
   description: "Research over SEC filings where every number is traced to its source.",
 };
 
