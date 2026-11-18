@@ -19,6 +19,7 @@ from typing import Protocol
 from sec_agent.agent.answer import Answer, Evidence
 from sec_agent.agent.errors import AgentError, ConversationConflictError
 from sec_agent.api.charts import charts_of
+from sec_agent.api.cited_sources import cited_sources
 from sec_agent.api.events import (
     AnswerPayload,
     CheckSummary,
@@ -123,7 +124,7 @@ class TurnStreamer:
             )
             yield from _evidence_event(looked_up)
             evidence.extend(looked_up)
-        view = present(evidence)
+        view = cited_sources(present(evidence), answer.text)
         self._store.record_turn(
             TurnRecord(
                 user_id=request.identity.user_id,
