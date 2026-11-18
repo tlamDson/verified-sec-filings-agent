@@ -15,6 +15,7 @@
       "!**/*.py",
       "!**/tests/fixtures",
       "!infra/hf-space/README.md",
+      "!.github/ISSUE_TEMPLATE",
       "!infra/helm/*/templates"
     ]
   },
