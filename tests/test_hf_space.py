@@ -105,6 +105,20 @@ def test_workflow_pushes_the_staged_space_and_sets_its_secrets(repo_root: Path) 
         assert name in run, name
 
 
+def test_workflow_copies_the_hosted_llm_key_to_the_space_secrets(repo_root: Path) -> None:
+    # LLM_PROVIDERS names api_key_env GROQ_API_KEY; without the key the Space fails every chat call.
+    step = next(
+        s
+        for job in _workflow(repo_root)["jobs"].values()
+        for s in job["steps"]
+        if s.get("name") == "Set the Space secrets and variables"
+    )
+    assert step["env"]["GROQ_API_KEY"] == "${{ secrets.GROQ_API_KEY }}"
+    secret_loop = re.search(r"for name in ([A-Z_ ]+); do", step["run"])
+    assert secret_loop is not None
+    assert "GROQ_API_KEY" in secret_loop.group(1).split()
+
+
 def test_workflow_stages_only_what_the_image_needs(repo_root: Path) -> None:
     run = _runs(repo_root)
     for path in ("infra/hf-space/", "pyproject.toml", "uv.lock", "packages/sec-agent"):
