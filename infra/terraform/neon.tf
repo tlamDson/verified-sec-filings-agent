@@ -1,5 +1,6 @@
-# One free-plan project: Postgres 17, the smallest compute that scales to zero, and the
-# free plan's longest history window (6 hours). pgvector and pg_search are created by SQL
+# One free-plan project: Postgres 17, the smallest compute (the free plan scales it to zero
+# after a fixed 5 minutes and rejects a custom suspend timeout), and the free plan's longest
+# history window (6 hours). pgvector and pg_search are created by SQL
 # (infra/postgres/init/01-extensions.sql), not here.
 resource "neon_project" "main" {
   name                      = var.neon_project_name
@@ -17,6 +18,5 @@ resource "neon_project" "main" {
   primary_compute {
     autoscaling_limit_min_cu = 0.25
     autoscaling_limit_max_cu = 1
-    suspend_timeout_seconds  = 300
   }
 }

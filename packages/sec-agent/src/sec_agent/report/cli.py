@@ -1,4 +1,4 @@
-"""`sec-agent report sync [--check]`: README results block and resume bullets from runs.csv."""
+"""`sec-agent report sync [--check]`: DEVELOPMENT.md results and resume bullets from runs.csv."""
 
 import argparse
 import sys
@@ -15,11 +15,11 @@ if TYPE_CHECKING:
 
 
 def add_commands(subparsers: "Subparsers") -> None:
-    report = subparsers.add_parser("report", help="README results and bullets from runs.csv")
+    report = subparsers.add_parser("report", help="results tables and bullets from runs.csv")
     steps = report.add_subparsers(dest="report_command", metavar="step", required=True)
-    sync = steps.add_parser("sync", help="write the README results block and docs/bullets.md")
+    sync = steps.add_parser("sync", help="write the DEVELOPMENT.md results and docs/bullets.md")
     sync.add_argument("--runs", type=Path, default=Path("runs.csv"))
-    sync.add_argument("--readme", type=Path, default=Path("README.md"))
+    sync.add_argument("--readme", type=Path, default=Path("DEVELOPMENT.md"))
     sync.add_argument("--bullets", type=Path, default=Path("docs/bullets.md"))
     sync.add_argument("--check", action="store_true", help="write nothing; exit 1 if stale")
     sync.set_defaults(run=_sync)

@@ -16,6 +16,7 @@ from sec_agent.agent.answer import Answer, Evidence
 from sec_agent.agent.errors import ConversationConflictError, InvalidQuestionError
 from sec_agent.agent.notices import DEGRADED_TEXT
 from sec_agent.faithfulness.notices import BLOCKED_TEXT
+from sec_agent.guardrails.notices import ADVICE_DECLINED_TEXT
 from sec_agent.llm.errors import ProviderUnavailableError
 from sec_agent.tools.context import FactsContext
 
@@ -127,6 +128,30 @@ def test_a_degraded_turn_with_nothing_to_look_up_has_no_cards(facts_ctx: FactsCo
     answer = event(response, "answer")
     assert (answer["degraded"], answer["cards"], answer["charts"]) == (True, [], [])
     assert "not investment advice" in answer["text"].lower()
+
+
+def test_an_advice_question_in_degraded_mode_gets_the_refusal_and_no_lookups(
+    facts_ctx: FactsContext,
+) -> None:
+    """No model, so no advice filter on prose: the screen's advice kind is answered with the
+    fixed refusal, and no figures or passages are looked up for it."""
+    model = ScriptedProvider("a", [DOWN])
+    response = api_of(facts_ctx, model).chat("Should I buy Apple stock now?")
+    assert [name for name, _ in events(response)] == ["turn", "answer"]
+    answer = event(response, "answer")
+    assert (answer["status"], answer["degraded"]) == ("degraded", True)
+    assert answer["text"] == ADVICE_DECLINED_TEXT
+    assert (answer["cards"], answer["citations"], answer["charts"]) == ([], [], [])
+
+
+def test_an_advice_question_degraded_after_tool_calls_shows_no_figures(
+    facts_ctx: FactsContext,
+) -> None:
+    model = ScriptedProvider("a", [calls(REVENUE), DOWN])
+    response = api_of(facts_ctx, model).chat("Should I buy Apple stock now?")
+    answer = event(response, "answer")
+    assert answer["text"] == ADVICE_DECLINED_TEXT
+    assert (answer["cards"], answer["citations"]) == ([], [])
 
 
 def test_a_follow_up_continues_the_conversation(facts_ctx: FactsContext) -> None:

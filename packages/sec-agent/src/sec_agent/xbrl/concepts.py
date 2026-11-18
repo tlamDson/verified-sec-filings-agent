@@ -166,6 +166,8 @@ CONCEPTS: tuple[Concept, ...] = (
         "USD",
         "LongTermDebtNoncurrent",
     ),
+    _c("long_term_debt_current", "Long-term debt, current", INST, "USD", "LongTermDebtCurrent"),
+    _c("commercial_paper", "Commercial paper", INST, "USD", "CommercialPaper"),
     _c("stockholders_equity", "Stockholders' equity", INST, "USD", "StockholdersEquity"),
     _c(
         "shares_outstanding",

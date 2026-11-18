@@ -3,8 +3,9 @@
 The agent's steps are forwarded as they happen: each tool result as cards and citations,
 then the answer the faithfulness checker passed. When the turn ends degraded with no
 tool result to show (no model was reachable to pick a tool), the figures the question
-asks for are looked up by rules (`sec_agent.degraded`) and shown the same way. The turn
-is logged with its cohort before the answer is sent, so feedback can always find it.
+asks for are looked up by rules (`sec_agent.degraded`) and shown the same way, except for
+a question the screen took for advice: it gets the fixed refusal and nothing is looked up.
+The turn is logged with its cohort before the answer is sent, so feedback can always find it.
 
 A user's conversation is kept under `<user id>:<thread id>`: two users who send the same
 thread id never read or advance each other's conversation.
@@ -19,6 +20,7 @@ from typing import Protocol
 from sec_agent.agent.answer import Answer, Evidence
 from sec_agent.agent.errors import AgentError, ConversationConflictError
 from sec_agent.api.charts import charts_of
+from sec_agent.api.cited_sources import cited_sources
 from sec_agent.api.events import (
     AnswerPayload,
     CheckSummary,
@@ -114,7 +116,8 @@ class TurnStreamer:
             raise RuntimeError("the agent ended a turn without an answer")
         evidence = list(answer.evidence)
         degraded = answer.status == "degraded"
-        if degraded and not any(item.ok for item in evidence):
+        advice = answer.guardrails is not None and answer.guardrails.question == "advice"
+        if degraded and not advice and not any(item.ok for item in evidence):
             looked_up = deterministic_evidence(
                 request.question,
                 tools=self._tools,
@@ -123,7 +126,7 @@ class TurnStreamer:
             )
             yield from _evidence_event(looked_up)
             evidence.extend(looked_up)
-        view = present(evidence)
+        view = cited_sources(present(evidence), answer.text)
         self._store.record_turn(
             TurnRecord(
                 user_id=request.identity.user_id,

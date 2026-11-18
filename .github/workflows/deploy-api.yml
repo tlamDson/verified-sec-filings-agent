@@ -6,8 +6,8 @@
 #   secret   HF_TOKEN        write token of the Space owner (the only required secret)
 #   (when HF_TOKEN or HF_SPACE is unset the run writes a notice and skips the deploy)
 #   variable HF_SPACE        owner/name of the Space, e.g. your-hf-user/sec-agent-api
-#   secrets  DATABASE_URL, API_AUTH_SECRET, LLM_PROVIDERS, SEC_USER_AGENT   copied to the
-#            Space when set; otherwise set them in the Space settings
+#   secrets  DATABASE_URL, API_AUTH_SECRET, LLM_PROVIDERS, GROQ_API_KEY, SEC_USER_AGENT
+#            copied to the Space when set; otherwise set them in the Space settings
 #   variable FACTS_VERSION   facts index version to serve (default v1)
 name: Deploy API
 
@@ -87,6 +87,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           API_AUTH_SECRET: ${{ secrets.API_AUTH_SECRET }}
           LLM_PROVIDERS: ${{ secrets.LLM_PROVIDERS }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
           FACTS_VERSION: ${{ vars.FACTS_VERSION }}
         run: |
@@ -100,7 +101,7 @@ jobs:
                   --data-binary @- "$1"
             echo "set $2"
           }
-          for name in DATABASE_URL API_AUTH_SECRET LLM_PROVIDERS SEC_USER_AGENT; do
+          for name in DATABASE_URL API_AUTH_SECRET LLM_PROVIDERS GROQ_API_KEY SEC_USER_AGENT; do
             put "https://huggingface.co/api/spaces/$HF_SPACE/secrets" "$name"
           done
           put "https://huggingface.co/api/spaces/$HF_SPACE/variables" FACTS_VERSION

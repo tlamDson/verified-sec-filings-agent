@@ -87,6 +87,8 @@ def test_at_most_four_companies_are_kept_in_the_order_named(directory: CompanyDi
         ("Apple's profit", (NET_INCOME,)),
         ("Apple", ()),
         ("Apple adjusted EBITDA", ()),
+        ("Apple long term debt", (Metric(kind="concept", name="long_term_debt_noncurrent"),)),
+        ("Apple debt to equity", (Metric(kind="ratio", name="liabilities_to_equity"),)),
     ],
 )
 def test_figures_are_matched_by_their_longest_name(
@@ -94,6 +96,28 @@ def test_figures_are_matched_by_their_longest_name(
 ) -> None:
     """E4: a non-GAAP measure has no XBRL concept, so it matches nothing."""
     assert read_question(question, directory).metrics == metrics
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "What was Apple's total debt at the end of fiscal 2026?",
+        "Apple total borrowings",
+        "Apple's total debt",
+    ],
+)
+def test_total_debt_is_asked_as_its_three_lines(question: str, directory: CompanyDirectory) -> None:
+    """No concept is the total; the non-current line alone must not stand for it."""
+    assert read_question(question, directory).metrics == (
+        Metric(kind="concept", name="long_term_debt_noncurrent"),
+        Metric(kind="concept", name="long_term_debt_current"),
+        Metric(kind="concept", name="commercial_paper"),
+    )
+
+
+def test_total_debt_to_equity_stays_the_ratio(directory: CompanyDirectory) -> None:
+    parts = read_question("Apple total debt to equity", directory)
+    assert parts.metrics == (Metric(kind="ratio", name="liabilities_to_equity"),)
 
 
 @pytest.mark.parametrize(

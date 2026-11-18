@@ -1,8 +1,8 @@
 # System design: Verified SEC Filings Research Agent
 
-Final version for the first release. It records the design as built, the reasons for it, and where the built system differs from the first plan. Measured results are in [README.md](README.md#results) and in `runs.csv`; the section [Results](#results) says how to read them.
+Final version for the first release. It records the design as built, the reasons for it, and where the built system differs from the first plan. Measured results are in [DEVELOPMENT.md](../DEVELOPMENT.md#results) and in `runs.csv`; the section [Results](#results) says how to read them.
 
-**About numbers in this document.** Measured results appear only in `runs.csv` and are quoted from there; the README results block is generated from it. A figure marked **_est._** is a planning estimate made before the system existed, with its arithmetic shown, and is never a result. A figure marked **_limit_** is a fixed external limit.
+**About numbers in this document.** Measured results appear only in `runs.csv` and are quoted from there; the results block in DEVELOPMENT.md is generated from it. A figure marked **_est._** is a planning estimate made before the system existed, with its arithmetic shown, and is never a result. A figure marked **_limit_** is a fixed external limit.
 
 ## Problem
 
@@ -472,7 +472,7 @@ Space: agent init ─► api init ─► api serve --lexical --facts-version $FA
 
 - **Terraform.** Providers `kislerdm/neon` and `vercel/vercel` are pinned in `.terraform.lock.hcl`. Tokens come from the environment, values from a git-ignored `terraform.tfvars` (`terraform.tfvars.example` holds placeholders), and state stays local and git-ignored. `API_BASE_URL` is derived from the Space id (`owner/name` → `https://owner-name.hf.space`). The output `database_url` is sensitive; it becomes the GitHub secret `DATABASE_URL`, which the workflow copies to the Space. The `Terraform` workflow only formats and validates; plan and apply need the owner's tokens.
 - **Space image.** Python 3.12 slim with uv 0.10.9, `uv sync --locked --no-dev`, run as uid 1000. The `embed` extra (torch, the embedding model) is left out, so the Space searches filing text with BM25 only (`--lexical`). The start script creates the agent and API tables and serves one replica; the facts and text index are loaded into Neon from the owner's machine beforehand, and the replica refuses to start while the pinned facts version is missing.
-- **Deploy workflow.** It never runs on pull requests, so a fork never sees `HF_TOKEN`. It creates the Space when missing, copies `DATABASE_URL`, `API_AUTH_SECRET`, `LLM_PROVIDERS`, `SEC_USER_AGENT` and `FACTS_VERSION` when they are set in GitHub (a value not set there is left as the Space has it), and pushes one commit. The Space holds only deploy snapshots, so each push replaces its history. Its job name is not one of the required checks.
+- **Deploy workflow.** It never runs on pull requests, so a fork never sees `HF_TOKEN`. It creates the Space when missing, copies `DATABASE_URL`, `API_AUTH_SECRET`, `LLM_PROVIDERS`, `GROQ_API_KEY`, `SEC_USER_AGENT` and `FACTS_VERSION` when they are set in GitHub (a value not set there is left as the Space has it), and pushes one commit. The Space holds only deploy snapshots, so each push replaces its history. Its job name is not one of the required checks.
 - **Free-plan limits.** Every figure in this section is configuration, not a measurement. A free Space sleeps when unused; the first question after that is a cold start (see Failure modes). Free-plan quotas are the providers' and are not measured here.
 
 ### Simulated users (built in s-21)
@@ -531,16 +531,16 @@ worker (1 replica, Recreate, raw cache PVC) ────────────
 
 ## Results
 
-Every measured number lives in `runs.csv`, one row per number, validated by `sec_agent.runs`. `sec-agent report sync` prints the latest row for each metric, system, split and cohort into the README, and `sec-agent report sync --check` (run by a test) fails when the README or `docs/bullets.md` is out of date. This document does not copy numbers, so it cannot drift from them.
+Every measured number lives in `runs.csv`, one row per number, validated by `sec_agent.runs`. `sec-agent report sync` prints the latest row for each metric, system, split and cohort into DEVELOPMENT.md, and `sec-agent report sync --check` (run by a test) fails when DEVELOPMENT.md or `docs/bullets.md` is out of date. This document does not copy numbers, so it cannot drift from them.
 
 How to read the rows:
 
-- **Splits.** Companies are split before any question is written; the numbers on the README are on the `test` split (10 companies). The one step that uses test-company labels is the reranker, scored by leave-one-company-out cross-validation, and the model that is served is fine-tuned on all ten, so it can no longer be scored on those questions.
+- **Splits.** Companies are split before any question is written; the README and DEVELOPMENT.md numbers are on the `test` split (10 companies). The one step that uses test-company labels is the reranker, scored by leave-one-company-out cross-validation, and the model that is served is fine-tuned on all ten, so it can no longer be scored on those questions.
 - **Intervals and tests.** Fractions carry Wilson 95% intervals; retrieval metrics a bootstrap over companies; paired comparisons use McNemar's exact test (answers) or a paired bootstrap (retrieval). Many tests are run: a single small `p` is not a finding on its own.
 - **Local model.** Every LLM number was produced with the one local Qwen (cost cap $0), so absolute accuracies describe that model, not a frontier model. b0, b1 and b2 use the same model.
 - **Synthetic and simulated data.** G-red (S1) is synthetic with simulated filing passages. Load and simulated-user rows, when they exist, come from simulated accounts and carry cohort `simulated`; they never count as users and never mix with `real`.
 - **Grader labels.** The J1 labels were written by LLM raters, not by people, so J1 shows agreement between graders and those raters, not against human judgment.
-- **Superseded rows.** A re-run adds a row and the older one stays in the file for history; the README shows the latest. Rows whose notes say a subset or a superseded setup are not the headline.
+- **Superseded rows.** A re-run adds a row and the older one stays in the file for history; DEVELOPMENT.md shows the latest. Rows whose notes say a subset or a superseded setup are not the headline.
 
 Not measured when this version was written: load and chaos rows (`LOAD`, `CHAOS`), user rows (`U1`, real or simulated), cold-start latency, and local-model throughput. Those capacity figures in this document remain _est._
 
