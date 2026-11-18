@@ -64,30 +64,54 @@ _SYNONYMS: dict[str, tuple[str, ...]] = {
     "effective_tax_rate": ("tax rate",),
     "rd_to_revenue": ("r and d intensity", "r and d to revenue", "r and d as a share of revenue"),
     "current_ratio": (),
-    "liabilities_to_equity": ("debt to equity", "liabilities to equity", "leverage"),
+    "liabilities_to_equity": (
+        "debt to equity",
+        "total debt to equity",
+        "liabilities to equity",
+        "leverage",
+    ),
 }
 
 
-_NO_FIGURE = ("free cash flow", "cash flow", "adjusted ebitda", "ebitda", "adjusted earnings")
+_NO_FIGURE = (
+    "free cash flow",
+    "cash flow",
+    "adjusted ebitda",
+    "ebitda",
+    "adjusted earnings",
+)
 """Read whole and matched to nothing: a non-GAAP measure (E4), or a name too vague to
 pick one concept for. Without these, "free cash flow" would read as "cash"."""
 
+_DEBT_PARTS = tuple(
+    Metric("concept", name)
+    for name in ("long_term_debt_noncurrent", "long_term_debt_current", "commercial_paper")
+)
+_GROUPS: dict[str, tuple[Metric, ...]] = {
+    "total debt": _DEBT_PARTS,
+    "total borrowings": _DEBT_PARTS,
+}
+"""A total with no single XBRL concept is asked as its parts, each shown on its own line,
+never as one of them alone: "total debt" is the non-current term debt, the current term
+debt and the commercial paper, not the first of them."""
 
-def _phrases() -> dict[str, Metric | None]:
-    found: dict[str, Metric | None] = dict.fromkeys(_NO_FIGURE)
+
+def _phrases() -> dict[str, tuple[Metric, ...]]:
+    found: dict[str, tuple[Metric, ...]] = dict.fromkeys(_NO_FIGURE, ())
+    found.update(_GROUPS)
     for concept in CONCEPTS:
-        metric = Metric("concept", concept.name)
+        metric = (Metric("concept", concept.name),)
         for phrase in (concept.name, concept.label, *_SYNONYMS.get(concept.name, ())):
             found.setdefault(words(phrase), metric)
     for ratio in RATIOS.values():
-        metric = Metric("ratio", ratio.name)
+        metric = (Metric("ratio", ratio.name),)
         # A ratio's own name wins over a concept phrase it contains.
         for phrase in (ratio.name, ratio.label, *_SYNONYMS.get(ratio.name, ())):
             found[words(phrase)] = metric
     return found
 
 
-PHRASES: dict[str, Metric | None] = _phrases()
+PHRASES: dict[str, tuple[Metric, ...]] = _phrases()
 _ANY_PHRASE = re.compile(
     r"\b(?:" + "|".join(re.escape(p) for p in sorted(PHRASES, key=len, reverse=True)) + r")\b"
 )
@@ -97,7 +121,7 @@ def find_metrics(question: str) -> tuple[Metric, ...]:
     """The figures a question names, in the order named, each once, at most `MAX_METRICS`."""
     found: list[Metric] = []
     for match in _ANY_PHRASE.finditer(words(question)):
-        metric = PHRASES[match.group()]
-        if metric is not None and metric not in found:
-            found.append(metric)
+        for metric in PHRASES[match.group()]:
+            if metric not in found:
+                found.append(metric)
     return tuple(found[:MAX_METRICS])
