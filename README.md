@@ -1,172 +1,67 @@
 # Verified SEC Filings Research Agent
 
-A research agent over public SEC filings (10-K, 10-Q, XBRL) where every number in an answer is traced to its source. Numbers come from deterministic tools, text comes from hybrid retrieval with citations, and an output checker blocks figures it cannot trace.
+An AI research assistant for public company filings that never makes up a number: every figure in an answer is looked up in the SEC's own data and linked to its source.
 
-**Live demo:** <https://tlamdson.github.io/verified-sec-filings-agent/>, a static page with the eval results from `runs.csv` and sample agent answers with their cited passages, built by `.github/workflows/pages.yml` on `main` (no model or API call at view time).
+[![CI](https://github.com/tlamDson/verified-sec-filings-agent/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/tlamDson/verified-sec-filings-agent/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Results
+Live demo: coming soon. Until then, the [results page](https://tlamdson.github.io/verified-sec-filings-agent/) shows the eval results and sample answers with their cited passages (a static page, no model call).
 
-Measured on the local Qwen model (free, no paid API) and a seeded sample of S&P 100 companies; the design, the sampling and what each metric means are in [docs/design.md](docs/design.md). The block below is generated: `uv run sec-agent report sync` rewrites it from [runs.csv](runs.csv), and a test fails when it drifts.
+![Architecture: SEC EDGAR filings are ingested into XBRL facts in Postgres and a filing text index; the agent answers with retrieval, figure lookup, a citation check and an advice refusal; a FastAPI API on Hugging Face Spaces serves the Next.js web app; an evaluation harness of golden questions, a judge and a CI gate tests every change.](.github/readme/architecture.svg)
 
-What the numbers do not show: the load and chaos runs, real users and simulated users have no rows yet, so nothing is claimed about them. Simulated accounts are test traffic, always labelled simulated and never reported as users. The safety set is synthetic, and the grader-agreement labels come from LLM raters, not people.
+## What it does
 
-<!-- results:start -->
-Every number below is a row of [`runs.csv`](runs.csv) (the latest row for each metric, system, split and cohort), printed by `sec-agent report sync`.
+- Answers questions about public companies' annual and quarterly reports (10-K, 10-Q), such as revenue, margins, debt or risk factors, and compares companies with each other.
+- Takes every number from a lookup in the SEC's structured financial data (XBRL) or from a quoted filing passage, and withholds any number it cannot trace.
+- Refuses investment advice and ignores instructions hidden in filing text, while still showing the historical figures with a disclaimer.
 
-#### Retrieval (R1)
+## Results at a glance
 
-Questions on the test companies; intervals resample companies. `diff` rows are the difference between two systems on the same questions and `p` rows their paired test.
+Measured on a free local model over a seeded sample of S&P 100 companies; the figure, task and passage results are on test companies kept apart from development. Every number below is a row of [`runs.csv`](runs.csv), and a test checks each one against that file. The full tables, with sample sizes and 95% intervals, are in [DEVELOPMENT.md](DEVELOPMENT.md#results).
 
-| Metric             | System                               | Split |   n |      Value | 95% interval     |
-| ------------------ | ------------------------------------ | ----- | --: | ---------: | ---------------- |
-| `R1_recall@5`      | hybrid                               | test  |  89 |      23.6% | 19.4% to 29.1%   |
-| `R1_ndcg@10`       | hybrid                               | test  |  89 |      60.3% | 53.0% to 67.3%   |
-| `R1_mrr@10`        | hybrid                               | test  |  89 |      76.8% | 70.0% to 83.9%   |
-| `R1_recall@5`      | hybrid+rerank-ft                     | test  |  89 |      28.3% | 23.1% to 34.6%   |
-| `R1_ndcg@10`       | hybrid+rerank-ft                     | test  |  89 |      71.2% | 65.6% to 77.0%   |
-| `R1_mrr@10`        | hybrid+rerank-ft                     | test  |  89 |      87.2% | 82.4% to 92.1%   |
-| `R1_recall@5`      | hybrid+rerank-zs                     | test  |  89 |      25.8% | 20.7% to 31.9%   |
-| `R1_ndcg@10`       | hybrid+rerank-zs                     | test  |  89 |      63.7% | 55.4% to 71.6%   |
-| `R1_mrr@10`        | hybrid+rerank-zs                     | test  |  89 |      81.7% | 72.8% to 90.4%   |
-| `R1_recall@5_diff` | hybrid+rerank-ft_vs_hybrid           | test  |  89 |     +0.047 | +0.012 to +0.084 |
-| `R1_recall@5_p`    | hybrid+rerank-ft_vs_hybrid           | test  |  89 | p = 0.0078 |                  |
-| `R1_ndcg@10_diff`  | hybrid+rerank-ft_vs_hybrid           | test  |  89 |     +0.109 | +0.076 to +0.144 |
-| `R1_ndcg@10_p`     | hybrid+rerank-ft_vs_hybrid           | test  |  89 | p = 0.0002 |                  |
-| `R1_mrr@10_diff`   | hybrid+rerank-ft_vs_hybrid           | test  |  89 |     +0.104 | +0.047 to +0.158 |
-| `R1_mrr@10_p`      | hybrid+rerank-ft_vs_hybrid           | test  |  89 | p = 0.0006 |                  |
-| `R1_recall@5_diff` | hybrid+rerank-zs_vs_hybrid           | test  |  89 |     +0.022 | +0.002 to +0.046 |
-| `R1_recall@5_p`    | hybrid+rerank-zs_vs_hybrid           | test  |  89 |  p = 0.018 |                  |
-| `R1_ndcg@10_diff`  | hybrid+rerank-zs_vs_hybrid           | test  |  89 |     +0.034 | +0.007 to +0.059 |
-| `R1_ndcg@10_p`     | hybrid+rerank-zs_vs_hybrid           | test  |  89 |  p = 0.016 |                  |
-| `R1_mrr@10_diff`   | hybrid+rerank-zs_vs_hybrid           | test  |  89 |     +0.049 | -0.016 to +0.114 |
-| `R1_mrr@10_p`      | hybrid+rerank-zs_vs_hybrid           | test  |  89 |   p = 0.14 |                  |
-| `R1_recall@5_diff` | hybrid+rerank-ft_vs_hybrid+rerank-zs | test  |  89 |     +0.026 | +0.002 to +0.049 |
-| `R1_recall@5_p`    | hybrid+rerank-ft_vs_hybrid+rerank-zs | test  |  89 |  p = 0.033 |                  |
-| `R1_ndcg@10_diff`  | hybrid+rerank-ft_vs_hybrid+rerank-zs | test  |  89 |     +0.075 | +0.043 to +0.113 |
-| `R1_ndcg@10_p`     | hybrid+rerank-ft_vs_hybrid+rerank-zs | test  |  89 | p = 0.0002 |                  |
-| `R1_mrr@10_diff`   | hybrid+rerank-ft_vs_hybrid+rerank-zs | test  |  89 |     +0.055 | +0.000 to +0.115 |
-| `R1_mrr@10_p`      | hybrid+rerank-ft_vs_hybrid+rerank-zs | test  |  89 |   p = 0.05 |                  |
+| What was tested             | Result                                                                                                      | Why it matters                                                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Exact financial figures     | 75.0% of 300 test questions answered with the exact filed value; the same model alone got 15.0%             | A language model on its own misremembers financial numbers; looking them up in the filing data fixes most of those errors. |
+| Multi-step research tasks   | 78.0% of 50 scenarios pass every check, against 16.0% for plain search-and-answer                           | It checks the whole job: the right tool, the right figure, a citation, and no claim the sources do not support.            |
+| Finding the right passage   | Ranking score (MRR) of 87.2% with the trained reranker, against 76.8% without it, on 89 questions           | The passage that answers the question comes up near the top, so the agent quotes the right text.                           |
+| Attacks and advice requests | Blocked 92.0% of 100 attacks and 100.0% of 20 advice requests; wrongly refused 0.0% of 102 normal questions | It cannot be talked into giving investment advice and still answers real questions. The test set is synthetic (simulated). |
+| Automatic answer grader     | Agreed with the reference labels on all 38 answers the labellers were sure of (Cohen's kappa 1.00)          | The scores above can be trusted. The reference labels come from LLM raters checked by the owner, not from people.          |
+| Eval gate in CI             | Blocked 100.0% of 10 planted regressions                                                                    | A change that makes answers worse cannot be merged by accident.                                                            |
 
-#### Latency (L1)
+Not measured yet: load, chaos, real users and simulated users have no rows in `runs.csv`, so nothing is claimed about them. Not investment advice.
 
-Measured on the build machine's CPU, not on the deployed host.
+## What I built
 
-| Metric          | System              | Split |   n |   Value | 95% interval |
-| --------------- | ------------------- | ----- | --: | ------: | ------------ |
-| `L1_rerank_p50` | minilm-l6-ft-gret10 | test  | 200 |  962 ms |              |
-| `L1_rerank_p95` | minilm-l6-ft-gret10 | test  | 200 | 1252 ms |              |
+Solo project, from the data pipeline to the web app. The main engineering choices:
 
-#### Numeric answers (N1)
+- **Numbers come from tools, not the model.** The agent (LangGraph) calls typed tools (`get_fact`, `compute_ratio`, `compare_peers`, `search_filings`) that run SQL over XBRL facts, and a faithfulness checker matches every number in a draft answer, with its unit and period, to a tool result or cited passage before the user sees it.
+- **Hybrid retrieval in Postgres.** BM25 (`pg_search`) and pgvector results are fused in SQL, then a small cross-encoder reranker, fine-tuned on labelled question-passage pairs and scored with company-level cross-validation, reorders them on CPU (ONNX) behind a timeout and a circuit breaker.
+- **Ingest that respects SEC limits.** One shared token-bucket client for EDGAR, a Postgres job queue with leases (`SKIP LOCKED`), and idempotent upserts keyed by accession number, so a crashed worker's job is picked up again without duplicates.
+- **Evaluation first.** Question sets are split by company before any question is written; each system is compared with baselines on the same questions, with bootstrap intervals and paired tests; every measured number is one validated row of `runs.csv`, and a CI gate fails a pull request when a score drops.
+- **Zero cost to run.** An OpenAI-compatible LLM router with failover, per-provider quotas and a degraded mode over free and local models, guardrails against prompt injection, OpenTelemetry tracing to Phoenix, and free-plan hosting (Neon, Hugging Face Spaces) set up with Terraform and GitHub Actions.
 
-Numeric questions on the test split, answer must match the XBRL value. b0 and b1 are baselines on the same local model; b2 is the agent. `p` rows are exact two-sided McNemar.
+## Tech stack
 
-| Metric         | System   | Split |   n |       Value | 95% interval   |
-| -------------- | -------- | ----- | --: | ----------: | -------------- |
-| `N1`           | b0       | test  | 300 |       15.0% | 11.4% to 19.5% |
-| `N1`           | b1       | test  | 300 |        3.7% | 2.1% to 6.4%   |
-| `N1`           | b2       | test  | 300 |       75.0% | 69.8% to 79.6% |
-| `N1_mcnemar_p` | b1_vs_b0 | test  | 300 |   p = 2e-06 |                |
-| `N1_mcnemar_p` | b2_vs_b0 | test  | 300 | p = 1.3e-54 |                |
-| `N1_mcnemar_p` | b2_vs_b1 | test  | 300 | p = 7.6e-65 |                |
+| Area              | Tools                                                                       |
+| ----------------- | --------------------------------------------------------------------------- |
+| Agent and API     | Python, LangGraph, FastAPI (streamed answers), Pydantic, MCP server         |
+| Data and search   | Postgres, pgvector, `pg_search` (BM25), ONNX Runtime cross-encoder reranker |
+| LLM               | Local Qwen through an OpenAI-compatible router; free providers only         |
+| Web app           | Next.js, React, Tailwind CSS, Auth.js                                       |
+| Quality           | pytest, pyright (strict), Ruff, Biome, Vitest, eval gate in GitHub Actions  |
+| Ops and telemetry | Docker Compose, Terraform, Hugging Face Spaces, OpenTelemetry, Phoenix      |
 
-#### Agent scenarios (A1)
+## Quick start
 
-Scenarios with named checks: tool and resolved arguments, traced figure, citation, faithfulness and text.
-
-| Metric         | System       | Split |   n |       Value | 95% interval   |
-| -------------- | ------------ | ----- | --: | ----------: | -------------- |
-| `A1`           | rag          | test  |  50 |       16.0% | 8.3% to 28.5%  |
-| `A1`           | agent        | test  |  50 |       78.0% | 64.8% to 87.2% |
-| `A1_mcnemar_p` | agent_vs_rag | test  |  50 | p = 7.9e-09 |                |
-
-#### Safety (S1)
-
-G-red is synthetic: its filing passages are simulated, so these rows say nothing about real attackers.
-
-| Metric                | System  | Split |   n |  Value | 95% interval    |
-| --------------------- | ------- | ----- | --: | -----: | --------------- |
-| `S1_attack_block`     | none    | none  | 100 |  82.0% | 73.3% to 88.3%  |
-| `S1_direct_block`     | none    | none  |  40 |  57.5% | 42.2% to 71.5%  |
-| `S1_advice_block`     | none    | none  |  20 | 100.0% | 83.9% to 100.0% |
-| `S1_indirect_success` | none    | none  |  40 |   2.5% | 0.4% to 12.9%   |
-| `S1_false_refusal`    | none    | none  | 102 |   0.0% | 0.0% to 3.6%    |
-| `S1_attack_block`     | guarded | none  | 100 |  92.0% | 85.0% to 95.9%  |
-| `S1_direct_block`     | guarded | none  |  40 |  80.0% | 65.2% to 89.5%  |
-| `S1_advice_block`     | guarded | none  |  20 | 100.0% | 83.9% to 100.0% |
-| `S1_indirect_success` | guarded | none  |  40 |   0.0% | 0.0% to 8.8%    |
-| `S1_false_refusal`    | guarded | none  | 102 |   0.0% | 0.0% to 3.6%    |
-
-#### Grader agreement (J1)
-
-Labels come from LLM raters, not human annotators; items they marked unsure are excluded. See `notes` in `runs.csv`.
-
-| Metric     | System | Split |   n |  Value | 95% interval    |
-| ---------- | ------ | ----- | --: | -----: | --------------- |
-| `J1_kappa` | grader | test  |  38 |   1.00 |                 |
-| `J1_tpr`   | grader | test  |  38 | 100.0% | 75.8% to 100.0% |
-| `J1_tnr`   | grader | test  |  38 | 100.0% | 87.1% to 100.0% |
-| `J1_kappa` | codex  | test  |  38 |   0.87 |                 |
-| `J1_tpr`   | codex  | test  |  38 |  83.3% | 55.2% to 95.3%  |
-| `J1_tnr`   | codex  | test  |  38 | 100.0% | 87.1% to 100.0% |
-
-#### Eval gate (G1)
-
-Planted mutations of the eval inputs that the CI gate must block, run over the committed results.
-
-| Metric | System    | Split |   n |  Value | 95% interval |
-| ------ | --------- | ----- | --: | -----: | ------------ |
-| `G1`   | eval-gate | none  |  10 | 100.0% |              |
-
-#### Not measured yet
-
-No row exists for: LOAD (Load (simulated)), CHAOS (Chaos), U1 (Users). Nothing is claimed for them.
-<!-- results:end -->
-
-Not investment advice.
-
-## Development
-
-Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22 with pnpm, Docker.
+Requirements: Python with [uv](https://docs.astral.sh/uv/), Node with pnpm. Tests use recorded fixtures and never call SEC, an LLM or the network.
 
 ```sh
-cp .env.example .env        # put your own contact in SEC_USER_AGENT
-uv sync && uv run pytest -q
-pnpm install && pnpm test
-docker compose up -d        # Postgres 17 + pgvector + pg_search, Phoenix on :6006
+cp .env.example .env          # put your own contact in SEC_USER_AGENT
+uv sync && uv run pytest -q   # Python package, agent and evals
+pnpm install && pnpm test     # web app
 ```
 
-### Web app and API
-
-The web app (Next.js) talks to the API (FastAPI); the browser never reaches the API directly.
-
-```sh
-set -a; . ./.env; set +a                                  # DATABASE_URL, API_AUTH_SECRET, LLM_PROVIDERS
-uv run sec-agent agent init && uv run sec-agent api init  # tables, once
-uv run sec-agent api serve --facts-version v1             # API on 127.0.0.1:8000
-cp .env web/.env.local                                    # the web app reads its variables here
-pnpm dev                                                  # web app on localhost:3000
-```
-
-Sign-in needs one provider: set `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET` for real users, or `SIM_LOGIN_SECRET` to enable the simulated test accounts (`sim-01@example.com` to `sim-50@example.com`), which are always labelled simulated and counted apart from real users. When no LLM provider answers, the app shows the figures it can look up without a model and says it is in degraded mode.
-
-### Simulated users
-
-Fifty simulated accounts (`sim-01@example.com` to `sim-50@example.com`, cohort `simulated`) use the deployed app through the same path as people: sign-in, web app, API, agent, tools and LLM router. They are test traffic: every count they produce is labelled "simulated users", kept apart from real users, and never reported as users. Their thumbs up or down only prove the feedback path works; quality is measured by the eval sets.
-
-```sh
-uv run sec-agent sim roster                               # the accounts and the persona each plays
-uv run sec-agent sim plan --llm-calls-per-day N           # one day's seeded sessions, nothing sent
-SIM_LOGIN_SECRET=... uv run sec-agent sim run --base-url https://your-app --llm-calls-per-day N --record runs.csv
-uv run sec-agent api cohorts --from YYYY-MM-DD --to YYYY-MM-DD   # real and simulated activity, side by side
-```
-
-The driver's daily budget is a share of the production LLM quota (`--share`, at most half, the default), at a planning estimate (not a measurement) of model calls per question (`--calls-per-question`). Run it on a schedule, mostly at night, or point `--base-url` at a staging app on a local model.
-
-Rules for contributors and coding agents: [AGENTS.md](AGENTS.md). Design: [docs/design.md](docs/design.md).
-
-## Contributing
-
-The test, lint and git flow rules are in `CLAUDE.md` and `docs/design.md`. Please read the [code of conduct](.github/CODE_OF_CONDUCT.md) before contributing.
+The local database, the API, the web app, simulated users and the full results are in [DEVELOPMENT.md](DEVELOPMENT.md). Design: [docs/design.md](docs/design.md). Rules for contributors and coding agents: [AGENTS.md](AGENTS.md).
 
 ## Licence
 
