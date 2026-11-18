@@ -14,7 +14,7 @@ describe("SignInPanel", () => {
   it("names the product and shows the not-investment-advice notice", () => {
     render(<SignInPanel choices={[github]} onSignIn={vi.fn()} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
-      "Verified SEC Filings Research Agent",
+      "Verified SEC Filings Agent",
     );
     expect(screen.getByText(/not investment advice/i)).toBeTruthy();
   });
