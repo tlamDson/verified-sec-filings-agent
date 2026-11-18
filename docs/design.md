@@ -1,4 +1,4 @@
-# System design: Verified SEC Filings Research Agent
+# System design: Verified SEC Filings Agent
 
 Final version for the first release. It records the design as built, the reasons for it, and where the built system differs from the first plan. Measured results are in [DEVELOPMENT.md](../DEVELOPMENT.md#results) and in `runs.csv`; the section [Results](#results) says how to read them.
 

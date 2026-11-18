@@ -139,9 +139,9 @@ def render_page(rows: Sequence[RunRow], samples: Sequence[Sample]) -> str:
         [
             '<!doctype html><html lang="en"><head><meta charset="utf-8">',
             '<meta name="viewport" content="width=device-width,initial-scale=1">',
-            "<title>SEC Filings Agent Demo</title>",
+            "<title>Verified SEC Filings Agent</title>",
             f"<style>{_CSS}</style></head><body><main>",
-            "<h1>Verified SEC Filings Research Agent</h1>",
+            "<h1>Verified SEC Filings Agent</h1>",
             "<p>A research agent over public SEC filings where every number comes from a "
             "deterministic tool (XBRL lookup, ratio code) or a cited filing passage. This "
             "page is static: it shows committed results and makes no model or API call.</p>",

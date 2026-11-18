@@ -6,12 +6,12 @@ colorTo: blue
 sdk: docker
 app_port: 7860
 pinned: false
-short_description: API of the Verified SEC Filings Research Agent
+short_description: API of the Verified SEC Filings Agent
 ---
 
 # sec-agent API
 
-The HTTP API of the Verified SEC Filings Research Agent, deployed from GitHub by
+The HTTP API of the Verified SEC Filings Agent, deployed from GitHub by
 `.github/workflows/deploy-api.yml`. Do not edit this Space by hand: every deploy replaces
 its files.
 

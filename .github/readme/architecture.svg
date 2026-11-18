@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="880" height="600" viewBox="0 0 880 600" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-labelledby="title desc">
-  <title id="title">Architecture of the Verified SEC Filings Research Agent</title>
+  <title id="title">Architecture of the Verified SEC Filings Agent</title>
   <desc id="desc">SEC EDGAR filings are ingested into XBRL facts in Postgres and a filing text index. The agent answers with retrieval, figure lookup, a citation check and an advice refusal. A FastAPI API on Hugging Face Spaces serves the Next.js web app. An evaluation harness runs golden questions, a judge and a CI gate.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">

@@ -1,4 +1,4 @@
-# Verified SEC Filings Research Agent
+# Verified SEC Filings Agent
 
 An AI research assistant for public company filings that never makes up a number: every figure in an answer is looked up in the SEC's own data and linked to its source.
 
