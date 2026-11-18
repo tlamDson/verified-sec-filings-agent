@@ -106,12 +106,18 @@ def test_figures_are_matched_by_their_longest_name(
         "Apple's total debt",
     ],
 )
-def test_total_debt_is_not_read_as_the_non_current_line(
-    question: str, directory: CompanyDirectory
-) -> None:
-    """The only debt concept is non-current term debt; it is not the total (current term
-    debt and commercial paper sit beside it), so "total debt" matches no figure."""
-    assert read_question(question, directory).metrics == ()
+def test_total_debt_is_asked_as_its_three_lines(question: str, directory: CompanyDirectory) -> None:
+    """No concept is the total; the non-current line alone must not stand for it."""
+    assert read_question(question, directory).metrics == (
+        Metric(kind="concept", name="long_term_debt_noncurrent"),
+        Metric(kind="concept", name="long_term_debt_current"),
+        Metric(kind="concept", name="commercial_paper"),
+    )
+
+
+def test_total_debt_to_equity_stays_the_ratio(directory: CompanyDirectory) -> None:
+    parts = read_question("Apple total debt to equity", directory)
+    assert parts.metrics == (Metric(kind="ratio", name="liabilities_to_equity"),)
 
 
 @pytest.mark.parametrize(
