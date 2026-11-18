@@ -68,9 +68,18 @@ _SYNONYMS: dict[str, tuple[str, ...]] = {
 }
 
 
-_NO_FIGURE = ("free cash flow", "cash flow", "adjusted ebitda", "ebitda", "adjusted earnings")
+_NO_FIGURE = (
+    "free cash flow",
+    "cash flow",
+    "adjusted ebitda",
+    "ebitda",
+    "adjusted earnings",
+    "total debt",
+)
 """Read whole and matched to nothing: a non-GAAP measure (E4), or a name too vague to
-pick one concept for. Without these, "free cash flow" would read as "cash"."""
+pick one concept for. Without these, "free cash flow" would read as "cash", and "total
+debt" as the non-current term debt alone, which leaves out current term debt and
+commercial paper."""
 
 
 def _phrases() -> dict[str, Metric | None]:
