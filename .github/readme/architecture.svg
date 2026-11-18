@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="600" viewBox="0 0 880 600" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-labelledby="title desc">
+  <title id="title">Architecture of the Verified SEC Filings Research Agent</title>
+  <desc id="desc">SEC EDGAR filings are ingested into XBRL facts in Postgres and a filing text index. The agent answers with retrieval, figure lookup, a citation check and an advice refusal. A FastAPI API on Hugging Face Spaces serves the Next.js web app. An evaluation harness runs golden questions, a judge and a CI gate.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="880" height="600" rx="16" fill="#ffffff"/>
+
+  <!-- Row 1: data -->
+  <g fill="#ddf4ff" stroke="#54aeff" stroke-width="1.5">
+    <rect x="30" y="40" width="240" height="84" rx="10"/>
+    <rect x="320" y="40" width="240" height="84" rx="10"/>
+    <rect x="610" y="40" width="240" height="84" rx="10"/>
+  </g>
+  <g fill="#1f2328" text-anchor="middle">
+    <text x="150" y="70" font-size="16" font-weight="700">SEC EDGAR</text>
+    <text x="150" y="92" font-size="13">10-K and 10-Q filings, XBRL</text>
+    <text x="150" y="111" font-size="13">rate-limited client, 10 req/s</text>
+    <text x="440" y="70" font-size="16" font-weight="700">Ingest workers</text>
+    <text x="440" y="92" font-size="13">XBRL facts in Postgres</text>
+    <text x="440" y="111" font-size="13">job queue, idempotent upserts</text>
+    <text x="730" y="70" font-size="16" font-weight="700">Filing text index</text>
+    <text x="730" y="92" font-size="13">sections cut into chunks</text>
+    <text x="730" y="111" font-size="13">BM25 + pgvector in Postgres</text>
+  </g>
+  <g stroke="#57606a" stroke-width="2" fill="none" marker-end="url(#arrow)">
+    <line x1="272" y1="82" x2="316" y2="82"/>
+    <line x1="562" y1="82" x2="606" y2="82"/>
+    <line x1="440" y1="126" x2="440" y2="164"/>
+    <line x1="730" y1="126" x2="730" y2="164"/>
+  </g>
+
+  <!-- Row 2: agent -->
+  <rect x="30" y="168" width="820" height="148" rx="12" fill="#fff8c5" stroke="#d4a72c" stroke-width="1.5"/>
+  <text x="50" y="196" font-size="16" font-weight="700" fill="#1f2328">Agent (LangGraph)</text>
+  <text x="830" y="196" font-size="13" fill="#1f2328" text-anchor="end">LLM calls go through a free-only provider router</text>
+  <g fill="#ffffff" stroke="#d4a72c" stroke-width="1.2">
+    <rect x="50" y="214" width="180" height="84" rx="8"/>
+    <rect x="250" y="214" width="180" height="84" rx="8"/>
+    <rect x="450" y="214" width="180" height="84" rx="8"/>
+    <rect x="650" y="214" width="180" height="84" rx="8"/>
+  </g>
+  <g fill="#1f2328" text-anchor="middle">
+    <text x="140" y="246" font-size="15" font-weight="700">retrieval</text>
+    <text x="140" y="268" font-size="12.5">hybrid search</text>
+    <text x="140" y="285" font-size="12.5">and a reranker</text>
+    <text x="340" y="246" font-size="15" font-weight="700">figure lookup</text>
+    <text x="340" y="268" font-size="12.5">facts and ratios</text>
+    <text x="340" y="285" font-size="12.5">from SQL, not the model</text>
+    <text x="540" y="246" font-size="15" font-weight="700">citation check</text>
+    <text x="540" y="268" font-size="12.5">withholds a number</text>
+    <text x="540" y="285" font-size="12.5">no tool or source backs</text>
+    <text x="740" y="246" font-size="15" font-weight="700">advice refusal</text>
+    <text x="740" y="268" font-size="12.5">no buy or sell advice;</text>
+    <text x="740" y="285" font-size="12.5">blocks injected text</text>
+  </g>
+
+  <!-- Row 3: serving -->
+  <g fill="#dafbe1" stroke="#4ac26b" stroke-width="1.5">
+    <rect x="30" y="360" width="360" height="76" rx="10"/>
+    <rect x="490" y="360" width="360" height="76" rx="10"/>
+  </g>
+  <g fill="#1f2328" text-anchor="middle">
+    <text x="210" y="390" font-size="16" font-weight="700">FastAPI API</text>
+    <text x="210" y="413" font-size="13">on Hugging Face Spaces (free CPU)</text>
+    <text x="670" y="390" font-size="16" font-weight="700">Next.js web app</text>
+    <text x="670" y="413" font-size="13">chat with cited sources and charts</text>
+    <text x="440" y="388" font-size="12">streamed</text>
+    <text x="440" y="404" font-size="12">answers</text>
+  </g>
+  <g stroke="#57606a" stroke-width="2" fill="none">
+    <line x1="210" y1="318" x2="210" y2="356" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <line x1="392" y1="418" x2="486" y2="418" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Row 4: evaluation -->
+  <rect x="30" y="470" width="820" height="110" rx="12" fill="#fbefff" stroke="#c297ff" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="50" y="496" font-size="16" font-weight="700" fill="#1f2328">Evaluation harness</text>
+  <text x="830" y="496" font-size="13" fill="#1f2328" text-anchor="end">runs the agent offline and on every pull request</text>
+  <g fill="#ffffff" stroke="#c297ff" stroke-width="1.2">
+    <rect x="50" y="510" width="230" height="56" rx="8"/>
+    <rect x="325" y="510" width="230" height="56" rx="8"/>
+    <rect x="600" y="510" width="230" height="56" rx="8"/>
+  </g>
+  <g fill="#1f2328" text-anchor="middle">
+    <text x="165" y="533" font-size="15" font-weight="700">golden questions</text>
+    <text x="165" y="553" font-size="12.5">numbers, tasks, attacks</text>
+    <text x="440" y="533" font-size="15" font-weight="700">judge</text>
+    <text x="440" y="553" font-size="12.5">grades each answer</text>
+    <text x="715" y="533" font-size="15" font-weight="700">CI gate</text>
+    <text x="715" y="553" font-size="12.5">fails a PR when a score drops</text>
+  </g>
+  <g stroke="#57606a" stroke-width="2" fill="none" marker-end="url(#arrow)">
+    <line x1="282" y1="538" x2="321" y2="538"/>
+    <line x1="557" y1="538" x2="596" y2="538"/>
+  </g>
+</svg>
