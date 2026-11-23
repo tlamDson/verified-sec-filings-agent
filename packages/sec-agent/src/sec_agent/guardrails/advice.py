@@ -39,9 +39,12 @@ _LABEL_MARK = (
 """What joins a label to its call: closing markdown ("**", "_", "~~"), a colon, a dash, an
 arrow, "=", "|" (a table cell), or "is". A bare space does not ("advice to buy" in a decline
 is not a call)."""
+_STRONG = r"strong(?:[\s*_~`]|</?[a-z]{1,6}>)+"
+""""Strong" and the space or markdown before its call ("**Strong** Buy", "Strong _Buy_")."""
 _CALL_FILL = (
     r"(?:<[^<>]{1,8}>|[\s*_`\"'|>~#:/=\[\]()\-–—→])*(?:to\s+)?"  # noqa: RUF001
-    r"(?:(?:it['’]?s|it\s+is|this\s+is|that['’]?s)\s+)?(?:(?:an?|the)\s+)?(?:strong\s+)?"  # noqa: RUF001
+    r"(?:(?:it['’]?s|it\s+is|this\s+is|that['’]?s)\s+)?(?:(?:an?|the)\s+)?"  # noqa: RUF001
+    rf"(?:{_STRONG})?"
 )
 _CALL = (
     r"(?:buy|sell|hold|accumulate|overweight|underweight|outperform|underperform)(?![^\W_]|-)"
@@ -86,8 +89,9 @@ ADVICE_STATEMENT: Rules = (
     ),
     rule(
         "rating",
-        r"\b(?:strong\s+)?(?:buy|sell|hold)\s+(?:rating|recommendation)\b|\bstrong\s+(?:buy|sell)\b",
-        r"|\b(?:is|remains|stays|rated|rate\s+it)\s+(?:still\s+)?an?\s+(?:strong\s+)?",
+        r"\b(?:strong\s+)?(?:buy|sell|hold)\s+(?:rating|recommendation)\b",
+        rf"|(?<![^\W_]){_STRONG}(?:buy|sell)(?![^\W_])",
+        rf"|\b(?:is|remains|stays|rated|rate\s+it)\s+(?:still\s+)?an?\s+(?:{_STRONG})?",
         r"(?:buy|sell|hold)\b(?![-\w])",
     ),
     rule("labelled_call", _LABEL, _LABEL_MARK, _CALL_FILL, _CALL),
