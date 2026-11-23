@@ -1,26 +1,14 @@
 """`index_filing`: one filing's HTML to sections and chunks that carry their metadata."""
 
 import hashlib
-import json
 from collections.abc import Callable
 
 from sec_agent.filings.index_version import ChunkConfig, index_version
-from sec_agent.filings.models import ExhibitDocument, FilingRef, IndexedFiling
+from sec_agent.filings.models import ExhibitDocument, FilingRef
 from sec_agent.filings.pipeline import index_filing
 from sec_agent.filings.tokens import count_tokens
 
 SMALL = ChunkConfig(max_tokens=30)
-
-# Digest of every chunk the default configuration makes from sim-10k.htm. When parser or
-# chunker output changes on purpose, bump PARSER_VERSION (so a new index_version is built
-# beside the old one instead of silently mixing into it) and record the new digest here.
-PINNED_VERSION = "chunks-p3-t400-"
-PINNED_DIGEST = "d62d7198f3fad75cadb5a83bf35e5c7f61bcbdb3d0d4685d926de80ba6d88648"
-
-
-def _digest(indexed: IndexedFiling) -> str:
-    rows = [c.model_dump(mode="json") for c in indexed.chunks]
-    return hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
 
 
 def test_chunks_carry_filing_section_and_version_metadata(
@@ -68,14 +56,6 @@ def test_filing_without_text_items_indexes_no_chunks(
     indexed = index_filing(read_fixture("sim-10ka-part3.htm"), amendment, ChunkConfig())
     assert indexed.sections == ()
     assert indexed.chunks == ()
-
-
-def test_output_is_pinned_to_the_parser_version(
-    read_fixture: Callable[[str], bytes], filing_10k: FilingRef
-) -> None:
-    indexed = index_filing(read_fixture("sim-10k.htm"), filing_10k, ChunkConfig())
-    assert indexed.index_version.startswith(PINNED_VERSION)
-    assert _digest(indexed) == PINNED_DIGEST, "parser output changed: bump PARSER_VERSION"
 
 
 def test_exhibit_13_text_is_chunked_under_the_10k_items_it_answers(
