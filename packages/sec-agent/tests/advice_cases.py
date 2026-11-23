@@ -181,3 +181,40 @@ TAILED_RECOMMENDATIONS = tuple(
     for call in CALLS_WITH_A_TAIL
 )
 """A labelled recommendation with a tail ("**Recommendation:** Buy on dips")."""
+STRONG_CALLS = (
+    "**Strong** Buy",
+    "Strong **Buy**",
+    "**Strong** **Buy**",
+    "_Strong_ Buy",
+    "Strong _Buy_",
+    "__Strong__ __Buy__",
+    "*Strong* *Sell*",
+    "<b>Strong</b> Buy",
+    "`Strong` `Sell`",
+)
+"""A strong call with markdown inside it (T-0008)."""
+FORMATTED_STRONG_RECOMMENDATIONS = (
+    *(
+        f"{label}{separator}{call}"
+        for label in LABELS
+        for separator in SEPARATORS
+        for call in STRONG_CALLS
+    ),
+    *STRONG_CALLS,
+    "**Strong Buy**",
+    "__Strong Buy__",
+    "_Strong Sell_",
+    "<b>Strong Buy</b>",
+)
+"""A strong call with markdown, behind a label or on its own ("**Recommendation:** **Strong**
+Buy", "**Strong Buy**")."""
+LINE_BREAKS = ("\n", "\n\n", "  \n")
+MULTILINE_RECOMMENDATIONS = tuple(
+    f"{label}{separator}{line_break}{call}"
+    for label in LABELS
+    for separator in (":", ":**", " -", " —", " →", " |")
+    for line_break in LINE_BREAKS
+    for call in (*CALLS, *STRONG_CALLS)
+)
+"""A label on one line and its call on the next ("**Recommendation:**\n_Buy_",
+"Verdict:\n\nOverweight") (T-0008)."""

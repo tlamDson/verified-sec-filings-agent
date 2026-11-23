@@ -61,12 +61,15 @@ _ORDER = re.compile(
 )
 """A segment that is a bare trade order ("Buy AAPL.", "Hold NVDA for now.")."""
 
+_STRONG = r"strong(?:[\s*_~`]|</?[a-z]{1,6}>)+"
+""""strong" and the space or markdown before its call ("**strong** buy", "strong _buy_")."""
+
 _LABELLED = re.compile(
     r"(?<![^\W_])(?:recommendations?|verdicts?|ratings?|advice|call|bottom\s+line)(?![^\W_])"
     r"(?:(?:[\s*_~`]|</[a-z]{1,6}>)*[:=>|/\-–—→]|(?:[*_~`]|</[a-z]{1,6}>)+|\s+(?:is|would\s+be|should\s+be|remains|stays)\s+)"  # noqa: RUF001
     r"(?:<[^<>]{1,8}>|[\s*_~`\"'>:=|/\[\]()\-–—→])*"  # noqa: RUF001
     r"(?:to\s+)?(?:(?:it['’]?s|it\s+is|this\s+is|that['’]?s)\s+)?(?:(?:an?|the)\s+)?"  # noqa: RUF001
-    r"(?:strong\s+)?(?:buy|sell|hold|accumulate|overweight|underweight|outperform|"
+    rf"(?:{_STRONG})?(?:buy|sell|hold|accumulate|overweight|underweight|outperform|"
     r"underperform)(?![^\W_]|-)"
     r"(?!\s+(?:of|obligations?|commitments?|orders?|prices?|agreements?|side|volumes?|harmless|"
     r"true)(?![^\W_]))"
@@ -87,7 +90,7 @@ _ADVICE = tuple(
         r"hold))",
         r"\b(?:great|good|excellent|solid|strong|attractive|compelling|smart)\s+(?:long-term\s+)?"
         r"(?:investment|buy|stock\s+to\s+own)",
-        r"\bstrong\s+(?:buy|sell)\b",
+        rf"(?<![^\W_]){_STRONG}(?:buy|sell)(?![^\W_])",
         r"\bprice\s+target\s+(?:of|is|at|would\s+be)\s+\$?\d",
         r"\b(?:you|investors)\s+(?:should|might|could|may\s+want\s+to|might\s+want\s+to|"
         r"would\s+do\s+well\s+to)\s+(?:\w+\s+)?(?:consider\s+)?(?:(?:buy|sell|hold|invest|add)"
@@ -95,9 +98,9 @@ _ADVICE = tuple(
         r"\b(?:i['’]?d|i\s+would)\s+(?:\w+\s+)?(?:hold|buy|sell|keep\s+holding)\b(?![-\w])",  # noqa: RUF001
         r"\bi\s+(?:wouldn['’]t|would\s+not)\s+(?:\w+\s+)?(?:buy|sell|hold|recommend\s+"  # noqa: RUF001
         r"(?:buying|selling|holding))",
-        r"\b(?:is|remains|rated)\s+(?:still\s+)?an?\s+(?:strong\s+)?(?:hold|buy|sell)\b(?![-\w])",
+        rf"\b(?:is|remains|rated)\s+(?:still\s+)?an?\s+(?:{_STRONG})?(?:hold|buy|sell)\b(?![-\w])",
         r"\b(?:recommendation|verdict|rating|call|bottom\s+line)\W{0,6}(?:is\s+)?(?:to\s+|an?\s+)?"
-        r"(?:strong\s+)?(?:buy|sell|hold)\b(?![-\w])",
+        rf"(?:{_STRONG})?(?:buy|sell|hold)\b(?![-\w])",
         r"\b(?:good|great|right|best|ideal|perfect)\s+(?:time|moment)\s+to\s+(?:buy|sell|invest|"
         r"add|get\s+in)|\bbuying\s+opportunit",
         r"\b(?:worth|wise|smart|prudent|advisable)\s+(?:to\s+)?(?:buy|sell|hold|own|invest|short|"
