@@ -187,13 +187,15 @@ _CHOICE = re.compile(
 """A choice named in a question ("whether to buy, sell or hold"): never advice."""
 _PIECE = re.compile(r"(,|\s(?:and|or|nor)\s)", re.IGNORECASE)
 _DECLINED_THING = re.compile(
-    r"^\W*(?:(?:such\s+as|including|like|any|you|an?|the|your|its|their|buy|sell|hold|specific|personali[sz]ed|"
+    r"^\W*(?:(?:such\s+as|including|like|any|you|an?|the|your|its|their|buy|sell|hold|specific|exact|precise|"
+    r"personali[sz]ed|"
     r"\d+[-\s](?:months?|years?|weeks?|days?|quarters?)|(?:near|long|short)[-\s]term|"
-    r"individual|investment|financial|stock)\s+)*(?:price\s+targets?|forecasts?|predictions?|projections?|"
+    r"individual|investment|financial|stock)\s+)*(?:price\s+targets?|target\s+prices?|forecasts?|predictions?|projections?|"
     r"recommendations?|ratings?|opinions?|advice|guidance|prices)\b",
     re.IGNORECASE,
 )
-"""A piece of a decline's object that names what is declined ("price targets")."""
+"""A piece of a decline's object that names what is declined ("price targets", "an exact
+target price")."""
 _DECLINE_LEAD = re.compile(
     r"^\W*(?:(?:i\s+)?(?:can['’]?t|cannot|won['’]t|will\s+not|do\s+not|don['’]t)\s+)?"  # noqa: RUF001
     r"(?:(?:provide|give|offer|make|share|predict|forecast)\s+)(?:you\s+)?",

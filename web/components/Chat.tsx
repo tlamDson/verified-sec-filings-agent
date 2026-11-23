@@ -91,7 +91,7 @@ export function Chat({
     <div className="mx-auto grid min-h-screen max-w-6xl gap-8 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <main className="flex min-w-0 flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-lg font-semibold">Verified SEC Filings Research Agent</h1>
+          <h1 className="text-lg font-semibold">Verified SEC Filings Agent</h1>
           <div className="flex items-center gap-3 text-xs text-neutral-500">
             {cohort === "simulated" && (
               <span className="rounded-full border border-neutral-300 px-2 py-0.5 dark:border-neutral-700">

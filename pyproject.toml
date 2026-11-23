@@ -1,7 +1,7 @@
 [project]
 name = "sec-agent-workspace"
 version = "0.0.0"
-description = "uv workspace root for the Verified SEC Filings Research Agent."
+description = "uv workspace root for the Verified SEC Filings Agent."
 requires-python = ">=3.12,<3.13"
 dependencies = ["sec-agent"]
 
