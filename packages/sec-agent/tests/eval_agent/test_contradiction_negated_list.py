@@ -98,3 +98,17 @@ def test_a_negated_list_restated_with_its_negation_agrees() -> None:
         "or a single supplier for widget casings."
     )
     assert not contradicts(sentence, source)
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "No exceptions: it depends on a single supplier for widget casings.",
+        "Not surprisingly: it depends on a single supplier for widget casings.",
+        "There is no doubt about one point: it depends on a single supplier for widget casings.",
+    ],
+)
+def test_a_negation_before_a_colon_that_introduces_no_list_ends_at_the_colon(
+    sentence: str,
+) -> None:
+    assert not contradicts(sentence, PLAIN)

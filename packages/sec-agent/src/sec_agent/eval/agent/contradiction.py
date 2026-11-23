@@ -6,15 +6,15 @@ single supplier". Both sides are split into clauses (sentence ends, commas, ";",
 "which", "but", "and"...). A clause of the sentence that shares `MIN_CLAUSE` content words
 with the passage as a whole is judged, even when the passage spreads those words over
 several of its sentences. A negation's whole scope (up to the end of its clause, across the
-commas and "or" of a list it governs, and through a list it introduces with ":") is judged
-as one more clause on both sides, so "not on a vendor, or a single supplier" and "none of
-the following: a vendor, or a single supplier" stay negated. A clause is compared with the
-passage clauses it shares the most words with; it agrees when one of them has the same
-negation ("not", "no", "never", "without", "fail to", "lack"...) and no opposite word
-("increase" and "decrease", "rise" and "fall"), and contradicts otherwise. "Not only",
-"not just", "not limited to" and "without limitation" are not negations. A differing
-figure is not judged here: the faithfulness checker already fails a figure that no cited
-text holds. Code decides it, never a model.
+commas and "or" of a list it governs, and through a list it introduces with "the
+following:") is judged as one more clause on both sides, so "not on a vendor, or a single
+supplier" and "none of the following: a vendor, or a single supplier" stay negated. A
+clause is compared with the passage clauses it shares the most words with; it agrees when
+one of them has the same negation ("not", "no", "never", "without", "fail to", "lack"...)
+and no opposite word ("increase" and "decrease", "rise" and "fall"), and contradicts
+otherwise. "Not only", "not just", "not limited to" and "without limitation" are not
+negations. A differing figure is not judged here: the faithfulness checker already fails a
+figure that no cited text holds. Code decides it, never a model.
 """
 
 import re
@@ -27,6 +27,7 @@ _CLAUSE = re.compile(r"[,;:]|\s(?:which|but|although|while|whereas|and)\s|(?<=[.
 _SCOPE_END = re.compile(
     r"[.;:!?]|\s(?:which|but|although|while|whereas|because|since)\s|,\s*(?:and|but)\s", re.I
 )
+_LIST_INTRO = re.compile(r"\b(?:following|these|those|below)\s*$", re.I)
 _SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
 _CITATION = re.compile(r"\[[^\]]*\]")
 _WORD = re.compile(r"[a-z']+")
@@ -69,15 +70,16 @@ def _opposed(a: str, b: str) -> bool:
 def _negation_scopes(text: str) -> list[str]:
     """Each negation with the words it governs: up to the end of its clause, across the
     commas and "or" of a list ("not on a vendor, a carrier, or a single supplier"). A list
-    the clause introduces with ":" is governed, with the whole clause, to the end of its
-    sentence ("we depend on none of the following: a vendor; or a supplier")."""
+    the clause introduces with "the following:" (or "these:", "below:") is governed, with
+    the whole clause, to the end of its sentence ("we depend on none of the following: a
+    vendor; or a supplier"); any other ":" ends the scope ("no exceptions: it depends")."""
     clean = _NOT_NEGATION.sub(" ", text)
     scopes: list[str] = []
     for cue in _NEGATION.finditer(clean):
         start = cue.start()
         rest = clean[start:]
         end = _SCOPE_END.search(rest)
-        if end and end.group() == ":":
+        if end and end.group() == ":" and _LIST_INTRO.search(rest, 0, end.start()):
             start = max((m.end() for m in _CLAUSE.finditer(clean, 0, start)), default=0)
             rest = clean[start:]
             end = _SENTENCE_END.search(rest, cue.start() - start)
